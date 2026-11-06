@@ -115,8 +115,8 @@ Do these in order. Each one ends with passing tests.
 
 | Task | Status | Commit |
 | --- | --- | --- |
-| T0. Benchmark app | Done | |
-| T1. Compose stack | Not started | |
+| T0. Benchmark app | Done | 3270a08 |
+| T1. Compose stack | Done | |
 | T2. Analysis script | Not started | |
 | T3. k6 scenarios and runner | Not started | |
 | T4. Memory per key | Not started | |
@@ -145,12 +145,15 @@ As built: `bench/app/app.ts` exports `createApp`, which the tests use directly, 
 
 **Done when** a test script against the running stack shows:
 
-- [ ] 30 requests through the load balancer being served by all three instances, according to `X-Instance`
-- [ ] One client being held to its limit across the three instances: with `limit: 10`, exactly 10 of 30 allowed
-- [ ] Two clients not affecting each other
-- [ ] Redis not being reachable from the host
+- [x] 30 requests through the load balancer being served by all three instances, according to `X-Instance`
+- [x] One client being held to its limit across the three instances: with `limit: 10`, exactly 10 of 30 allowed
+- [x] Two clients not affecting each other
+- [x] Redis not being reachable from the host
+- [x] A client not getting new identities by forging `X-Forwarded-For` (added in T1: it's what `trust proxy` set to 1 is for)
 
 This is the milestone's demo, so the script lives in `bench/stack-check.sh` and prints a readable summary, like `examples/basic/demo-check.sh`.
+
+As built: `bench/stack-check.sh [algorithm ...]` checks the counter by default, recreating the stack for each algorithm, so each starts with an empty Redis. The leaky bucket expects 1 allowed, not 10. It passed for all five. The stack has its own Compose project name, `rate-limiter-stack`, so `stack:down` can't remove the test Redis, which lives in the same folder. Images are pinned to `redis:7.4.12-alpine` and `nginx:1.31.8-alpine`. nginx runs **one worker**, because each worker keeps its own place in the rotation: with `worker_processes auto`, 30 requests split 21/5/4. With one worker they split exactly 10/10/10. T3 should check that nginx's CPU isn't what limits throughput. `proxy_next_upstream off` stops nginx resending a request to another instance, which would count it twice. For the fixed window, the script waits out the last 5 s of a minute first, as `demo-check.sh` does. `docker compose port` prints `invalid IP:0` for an unpublished port, so the Redis check reads the container's port list instead. Each of these breaks failed the check aimed at it: a sticky load balancer (`ip_hash`), app-3 on its own Redis (20 of 30 allowed), Redis published on a host port, and nginx passing the client's `X-Forwarded-For` through unchanged. With the sticky load balancer, exactly 10 of 30 were still allowed, and only the check that requests reach all three instances caught it.
 
 ### T2. Analysis script
 

@@ -1,0 +1,74 @@
+# The milestone 3 stack: nginx in front of three app instances sharing one Redis.
+#   npm run stack:up      build and start, waiting until every service is healthy
+#   npm run stack:check   check it (bench/stack-check.sh)
+#   npm run stack:down    stop and remove it
+# ALGORITHM, RULES and STACK_PORT can be set in the environment. See docs/milestone-3.md.
+#
+# A project name of its own, so `stack:down` can't touch the test Redis from
+# docker-compose.test.yml, which would otherwise share this folder's project.
+name: rate-limiter-stack
+
+x-app: &app
+  build:
+    context: .
+    dockerfile: bench/app/Dockerfile
+  image: rate-limiter-bench:stack
+  environment: &app-env
+    ALGORITHM: ${ALGORITHM:-sliding-window-counter}
+    RULES: /app/bench/rules/${RULES:-default.yaml}
+    REDIS_URL: redis://redis:6379
+  depends_on:
+    redis:
+      condition: service_healthy
+  healthcheck:
+    test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:3000/healthz']
+    interval: 1s
+    timeout: 3s
+    retries: 30
+
+services:
+  # No published port: only the apps reach it. No persistence: the data is disposable, and
+  # benchmarks shouldn't measure disk writes (decision 0017).
+  redis:
+    image: redis:7.4.12-alpine
+    command: ['redis-server', '--save', '', '--appendonly', 'no']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 1s
+      timeout: 3s
+      retries: 30
+
+  app-1:
+    <<: *app
+    environment:
+      <<: *app-env
+      INSTANCE: app-1
+  app-2:
+    <<: *app
+    environment:
+      <<: *app-env
+      INSTANCE: app-2
+  app-3:
+    <<: *app
+    environment:
+      <<: *app-env
+      INSTANCE: app-3
+
+  lb:
+    image: nginx:1.31.8-alpine
+    volumes:
+      - ./bench/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - '${STACK_PORT:-8080}:80'
+    depends_on:
+      app-1:
+        condition: service_healthy
+      app-2:
+        condition: service_healthy
+      app-3:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1/healthz']
+      interval: 1s
+      timeout: 3s
+      retries: 30

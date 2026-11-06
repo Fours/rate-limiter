@@ -24,6 +24,8 @@ The limiter is Express middleware running in every app instance, sharing state t
 
 The milestone 3 benchmarks record the latency the limiter adds per request (`ratelimit_check_seconds`). This is the price of the choice.
 
+2026-11-06, milestone 3 T1: `bench/stack-check.sh` runs nginx in front of three instances sharing one Redis. One client, identified by API key, gets exactly 10 of 30 requests across all three instances, for each of the five algorithms, while a second key keeps its own limit. nginx's `limit_req` couldn't do this, because it keys on the address and doesn't know about API keys. The same check shows that a client can't get a new identity by forging `X-Forwarded-For`, as long as `trust proxy` counts only nginx's hop.
+
 ## Consequences
 
 Every request costs a Redis round trip, which [0009](0009-latency-budget-prefetch.md) looks at. Traffic that never reaches the app, such as a flood of bad TLS connections, isn't covered and still needs edge protection. Behind a load balancer, `trust proxy` must be set or every client shares the load balancer's IP.
