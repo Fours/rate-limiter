@@ -169,7 +169,7 @@ Do these in order. Each one ends with passing tests.
 | T7. Leaky bucket | Done | e85c602 |
 | T8. Distributed correctness | Done | 9e7eefd |
 | T9. Rules from files | Done | 1e81e4f |
-| T10. Example app and README | Done | |
+| T10. Example app and README | Done | 8d17571 |
 
 ### T0. Redis test setup
 
