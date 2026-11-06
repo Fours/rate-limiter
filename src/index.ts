@@ -14,4 +14,5 @@ export { createRedisTokenBucket } from './algorithms/redis/token-bucket.js';
 export { createRedisFixedWindow } from './algorithms/redis/fixed-window.js';
 export { createRedisSlidingWindowLog } from './algorithms/redis/sliding-window-log.js';
 export { createRedisSlidingWindowCounter } from './algorithms/redis/sliding-window-counter.js';
+export { createRedisLeakyBucket } from './algorithms/redis/leaky-bucket.js';
 export type { RedisAlgorithmOptions } from './algorithms/redis/factory.js';

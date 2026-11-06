@@ -83,7 +83,7 @@ Each one returns a `Decision`, with `resetMs` following [0003](decisions/0003-re
 | Algorithm | State (one key) | Allows | `resetMs` allowed / denied | TTL |
 | --- | --- | --- | --- | --- |
 | Token bucket | hash: `units`, `last` | up to `limit` at once, refilling `limit` per `windowMs` | until full / until one token | until full |
-| Leaky bucket ([0014](decisions/0014-leaky-bucket-as-gcra.md)) | hash: `tat` (theoretical arrival time) | one request per `windowMs / limit`, no burst | until drained / until the next slot | until drained |
+| Leaky bucket ([0014](decisions/0014-leaky-bucket-as-gcra.md)) | hash: `tat` and `rem` (theoretical arrival time, as whole ms plus a remainder), `limit`, `window`, `last` | one request per `windowMs / limit`, no burst | until drained / until the next slot | until drained |
 | Fixed window | hash: `window`, `count` | `limit` per window aligned to the epoch, so up to 2× across a boundary | until the window ends / until the window ends | until the window ends |
 | Sliding window log | sorted set: one entry per allowed request, plus a tag member | exactly `limit` in any `windowMs` | `windowMs` / until the oldest entry ages out | `windowMs` |
 | Sliding window counter | hash: `start`, `window`, `curr`, `prev`, `last` | while `prev × (remaining share of window) + curr + 1 ≤ limit`, an estimate | until both counts have aged out / until one more request fits | until the end of the next window |
@@ -91,7 +91,7 @@ Each one returns a `Decision`, with `resetMs` following [0003](decisions/0003-re
 Details each script must get right:
 
 - **Token bucket:** a port of the milestone 1 maths, unchanged: integer units, the high-water mark, and carrying over whole tokens when a rule's limit changes. The behaviour suite runs against both versions, so they can't drift apart.
-- **Leaky bucket:** the GCRA ("virtual scheduling") form of the leaky bucket. It stores one timestamp, the theoretical arrival time, and admits a request only if it isn't earlier than that time. With no burst allowed, it smooths traffic to a steady rate, which is the point of offering it next to the token bucket. Without that, a leaky bucket used as a meter is the token bucket's maths in reverse, so it wouldn't be worth comparing in milestone 3. `remaining` is 1 when the next slot is open, otherwise 0.
+- **Leaky bucket:** the GCRA ("virtual scheduling") form of the leaky bucket. It stores one timestamp, the theoretical arrival time, and admits a request only if it isn't earlier than that time. With no burst allowed, it smooths traffic to a steady rate, which is the point of offering it next to the token bucket. Without that, a leaky bucket used as a meter is the token bucket's maths in reverse, so it wouldn't be worth comparing in milestone 3. The interval `windowMs / limit` is rarely a whole number of ms, and `now × limit` can pass 2^53, so the TAT is stored as whole ms plus a remainder in 1/`limit` ms: exact, with no drift. A request is allowed if its slot **starts within the current millisecond**, so a rule faster than one per ms (10 per 4 ms) still gets its share instead of being capped at one per ms. The burst is therefore `ceil(limit / windowMs)`, which is 1 for any rule of at most one per ms, and `remaining` is how many more slots start within this millisecond: 0 unless the rule is faster than one per ms. A rule change rounds the TAT up to a whole ms, so the next slot never comes earlier.
 - **Fixed window:** a window starts at `floor(now / windowMs) × windowMs`. A new window resets the count. Windows are aligned to the epoch on purpose, so the milestone 3 benchmarks can show the 2× burst at a boundary. Once a window has started, it runs to the end it started with: a new `limit` applies at once, but a new `windowMs` applies from the next window, so a rule change mid-window never resets the count.
 - **Sliding window log:** the window is `(now − windowMs, now]`. Only allowed requests are recorded, as `<now>-<live count>`, which is unique even within one millisecond: each insert raises the count, and an older entry from the same millisecond is still live. (Microseconds from `TIME` wouldn't work, because the test time override has none.) One extra member, `alg:sliding-window-log`, does two jobs: its name is the start-fresh tag a sorted set needs, since it has no fields, and its score is minus the latest time seen, since denied requests leave no entry. Its negative score keeps it out of trimming and counting, which start above 0. When denied, `resetMs` waits for the entry at position `count − limit`, which is the oldest unless the limit shrank. At most `limit` entries plus the tag are stored.
 - **Sliding window counter:** with `W = windowMs` and `e` the time since the current window began, the estimate is `prev × (W − e) + curr × W` in integer units, against `limit × W`, so there's no float rounding. A request is allowed only if the estimate **including it** fits (`estimate + W ≤ limit × W`). That's stricter than the common "estimate < limit" rule, which lets one request push the estimate over the limit. When allowed, `resetMs` and the TTL are `2W − e`, the end of the next window. When denied, `resetMs` is the smallest wait after which one more request fits, if nothing else arrives:
@@ -127,6 +127,7 @@ It checks, for each algorithm:
 - A clock that goes backwards is treated as standing still: while it's behind, and when it returns, decisions equal the ones at the latest time seen. No extra capacity, and no longer wait either.
 - Under traffic four times faster than the limit for five windows, no `windowMs` span allows more than `maxPerWindow`, and the busiest span reaches at least `limit`.
 - When a rule shrinks under the same key, no more than the new burst is allowed.
+- After a long idle period (ten windows), no more than the burst is allowed at once: nothing is saved up beyond it. Added in T7, when a leaky bucket that saved up a burst for idle clients passed every other test.
 
 The first three run with `limit: 1`, with 5 per minute, and with 48 per day, the case where float maths lands on 0.999… tokens.
 
@@ -163,8 +164,8 @@ Do these in order. Each one ends with passing tests.
 | T3. Redis token bucket | Done | 9923d18 |
 | T4. Fixed window | Done | 02d146a |
 | T5. Sliding window log | Done | 65c52c6 |
-| T6. Sliding window counter | Done | |
-| T7. Leaky bucket | Not started | |
+| T6. Sliding window counter | Done | 44f6c56 |
+| T7. Leaky bucket | Done | |
 | T8. Distributed correctness | Not started | |
 | T9. Rules from files | Not started | |
 | T10. Example app and README | Not started | |
@@ -247,9 +248,11 @@ As built: after a previous window that used the whole limit of 4, none fit at 0%
 
 **T7. Leaky bucket**
 
-- [ ] The behaviour suite passes, with its documented traits.
-- [ ] Steady spacing, no burst, and `remaining` being 0 or 1
-- [ ] Its TTL is checked.
+- [x] The behaviour suite passes, with `burst = ceil(limit / windowMs)` and `maxPerWindow = limit`.
+- [x] Steady spacing, no burst, and `remaining` (0, except for rules faster than one per ms)
+- [x] The TTL is when the bucket has drained, and expiry loses nothing.
+
+As built: a reference model that keeps the TAT as one exact fraction (a `BigInt`) matches the script step for step. 4 per minute, asked every second, is allowed at 0, 15, 30, 45, 60 and 75 s; 7 per minute lands its eighth slot on exactly 60 000 ms; and 10 per 4 ms allows 3, 2, 3 and 2 in its four milliseconds. Seven of eight deliberate breaks were caught at once. The eighth, saving up a burst for an idle client, passed every test, so the behaviour suite gained a property for it, which all six implementations pass.
 
 ### T8. Distributed correctness
 

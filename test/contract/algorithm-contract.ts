@@ -101,6 +101,16 @@ export function describeAlgorithm(
       });
     });
 
+    it('allows no more than its burst at once after a long idle period', async () => {
+      const rule = freshRule();
+      await exhaust(rule);
+      // Ten windows idle: nothing may have been saved up beyond a single burst.
+      t.clock.advance(10 * rule.windowMs);
+      let allowed = 0;
+      while ((await check(rule)).allowed) allowed++;
+      expect(allowed).toBe(traits.burst(rule));
+    });
+
     it('does not charge for denied requests', async () => {
       const rule = freshRule();
       const first = await exhaust(rule);
