@@ -3,3 +3,5 @@ export type { Algorithm, Clock, Decision, Rule } from './types.js';
 export { systemClock } from './clock.js';
 export { createTokenBucket } from './algorithms/token-bucket.js';
 export type { TokenBucket, TokenBucketOptions } from './algorithms/token-bucket.js';
+export { buildKey, defaultIdentify } from './identify.js';
+export type { IdentifiableRequest } from './identify.js';

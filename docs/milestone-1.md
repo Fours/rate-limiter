@@ -113,6 +113,8 @@ The default `identify(req)` uses the first one of these that is present:
 3. `req.ip` → `ip_<ip>`
 4. Otherwise → `anon`
 
+An empty `x-api-key` header, a `user.id` that is empty or not a string or finite number, and an empty `req.ip` all count as absent. Otherwise a blank value would put every client that sends it into one shared bucket.
+
 You can replace it with `opts.identify`. Behind a load balancer, `req.ip` is only correct when Express `trust proxy` is configured. The README must say so.
 
 The storage key is `rl:{rule.id}:{clientId}`, for example `rl:orders:free:key_3f2a9c1e5b7d4e8a`.
@@ -153,8 +155,8 @@ Do these in order. Each one ends with passing tests.
 | T0. Scaffold the repo | Done | 02263ad |
 | T1. Core types and clock | Done | 3958aea |
 | T2. In-memory token bucket | Done | 59389a6 |
-| T3. Rule matching | Done | |
-| T4. Client identification and key building | Not started | |
+| T3. Rule matching | Done | 0d230a2 |
+| T4. Client identification and key building | Done | |
 | T5. Header helper | Not started | |
 | T6. Express middleware | Not started | |
 | T7. Example app and README | Not started | |
@@ -216,10 +218,10 @@ Do these in order. Each one ends with passing tests.
 
 **Done when** tests cover:
 
-- [ ] The precedence order (API key, then user, then IP, then anon)
-- [ ] The raw API key never appearing in the output
-- [ ] Stable hashing
-- [ ] The key format
+- [x] The precedence order (API key, then user, then IP, then anon)
+- [x] The raw API key never appearing in the output
+- [x] Stable hashing
+- [x] The key format
 
 ### T5. Header helper
 
@@ -248,7 +250,7 @@ Do these in order. Each one ends with passing tests.
 - `examples/basic/server.ts` sets up two rules (a global per-IP rule and a stricter `POST /orders` rule for the free tier).
 - `examples/basic/hammer.sh` sends N requests and prints the status and headers for each.
 - `npm run example` starts the server.
-- The README covers install, a quick start, the options, the `trust proxy` note, and the header semantics.
+- The README covers install, a quick start, the options, the `trust proxy` note, and the header semantics. It also warns that a custom `identify` should return IDs that can't be confused with another rule's keys. Rule ids may contain `:`, so rule `a` with client ID `b:ip_1` and rule `a:b` with `ip_1` both give `rl:a:b:ip_1`. The default IDs always start with `key_`, `user_`, `ip_` or `anon`, so they can only collide like this if a rule id contains a segment such as `:user_`.
 
 **Done when:** the demo described in "Outcome" works from a clean clone.
 
@@ -268,3 +270,4 @@ This milestone sets up records [0001](decisions/0001-async-algorithm-interface.m
 
 - Should `RateLimit-Reset` while allowed mean "until full" (as specified here) or "until one more token"? This spec uses "until full" because it matches what clients usually read as "when my quota resets".
 - Should a rule allow a burst size separate from `limit`? This spec says no for now, and treats it as a possible milestone 2 change.
+- Should IPv6 clients be limited per /64 instead of per address? One client usually controls a whole /64, so per-address limits let it rotate addresses for a fresh limit each time. This spec limits per address for now, and treats grouping as a possible milestone 2 or 4 change. A custom `identify` can group addresses today.
