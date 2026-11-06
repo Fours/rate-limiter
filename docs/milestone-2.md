@@ -139,8 +139,8 @@ Do these in order. Each one ends with passing tests.
 
 | Task | Status | Commit |
 | --- | --- | --- |
-| T0. Redis test setup | Done | |
-| T1. Redis client interface and script runner | Not started | |
+| T0. Redis test setup | Done | c015cdd |
+| T1. Redis client interface and script runner | Done | |
 | T2. Behaviour suite | Not started | |
 | T3. Redis token bucket | Not started | |
 | T4. Fixed window | Not started | |
@@ -168,11 +168,13 @@ As built: the test Redis is published on port 6390, not 6379, so tests can't rea
 
 **Done when** tests cover:
 
-- [ ] Both adapters running a script against a real Redis
-- [ ] `EVALSHA` being used when the script is cached
-- [ ] Retrying with `EVAL` after `SCRIPT FLUSH`, exactly once
-- [ ] Other errors passing through unchanged
-- [ ] Malformed replies (wrong length, non-integers, negative values, `allowed` not 0 or 1) throwing
+- [x] Both adapters running a script against a real Redis
+- [x] `EVALSHA` being used when the script is cached
+- [x] Retrying with `EVAL` after `SCRIPT FLUSH`, exactly once
+- [x] Other errors passing through unchanged
+- [x] Malformed replies (wrong length, non-integers, negative values, `allowed` not 0 or 1) throwing
+
+As built: the adapters check their client when created, so passing the `node-redis` client to `fromIoredis` (or the reverse) fails at startup with a message naming the right adapter. `NOSCRIPT` is detected by the message prefix, because the two clients throw different error classes for it. A probe found two things later tasks must respect: a Lua `nil` inside the returned table silently shortens the reply, and integers near 2^53 come back off by one, so `parseDecision` accepts only safe integers. Scripts in T3 to T7 must never return `nil` inside their result table.
 
 ### T2. Behaviour suite
 

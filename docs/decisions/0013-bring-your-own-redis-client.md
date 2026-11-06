@@ -1,6 +1,6 @@
 # 0013. The caller brings their own Redis client
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-06
 - **Milestone:** 2
 
@@ -32,7 +32,10 @@ export interface RedisScriptClient {
 
 ## Evidence
 
-To gather in milestone 2, T1: tests run the same script through both adapters against a real Redis, and `npm pack` shows neither client in `dependencies`.
+- `test/integration/scripts.test.ts` runs the same scripts through `fromIoredis` and `fromNodeRedis` against Redis 7: keys and arguments arrive in order, `EVALSHA` is used when the script is cached, a `SCRIPT FLUSH` leads to exactly one `EVAL`, and script errors pass through without a retry.
+- The real `ioredis` `Redis` class and the `node-redis` client typecheck against `IoredisLike` and `NodeRedisLike`, so the structural types fit without importing either library.
+- `test/redis/client.test.ts` shows each adapter rejects the other library's client at startup, with a message naming the right adapter.
+- `package.json` has no `dependencies`. `ioredis` and `redis` are dev dependencies only, and nothing in `dist/` imports either one.
 
 ## Consequences
 

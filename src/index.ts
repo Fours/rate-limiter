@@ -8,3 +8,5 @@ export type { IdentifiableRequest } from './identify.js';
 export { rateLimit } from './middleware.js';
 export type { RateLimitMiddleware, RateLimitOptions } from './middleware.js';
 export { InvalidRuleError } from './rules.js';
+export { fromIoredis, fromNodeRedis } from './redis/client.js';
+export type { IoredisLike, NodeRedisLike, RedisScriptClient } from './redis/client.js';
