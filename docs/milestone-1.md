@@ -139,6 +139,17 @@ Express 5 is a peer dependency.
 
 Do these in order. Each one ends with passing tests.
 
+| Task | Status | Commit |
+| --- | --- | --- |
+| T0. Scaffold the repo | Done | |
+| T1. Core types and clock | Not started | |
+| T2. In-memory token bucket | Not started | |
+| T3. Rule matching | Not started | |
+| T4. Client identification and key building | Not started | |
+| T5. Header helper | Not started | |
+| T6. Express middleware | Not started | |
+| T7. Example app and README | Not started | |
+
 ### T0. Scaffold the repo
 
 - `package.json` with:

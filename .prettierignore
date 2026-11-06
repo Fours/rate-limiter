@@ -1,0 +1,5 @@
+dist
+coverage
+package-lock.json
+# Hand-formatted docs: keep aligned tables and code-block comments as written.
+*.md

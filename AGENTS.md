@@ -9,6 +9,7 @@ This is a distributed rate limiter, shipped as a TypeScript middleware package f
 - Package: `@kylewillett/rate-limiter`, a public scoped package on npm (`publishConfig.access` is `public`). It isn't published until milestone 5.
 - Full plan: [Distributed rate limiter: project plan](https://claude.ai/artifact/UKY1bPShdNmagt4Tgftk1C)
 - Milestone specs: `docs/milestone-N.md`. **Work only on the current milestone.** Don't build features from later milestones early, but don't block them either.
+- Task status lives in the table at the top of each spec's "Tasks" section. When a task's "Done when" passes, mark it Done there and tick its `- [ ]` boxes in the same commit as the code. Fill in the Commit column with the short hash of the task's commit in the next commit, since a commit can't contain its own hash. When every task is done, update the milestone's row below and tick the spec's "Definition of done".
 
 | # | Milestone | Status |
 | --- | --- | --- |
