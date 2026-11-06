@@ -86,7 +86,7 @@ Each one returns a `Decision`, with `resetMs` following [0003](decisions/0003-re
 | Leaky bucket ([0014](decisions/0014-leaky-bucket-as-gcra.md)) | hash: `tat` (theoretical arrival time) | one request per `windowMs / limit`, no burst | until drained / until the next slot | until drained |
 | Fixed window | hash: `window`, `count` | `limit` per window aligned to the epoch, so up to 2× across a boundary | until the window ends / until the window ends | until the window ends |
 | Sliding window log | sorted set: one entry per allowed request, plus a tag member | exactly `limit` in any `windowMs` | `windowMs` / until the oldest entry ages out | `windowMs` |
-| Sliding window counter | hash: `window`, `curr`, `prev` | `prev × (remaining share of window) + curr < limit`, an estimate | until both counts have aged out / until the estimate drops below `limit` | until the end of the next window |
+| Sliding window counter | hash: `start`, `window`, `curr`, `prev`, `last` | while `prev × (remaining share of window) + curr + 1 ≤ limit`, an estimate | until both counts have aged out / until one more request fits | until the end of the next window |
 
 Details each script must get right:
 
@@ -94,7 +94,12 @@ Details each script must get right:
 - **Leaky bucket:** the GCRA ("virtual scheduling") form of the leaky bucket. It stores one timestamp, the theoretical arrival time, and admits a request only if it isn't earlier than that time. With no burst allowed, it smooths traffic to a steady rate, which is the point of offering it next to the token bucket. Without that, a leaky bucket used as a meter is the token bucket's maths in reverse, so it wouldn't be worth comparing in milestone 3. `remaining` is 1 when the next slot is open, otherwise 0.
 - **Fixed window:** a window starts at `floor(now / windowMs) × windowMs`. A new window resets the count. Windows are aligned to the epoch on purpose, so the milestone 3 benchmarks can show the 2× burst at a boundary. Once a window has started, it runs to the end it started with: a new `limit` applies at once, but a new `windowMs` applies from the next window, so a rule change mid-window never resets the count.
 - **Sliding window log:** the window is `(now − windowMs, now]`. Only allowed requests are recorded, as `<now>-<live count>`, which is unique even within one millisecond: each insert raises the count, and an older entry from the same millisecond is still live. (Microseconds from `TIME` wouldn't work, because the test time override has none.) One extra member, `alg:sliding-window-log`, does two jobs: its name is the start-fresh tag a sorted set needs, since it has no fields, and its score is minus the latest time seen, since denied requests leave no entry. Its negative score keeps it out of trimming and counting, which start above 0. When denied, `resetMs` waits for the entry at position `count − limit`, which is the oldest unless the limit shrank. At most `limit` entries plus the tag are stored.
-- **Sliding window counter:** the comparison is done in integer units (`prev × (windowMs − elapsed) + curr × windowMs` against `limit × windowMs`), so there's no float rounding. The denied `resetMs` is the smallest wait after which the estimate allows one more request, and the tests check that exact bound.
+- **Sliding window counter:** with `W = windowMs` and `e` the time since the current window began, the estimate is `prev × (W − e) + curr × W` in integer units, against `limit × W`, so there's no float rounding. A request is allowed only if the estimate **including it** fits (`estimate + W ≤ limit × W`). That's stricter than the common "estimate < limit" rule, which lets one request push the estimate over the limit. When allowed, `resetMs` and the TTL are `2W − e`, the end of the next window. When denied, `resetMs` is the smallest wait after which one more request fits, if nothing else arrives:
+  1. later in this window, at `W − e − floor((limit − curr − 1) × W / prev)`, if that's inside it;
+  2. otherwise in the next window, where `curr` has become the previous count: `(W − e) + max(0, W − floor((limit − 1) × W / curr))`, or `W − e` if `curr` is 0;
+  3. otherwise at `2W − e`, which happens with `limit: 1` or a count above a limit that shrank.
+
+  These were checked against a brute-force search over 3,153 denied states before being written in Lua. If `windowMs` changes while the old state still matters, `prev + curr` all count in the new current window, which never allows more than before.
 
 ### Testing time ([0007](decisions/0007-redis-server-time.md))
 
@@ -157,8 +162,8 @@ Do these in order. Each one ends with passing tests.
 | T2. Behaviour suite | Done | a8eac76 |
 | T3. Redis token bucket | Done | 9923d18 |
 | T4. Fixed window | Done | 02d146a |
-| T5. Sliding window log | Done | |
-| T6. Sliding window counter | Not started | |
+| T5. Sliding window log | Done | 65c52c6 |
+| T6. Sliding window counter | Done | |
 | T7. Leaky bucket | Not started | |
 | T8. Distributed correctness | Not started | |
 | T9. Rules from files | Not started | |
@@ -234,9 +239,11 @@ As built: a reference model matches the script step for step; a burst across a m
 
 **T6. Sliding window counter**
 
-- [ ] The behaviour suite passes, with its documented traits.
-- [ ] The weighted estimate at 0%, 50% and 100% of a window, and the exact denied `resetMs`
-- [ ] Its TTL is checked.
+- [x] The behaviour suite passes, with `burst = limit` and `maxPerWindow = 2 × limit`.
+- [x] The weighted estimate at 0%, 50% and 100% of a window, and the exact denied `resetMs`
+- [x] The TTL is the end of the next window, and expiry loses nothing.
+
+As built: after a previous window that used the whole limit of 4, none fit at 0%, 2 at 50%, and 3 in the last millisecond (a sliver of the previous window still counts). Each of the three denied-wait cases has its own test, plus a shrunk limit. The reference model finds denied waits by stepping a millisecond at a time rather than by the formula, and 40 seeded random histories check every denial is exact against Redis. All nine deliberate breaks were caught first time, including using the common "estimate < limit" rule, a float estimate, and leaving out the third wait case.
 
 **T7. Leaky bucket**
 
