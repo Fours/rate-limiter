@@ -1,23 +1,31 @@
-// Turns a results directory into summary.md and chart.json, next to the data, so the numbers can
-// always be rebuilt from the raw records without rerunning anything.
+// Turns a results directory into summary.md, spread.md and chart.json, next to the data, so the
+// numbers can always be rebuilt from the saved data without rerunning anything.
 //
 // Usage: npm run bench:analyse -- <results-dir>
 //
 // Layout it reads (written by the T3 runner):
 //   <results-dir>/setup.json                         machine, versions, commit, command
 //   <results-dir>/<algorithm>/run-<n>/meta.json      RunMeta
-//   <results-dir>/<algorithm>/run-<n>/requests.jsonl one RequestRecord per line
-import { readdir, readFile, writeFile } from 'node:fs/promises';
+//   <results-dir>/<algorithm>/run-<n>/requests.jsonl[.gz]  one RequestRecord per line
+//   <results-dir>/<algorithm>/run-<n>/seconds.jsonl         per-second totals (ramp), used
+//                                                           instead of the records when present
+//   <results-dir>/<algorithm>/run-<n>/docker-stats.jsonl    CPU samples (ramp)
+import { access, readdir, readFile, writeFile } from 'node:fs/promises';
+import { gunzipSync } from 'node:zlib';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   byAlgorithmOrder,
   chartFor,
+  cpuTable,
   runMetrics,
+  spreadTable,
   summariseRuns,
   summaryTable,
   type AlgorithmChart,
+  type CpuSample,
   type RequestRecord,
+  type SecondTotals,
   type Run,
   type RunMeta,
 } from './analysis.ts';
@@ -58,6 +66,7 @@ export async function loadResults(dir: string): Promise<Results> {
 
 export interface Analysis {
   readonly summary: string;
+  readonly spread: string;
   readonly chart: {
     readonly limit: number;
     readonly windowMs: number;
@@ -66,35 +75,71 @@ export interface Analysis {
 }
 
 export function analyse(results: Results): Analysis {
-  const rows = [...results.algorithms].map(([algorithm, runs]) =>
-    summariseRuns(algorithm, runs.map(runMetrics)),
-  );
+  const entries = [...results.algorithms];
+  const metrics = entries.map(([algorithm, runs]) => [algorithm, runs.map(runMetrics)] as const);
+  const rows = metrics.map(([algorithm, m]) => summariseRuns(algorithm, m));
+  const cpu = cpuTable(entries);
   return {
-    summary: summaryTable(results.scenario, results, rows),
+    summary: summaryTable(results.scenario, results, rows) + (cpu === '' ? '' : `\n${cpu}`),
+    spread: spreadTable(results.scenario, metrics),
     chart: {
       limit: results.limit,
       windowMs: results.windowMs,
-      algorithms: [...results.algorithms.values()].map(chartFor),
+      // Runs kept only as per-second totals have no per-request series to chart.
+      algorithms: entries
+        .filter(([, runs]) => runs.every((r) => r.records.length > 0))
+        .map(([, runs]) => chartFor(runs)),
     },
   };
 }
 
 async function loadRun(dir: string): Promise<Run> {
   const meta = JSON.parse(await readFile(join(dir, 'meta.json'), 'utf8')) as RunMeta;
-  const text = await readFile(join(dir, 'requests.jsonl'), 'utf8');
-  const records = text
+  const cpu = (await exists(join(dir, 'docker-stats.jsonl')))
+    ? jsonLines<CpuSample>(
+        join(dir, 'docker-stats.jsonl'),
+        await readFile(join(dir, 'docker-stats.jsonl'), 'utf8'),
+      )
+    : undefined;
+  const extra = cpu === undefined ? {} : { cpu };
+  // Per-second totals win when present, so a ramp analysed from git (totals only) and one
+  // analysed locally (raw records too) give the same summary.
+  if (await exists(join(dir, 'seconds.jsonl'))) {
+    const file = join(dir, 'seconds.jsonl');
+    return {
+      meta,
+      records: [],
+      seconds: jsonLines<SecondTotals>(file, await readFile(file, 'utf8')),
+      ...extra,
+    };
+  }
+  const plain = join(dir, 'requests.jsonl');
+  const file = (await exists(plain)) ? plain : `${plain}.gz`;
+  const raw = await readFile(file);
+  const text = file.endsWith('.gz') ? gunzipSync(raw).toString('utf8') : raw.toString('utf8');
+  return { meta, records: jsonLines<RequestRecord>(file, text), ...extra };
+}
+
+function jsonLines<T>(file: string, text: string): T[] {
+  return text
     .split('\n')
     .filter((line) => line.trim() !== '')
     .map((line, i) => {
       try {
-        return JSON.parse(line) as RequestRecord;
+        return JSON.parse(line) as T;
       } catch (error) {
-        throw new Error(`${dir}/requests.jsonl line ${String(i + 1)}: not valid JSON`, {
-          cause: error,
-        });
+        throw new Error(`${file} line ${String(i + 1)}: not valid JSON`, { cause: error });
       }
     });
-  return { meta, records };
+}
+
+async function exists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function subdirectories(dir: string): Promise<string[]> {
@@ -106,10 +151,11 @@ function byRunNumber(a: string, b: string): number {
   return Number(a.slice(4)) - Number(b.slice(4));
 }
 
-/** Analyses a results directory and writes summary.md and chart.json into it. */
+/** Analyses a results directory and writes summary.md, spread.md and chart.json into it. */
 export async function analyseDir(dir: string): Promise<string> {
-  const { summary, chart } = analyse(await loadResults(dir));
+  const { summary, spread, chart } = analyse(await loadResults(dir));
   await writeFile(join(dir, 'summary.md'), summary);
+  await writeFile(join(dir, 'spread.md'), spread);
   await writeFile(join(dir, 'chart.json'), `${JSON.stringify(chart, null, 2)}\n`);
   return summary;
 }
@@ -121,7 +167,7 @@ async function main(dir: string | undefined): Promise<void> {
     return;
   }
   console.log(await analyseDir(dir));
-  console.log(`Wrote summary.md and chart.json in ${basename(dir)}/`);
+  console.log(`Wrote summary.md, spread.md and chart.json in ${basename(dir)}/`);
 }
 
 // Run only as a script, so tests can import loadResults and analyse without side effects.

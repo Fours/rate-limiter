@@ -1,10 +1,15 @@
-import { mkdtemp, readFile, rm, cp, writeFile } from 'node:fs/promises';
+import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { gzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { analyse, loadResults } from '../../bench/analyse.ts';
 import {
   chartFor,
+  cpuAtPeak,
+  peakSecond,
+  secondsOf,
+  spreadTable,
   falseDenials,
   maxInWindow,
   median,
@@ -20,6 +25,7 @@ import {
 } from '../../bench/analysis.ts';
 
 const W = 1_000;
+const FIXTURE = join(import.meta.dirname, '..', 'fixtures', 'bench', 'results');
 const rule = { limit: 2, windowMs: W };
 
 function rec(t: number, status: number, client = 'a', e2eMs = 10): RequestRecord {
@@ -229,7 +235,7 @@ describe('analyse a results directory', () => {
   // A hand-made fixture: fixed-window has three runs, and each cell's median comes from a
   // different run (e2e p50 from run 2, e2e p99 and peak from run 3, limiter p99 from run 1).
   // Every expected value below was worked out by hand before the code ran.
-  const fixture = join(import.meta.dirname, '..', 'fixtures', 'bench', 'results');
+  const fixture = FIXTURE;
 
   it('builds the summary table from the medians of each algorithm’s runs', async () => {
     const { summary } = analyse(await loadResults(fixture));
@@ -279,6 +285,117 @@ describe('analyse a results directory', () => {
       await cp(fixture, dir, { recursive: true });
       await writeFile(join(dir, 'none', 'run-1', 'requests.jsonl'), '{"client":"c"}\nnot json\n');
       await expect(loadResults(dir)).rejects.toThrow(/requests\.jsonl line 2: not valid JSON/);
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+});
+
+describe('per-second totals (the ramp)', () => {
+  const second = (start: number, n: number, e2eMs: number, status = 200) =>
+    Array.from({ length: n }, (_, i) => ({ ...rec(start + i, status), e2eMs }));
+  const records = [
+    ...second(0, 3, 10),
+    ...second(1_000, 5, 60),
+    ...second(2_000, 4, 10),
+    rec(2_500, 503),
+  ];
+
+  it('sums each second and marks the healthy ones', () => {
+    expect(secondsOf(records)).toEqual([
+      { second: 0, count: 3, healthy: true, p99: 10 },
+      { second: 1, count: 5, healthy: true, p99: 60 },
+      { second: 2, count: 5, healthy: false, p99: 10 },
+    ]);
+  });
+
+  it('give exactly the throughput the raw records give', () => {
+    expect(peakSecond(secondsOf(records))?.count).toBe(throughput(records));
+    expect(throughput(records)).toBe(3);
+  });
+
+  it('stand in for the records when a run kept only them', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'bench-'));
+    try {
+      const run = join(dir, 'token-bucket', 'run-1');
+      await cp(join(FIXTURE, 'none', 'run-1'), run, { recursive: true });
+      await writeFile(
+        join(run, 'meta.json'),
+        JSON.stringify({ algorithm: 'token-bucket', scenario: 'ramp', run: 1, ...rule }),
+      );
+      await writeFile(
+        join(run, 'seconds.jsonl'),
+        secondsOf(records)
+          .map((x) => JSON.stringify(x))
+          .join('\n'),
+      );
+      const { summary, chart } = analyse(await loadResults(dir));
+      // From the totals: 13 requests and a throughput of 3, not the 3 records in requests.jsonl.
+      expect(summary).toContain('| token-bucket | – | – | – | – | 3 | – | – |');
+      expect(chart.algorithms).toEqual([]);
+    } finally {
+      await rm(dir, { recursive: true });
+    }
+  });
+});
+
+describe('cpuAtPeak', () => {
+  it('takes each container’s highest CPU within a second either side of the peak second', () => {
+    const meta = { algorithm: 'x', scenario: 'ramp', run: 1, ...rule };
+    const seconds = [
+      { second: 10, count: 50, healthy: true, p99: 5 },
+      { second: 11, count: 90, healthy: true, p99: 5 },
+      { second: 12, count: 120, healthy: true, p99: 80 },
+    ];
+    const cpu = [
+      { at: 9_999, name: 'app-1', cpu: 99 },
+      { at: 10_000, name: 'app-1', cpu: 40 },
+      { at: 10_500, name: 'app-1', cpu: 80 },
+      { at: 11_500, name: 'app-1', cpu: 70 },
+      { at: 12_999, name: 'app-1', cpu: 75 },
+      { at: 13_000, name: 'app-1', cpu: 98 },
+      { at: 11_200, name: 'lb', cpu: 30 },
+    ];
+    expect(cpuAtPeak({ meta, records: [], seconds, cpu })).toEqual(
+      new Map([
+        ['app-1', 80],
+        ['lb', 30],
+      ]),
+    );
+  });
+
+  it('is undefined without samples', () => {
+    const meta = { algorithm: 'x', scenario: 'ramp', run: 1, ...rule };
+    expect(cpuAtPeak({ meta, records: [rec(0, 200)] })).toBeUndefined();
+  });
+});
+
+describe('spreadTable', () => {
+  it('shows the lowest and highest of each metric across runs', async () => {
+    const results = await loadResults(FIXTURE);
+    const metrics = [...results.algorithms].map(([a, runs]) => [a, runs.map(runMetrics)] as const);
+    const rows = spreadTable('edges', metrics)
+      .split('\n')
+      .filter((l) => l.startsWith('| ') && !l.startsWith('| ---'))
+      .slice(1);
+    // Worked out by hand from the fixture: fixed-window's limiter p99s are 3, 4 and 1; its
+    // end-to-end p99s 15, 60 and 40; its peaks 4, 2 and 3; its false denials 0, 0 and 1 in 6.
+    expect(rows).toEqual([
+      '| none | 1 | – | 7.00–7.00 | 3–3 | 3–3 | 0.0%–0.0% |',
+      '| fixed-window | 3 | 1.00–4.00 | 15.00–60.00 | 3–3 | 2–4 | 0.0%–16.7% |',
+    ]);
+  });
+});
+
+describe('compressed records', () => {
+  it('load the same as plain ones', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'bench-'));
+    try {
+      await cp(FIXTURE, dir, { recursive: true });
+      const file = join(dir, 'fixed-window', 'run-2', 'requests.jsonl');
+      await writeFile(`${file}.gz`, gzipSync(await readFile(file)));
+      await rm(file);
+      expect(analyse(await loadResults(dir))).toEqual(analyse(await loadResults(FIXTURE)));
     } finally {
       await rm(dir, { recursive: true });
     }

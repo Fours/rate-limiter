@@ -31,7 +31,32 @@ export interface RunMeta {
 
 export interface Run {
   readonly meta: RunMeta;
+  /** Empty when only per-second totals were kept (the ramp, whose raw records are too big for git). */
   readonly records: readonly RequestRecord[];
+  /** Per-second totals. When present, they're used instead of the records. */
+  readonly seconds?: readonly SecondTotals[];
+  /** `docker stats` samples taken during the run, if any (the ramp). */
+  readonly cpu?: readonly CpuSample[];
+}
+
+/** One second of traffic, by `t`: everything throughput needs, in a form small enough for git. */
+export interface SecondTotals {
+  /** floor(t / 1000) */
+  readonly second: number;
+  readonly count: number;
+  /** Every response was a 200 or a 429. */
+  readonly healthy: boolean;
+  /** p99 end-to-end time in that second, ms */
+  readonly p99: number;
+}
+
+export interface CpuSample {
+  /** epoch ms, by the host's clock */
+  readonly at: number;
+  /** container name without the stack prefix, e.g. app-1 */
+  readonly name: string;
+  /** % of one core, so a busy single-threaded process tops out near 100 */
+  readonly cpu: number;
 }
 
 /** "Sustained" means p99 under this, with no errors. It's milestone 4's timeout (0010). */
@@ -140,49 +165,77 @@ export function median(values: readonly number[]): number {
   return sorted.length % 2 === 1 ? upper : ((sorted[mid - 1] as number) + upper) / 2;
 }
 
-/**
- * Requests per second the system sustained: the busiest whole second (by send time) whose p99
- * end-to-end time was under SLO_MS and whose responses were all 200 or 429. A 429 is the limiter
- * working, not an error. 0 if no second qualifies.
- */
-export function throughput(records: readonly RequestRecord[], sloMs = SLO_MS): number {
-  const seconds = new Map<number, RequestRecord[]>();
+/** Groups records into whole seconds of `t`, in order. */
+export function secondsOf(records: readonly RequestRecord[]): SecondTotals[] {
+  const buckets = new Map<number, RequestRecord[]>();
   for (const r of records) {
     const second = Math.floor(r.t / 1000);
-    const bucket = seconds.get(second);
-    if (bucket === undefined) seconds.set(second, [r]);
+    const bucket = buckets.get(second);
+    if (bucket === undefined) buckets.set(second, [r]);
     else bucket.push(r);
   }
-  let best = 0;
-  for (const bucket of seconds.values()) {
-    const healthy = bucket.every((r) => r.status === ALLOWED || r.status === DENIED);
-    if (
-      healthy &&
-      percentile(
+  return [...buckets]
+    .sort(([a], [b]) => a - b)
+    .map(([second, bucket]) => ({
+      second,
+      count: bucket.length,
+      healthy: bucket.every((r) => r.status === ALLOWED || r.status === DENIED),
+      p99: percentile(
         bucket.map((r) => r.e2eMs),
         99,
-      ) < sloMs
-    ) {
-      best = Math.max(best, bucket.length);
-    }
+      ),
+    }));
+}
+
+/**
+ * The second the system sustained the most requests: the busiest whole second (by `t`) whose p99
+ * end-to-end time was under SLO_MS and whose responses were all 200 or 429. A 429 is the limiter
+ * working, not an error. Undefined if no second qualifies.
+ */
+export function peakSecond(
+  seconds: readonly SecondTotals[],
+  sloMs = SLO_MS,
+): SecondTotals | undefined {
+  let best: SecondTotals | undefined;
+  for (const s of seconds) {
+    if (s.healthy && s.p99 < sloMs && s.count > (best?.count ?? 0)) best = s;
   }
   return best;
 }
 
+/** Requests per second the system sustained: the count in `peakSecond`, or 0. */
+export function throughput(records: readonly RequestRecord[], sloMs = SLO_MS): number {
+  return peakSecond(secondsOf(records), sloMs)?.count ?? 0;
+}
+
+/** Undefined where a run has no data for it: no limiter (none), or only per-second totals (ramp). */
 export interface RunMetrics {
   readonly requests: number;
   readonly limiterP50: number | undefined;
   readonly limiterP99: number | undefined;
-  readonly e2eP50: number;
-  readonly e2eP99: number;
+  readonly e2eP50: number | undefined;
+  readonly e2eP99: number | undefined;
   readonly throughputRps: number;
-  readonly peakPerWindow: number;
+  readonly peakPerWindow: number | undefined;
   /** Share of all requests, 0 to 1. */
-  readonly falseDenialRate: number;
+  readonly falseDenialRate: number | undefined;
 }
 
 export function runMetrics(run: Run): RunMetrics {
-  const { records, meta } = run;
+  const { records, meta, seconds } = run;
+  if (seconds !== undefined) {
+    // Per-second totals give throughput exactly, and nothing else.
+    return {
+      requests: seconds.reduce((sum, s) => sum + s.count, 0),
+      limiterP50: undefined,
+      limiterP99: undefined,
+      e2eP50: undefined,
+      e2eP99: undefined,
+      throughputRps: peakSecond(seconds)?.count ?? 0,
+      peakPerWindow: undefined,
+      falseDenialRate: undefined,
+    };
+  }
   if (records.length === 0) {
     throw new RangeError(`${meta.algorithm} run ${String(meta.run)} has no records`);
   }
@@ -222,11 +275,11 @@ export function summariseRuns(algorithm: string, metrics: readonly RunMetrics[])
     requests: mid((m) => m.requests),
     limiterP50: midOptional((m) => m.limiterP50),
     limiterP99: midOptional((m) => m.limiterP99),
-    e2eP50: mid((m) => m.e2eP50),
-    e2eP99: mid((m) => m.e2eP99),
+    e2eP50: midOptional((m) => m.e2eP50),
+    e2eP99: midOptional((m) => m.e2eP99),
     throughputRps: mid((m) => m.throughputRps),
-    peakPerWindow: mid((m) => m.peakPerWindow),
-    falseDenialRate: mid((m) => m.falseDenialRate),
+    peakPerWindow: midOptional((m) => m.peakPerWindow),
+    falseDenialRate: midOptional((m) => m.falseDenialRate),
   };
 }
 
@@ -258,7 +311,6 @@ export function summaryTable(
   rule: Rule,
   rows: readonly AlgorithmSummary[],
 ): string {
-  const ms = (v: number | undefined) => (v === undefined ? '–' : v.toFixed(2));
   const sorted = [...rows].sort((a, b) => byAlgorithmOrder(a.algorithm, b.algorithm));
   const runs = [...new Set(sorted.map((r) => r.runs))].join(' or ');
   const lines = [
@@ -277,14 +329,118 @@ export function summaryTable(
           ms(r.e2eP50),
           ms(r.e2eP99),
           String(Math.round(r.throughputRps)),
-          `${String(r.peakPerWindow)} (${(r.peakPerWindow / rule.limit).toFixed(2)}× limit)`,
-          `${(r.falseDenialRate * 100).toFixed(1)}%`,
+          r.peakPerWindow === undefined
+            ? '–'
+            : `${String(r.peakPerWindow)} (${(r.peakPerWindow / rule.limit).toFixed(2)}× limit)`,
+          pct(r.falseDenialRate),
         ].join(' | '),
       )
       .map((row) => `| ${row} |`),
     '',
   ];
   return lines.join('\n');
+}
+
+const ms = (v: number | undefined) => (v === undefined ? '–' : v.toFixed(2));
+const pct = (v: number | undefined) => (v === undefined ? '–' : `${(v * 100).toFixed(1)}%`);
+
+/**
+ * The lowest and highest value of each metric across an algorithm's runs. If these ranges are
+ * as wide as the differences between algorithms, three runs aren't enough (decision 0017).
+ */
+export function spreadTable(
+  scenario: string,
+  runsByAlgorithm: readonly (readonly [string, readonly RunMetrics[]])[],
+): string {
+  const range = (values: (number | undefined)[], format: (v: number) => string) => {
+    const known = values.filter((v): v is number => v !== undefined);
+    return known.length === 0 ? '–' : `${format(Math.min(...known))}–${format(Math.max(...known))}`;
+  };
+  const sorted = [...runsByAlgorithm].sort(([a], [b]) => byAlgorithmOrder(a, b));
+  return [
+    `## ${scenario}: spread across runs`,
+    '',
+    'Lowest–highest value of each metric across the runs that the summary takes the median of.',
+    '',
+    '| Algorithm | Runs | Limiter p99 (ms) | End-to-end p99 (ms) | Throughput (req/s) | Peak per window | False denials |',
+    '| --- | --- | --- | --- | --- | --- | --- |',
+    ...sorted.map(([algorithm, metrics]) =>
+      [
+        `| ${algorithm}`,
+        String(metrics.length),
+        range(
+          metrics.map((m) => m.limiterP99),
+          (v) => v.toFixed(2),
+        ),
+        range(
+          metrics.map((m) => m.e2eP99),
+          (v) => v.toFixed(2),
+        ),
+        range(
+          metrics.map((m) => m.throughputRps),
+          (v) => String(Math.round(v)),
+        ),
+        range(
+          metrics.map((m) => m.peakPerWindow),
+          String,
+        ),
+        `${range(
+          metrics.map((m) => m.falseDenialRate),
+          (v) => pct(v),
+        )} |`,
+      ].join(' | '),
+    ),
+    '',
+  ].join('\n');
+}
+
+/**
+ * Each container's highest CPU within a second either side of the run's peak second: what was
+ * close to its limit when throughput topped out.
+ */
+export function cpuAtPeak(run: Run): Map<string, number> | undefined {
+  const seconds = run.seconds ?? secondsOf(run.records);
+  const peak = peakSecond(seconds);
+  if (peak === undefined || run.cpu === undefined) return undefined;
+  const from = (peak.second - 1) * 1000;
+  const to = (peak.second + 2) * 1000;
+  const out = new Map<string, number>();
+  for (const s of run.cpu) {
+    if (s.at >= from && s.at < to) out.set(s.name, Math.max(out.get(s.name) ?? 0, s.cpu));
+  }
+  return out;
+}
+
+/** Median CPU at the peak second, per algorithm and container, as a Markdown table. */
+export function cpuTable(runsByAlgorithm: readonly (readonly [string, readonly Run[]])[]): string {
+  const rows = [...runsByAlgorithm]
+    .sort(([a], [b]) => byAlgorithmOrder(a, b))
+    .map(
+      ([algorithm, runs]) =>
+        [algorithm, runs.map(cpuAtPeak).filter((c) => c !== undefined)] as const,
+    )
+    .filter(([, cpus]) => cpus.length > 0);
+  if (rows.length === 0) return '';
+  const names = [...new Set(rows.flatMap(([, cpus]) => cpus.flatMap((c) => [...c.keys()])))].sort();
+  return [
+    '### CPU at the peak second',
+    '',
+    "Each container's highest CPU within a second either side of the busiest healthy second, as % of one core, median of runs. A single-threaded process tops out near 100%.",
+    '',
+    `| Algorithm | ${names.join(' | ')} |`,
+    `| --- | ${names.map(() => '---').join(' | ')} |`,
+    ...rows.map(([algorithm, cpus]) => {
+      const cells = names.map((n) => {
+        const values = cpus.flatMap((c) => {
+          const v = c.get(n);
+          return v === undefined ? [] : [v];
+        });
+        return values.length === 0 ? '–' : `${median(values).toFixed(0)}%`;
+      });
+      return `| ${algorithm} | ${cells.join(' | ')} |`;
+    }),
+    '',
+  ].join('\n');
 }
 
 export interface ChartPoint {

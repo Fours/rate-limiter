@@ -18,12 +18,13 @@ import { createWriteStream } from 'node:fs';
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import { join, relative, resolve } from 'node:path';
-import { baseSetup, ROOT, sh } from './setup.ts';
 import { parseArgs } from 'node:util';
+import { gzipSync } from 'node:zlib';
 import { parse as parseYaml } from 'yaml';
 import { analyseDir } from './analyse.ts';
-import type { RunMeta } from './analysis.ts';
+import { secondsOf, type RunMeta } from './analysis.ts';
 import { parseConsoleLog, resultsDirName } from './records.ts';
+import { baseSetup, ROOT, sh } from './setup.ts';
 
 const K6_IMAGE = 'grafana/k6:2.3.0';
 const APP_IMAGE = 'rate-limiter-bench:stack';
@@ -125,7 +126,7 @@ function startStack(algorithm: string, rules: string): void {
   });
 }
 
-/** Runs one scenario, then turns k6's console log into requests.jsonl. Returns the record count. */
+/** Runs one scenario, then turns k6's console log into requests.jsonl.gz. Returns the record count. */
 async function runK6(
   scenario: string,
   runDir: string,
@@ -134,7 +135,7 @@ async function runK6(
   const stats =
     scenario === 'ramp' ? sampleDockerStats(join(runDir, 'docker-stats.jsonl')) : undefined;
   try {
-    const output = sh('docker', [
+    const output = await shAsync('docker', [
       'run',
       '--rm',
       // As the current user, so k6 can write into the bind-mounted run directory on Linux too.
@@ -168,11 +169,16 @@ async function runK6(
   const consoleLog = join(runDir, 'console.log');
   const records = parseConsoleLog(await readFile(consoleLog, 'utf8'));
   if (records.length === 0) throw new Error(`${runDir}: k6 logged no requests`);
-  await writeFile(
-    join(runDir, 'requests.jsonl'),
-    records.map((r) => JSON.stringify(r)).join('\n') + '\n',
-  );
-  // requests.jsonl holds everything the console log did, in a stable form.
+  // Compressed: raw records run to about 108 bytes each, and gzip shrinks them several times.
+  const lines = records.map((r) => JSON.stringify(r)).join('\n') + '\n';
+  await writeFile(join(runDir, 'requests.jsonl.gz'), gzipSync(lines));
+  if (scenario === 'ramp') {
+    // A full ramp run is about 720,000 requests, too many for git even compressed. Git keeps
+    // these per-second totals, which give throughput exactly; .gitignore keeps the records local.
+    const seconds = secondsOf(records).map((s) => JSON.stringify(s));
+    await writeFile(join(runDir, 'seconds.jsonl'), seconds.join('\n') + '\n');
+  }
+  // requests.jsonl.gz holds everything the console log did, in a stable form.
   await rm(consoleLog);
   return records.length;
 }
@@ -190,7 +196,14 @@ function sampleDockerStats(file: string): { kill(): void } {
       const clean = line.replace(/\x1b\[[0-9;]*[A-Za-z]/g, '');
       const json = clean.slice(clean.indexOf('{'));
       if (json.startsWith('{') && json.includes('rate-limiter-stack')) {
-        out.write(`{"at":${String(Date.now())},"stats":${json.trim()}}\n`);
+        // Only what the analysis reads, so a minute of samples stays small enough for git.
+        const stats = JSON.parse(json.trim()) as { Name: string; CPUPerc: string };
+        const sample = {
+          at: Date.now(),
+          name: stats.Name.replace(/^rate-limiter-stack-/, '').replace(/-1$/, ''),
+          cpu: Number.parseFloat(stats.CPUPerc),
+        };
+        out.write(`${JSON.stringify(sample)}\n`);
       }
     }
   });
@@ -200,6 +213,24 @@ function sampleDockerStats(file: string): { kill(): void } {
       out.end();
     },
   };
+}
+
+/**
+ * Like sh, but doesn't block. k6 runs this way so the event loop stays free to timestamp
+ * `docker stats` samples as they arrive: with a blocking call they all queued up until k6 exited,
+ * and every sample got the same time.
+ */
+function shAsync(cmd: string, args: string[]): Promise<string> {
+  return new Promise((resolvePromise, reject) => {
+    const child = spawn(cmd, args, { cwd: ROOT, stdio: ['ignore', 'pipe', 'inherit'] });
+    const chunks: Buffer[] = [];
+    child.stdout.on('data', (chunk: Buffer) => chunks.push(chunk));
+    child.on('error', reject);
+    child.on('close', (code) => {
+      if (code === 0) resolvePromise(Buffer.concat(chunks).toString('utf8'));
+      else reject(new Error(`${cmd} ${args.join(' ')} exited with ${String(code)}`));
+    });
+  });
 }
 
 /** Everything needed to rerun or judge the numbers: the shared parts, plus the stack's. */
