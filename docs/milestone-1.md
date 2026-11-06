@@ -67,8 +67,9 @@ export interface Clock {
 ### Token bucket
 
 - Capacity is `rule.limit`. The refill rate is `limit / windowMs` tokens per ms.
-- Each key keeps `tokens` (a float) and `lastRefillMs`. A new key starts full.
-- On each check: `elapsed = max(0, now - lastRefillMs)` (this guards against the clock going backwards), then `tokens = min(limit, tokens + elapsed * rate)`, then `lastRefillMs = now`.
+- Each key keeps `tokens` and `lastRefillMs`. A new key starts full.
+- On each check: `elapsed = max(0, now - lastRefillMs)` (this guards against the clock going backwards), then `tokens = min(limit, tokens + elapsed * rate)`, then `lastRefillMs = max(lastRefillMs, now)`. Keeping the high-water mark matters: with `lastRefillMs = now`, a clock that steps back and then returns would refill the same span twice.
+- Implementation: tokens are stored as integer units, `units = tokens * windowMs`, so the bucket holds `limit * windowMs` units, a token costs `windowMs` units, and refill adds `elapsed * limit` units. The formulas below are the same, scaled, and every value is an exact integer. Plain float tokens can land on `0.9999999999999999` after waiting exactly `resetMs` (for example `limit: 48, windowMs: 86_400_000`), which would deny a request the headers said was allowed. This needs `limit * windowMs <= Number.MAX_SAFE_INTEGER`, which rule validation checks.
 - If `tokens >= 1`, take one token and allow the request. Otherwise deny it and leave the state as it is.
 - `remaining = floor(tokens)` after the take.
 - `resetMs`:
@@ -93,7 +94,7 @@ When several rules match, the most specific one wins, in this order:
 
 No match means the request is not limited. `next()` runs and no headers are set.
 
-Rules are checked once, when the middleware is created: ids must be unique, `limit` and `windowMs` must be positive integers, and `path` must be either exact or end in `/*`. Invalid rules throw at startup, never at request time.
+Rules are checked once, when the middleware is created: ids must be unique, `limit` and `windowMs` must be positive integers with `limit * windowMs <= Number.MAX_SAFE_INTEGER` (the token bucket counts in exact integer units), and `path` must be either exact or end in `/*`. Invalid rules throw at startup, never at request time.
 
 ### Client identification
 
@@ -142,8 +143,8 @@ Do these in order. Each one ends with passing tests.
 | Task | Status | Commit |
 | --- | --- | --- |
 | T0. Scaffold the repo | Done | 02263ad |
-| T1. Core types and clock | Done | |
-| T2. In-memory token bucket | Not started | |
+| T1. Core types and clock | Done | 3958aea |
+| T2. In-memory token bucket | Done | |
 | T3. Rule matching | Not started | |
 | T4. Client identification and key building | Not started | |
 | T5. Header helper | Not started | |
@@ -179,14 +180,14 @@ Do these in order. Each one ends with passing tests.
 
 **Done when** tests with `FakeClock` cover:
 
-- [ ] A new key allows exactly `limit` requests, then denies.
-- [ ] After a denial, `resetMs` equals the time to one token. Advancing by that much allows exactly one more request.
-- [ ] Partial refill works, for example half a window gives back half the tokens, floored.
-- [ ] Tokens never go above `limit` after a long idle period.
-- [ ] Separate keys and separate rules don't affect each other.
-- [ ] A clock that goes backwards doesn't add tokens.
-- [ ] The sweep removes full buckets and keeps partial ones. `close()` stops the timer.
-- [ ] `remaining` and `resetMs` are integers and never negative.
+- [x] A new key allows exactly `limit` requests, then denies.
+- [x] After a denial, `resetMs` equals the time to one token. Advancing by that much allows exactly one more request.
+- [x] Partial refill works, for example half a window gives back half the tokens, floored.
+- [x] Tokens never go above `limit` after a long idle period.
+- [x] Separate keys and separate rules don't affect each other.
+- [x] A clock that goes backwards doesn't add tokens.
+- [x] The sweep removes full buckets and keeps partial ones. `close()` stops the timer.
+- [x] `remaining` and `resetMs` are integers and never negative.
 
 ### T3. Rule matching
 
