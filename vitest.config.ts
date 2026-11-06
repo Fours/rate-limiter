@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
@@ -14,6 +15,13 @@ export default defineConfig({
         },
       },
       {
+        // bench/ imports the package by name, as an app would. Point that at src/ so its tests
+        // run against the code under test, not whatever dist/ was last built.
+        resolve: {
+          alias: {
+            '@kylewillett/rate-limiter': fileURLToPath(new URL('src/index.ts', import.meta.url)),
+          },
+        },
         test: {
           name: 'integration',
           include: ['test/integration/**/*.test.ts'],

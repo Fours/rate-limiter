@@ -115,7 +115,7 @@ Do these in order. Each one ends with passing tests.
 
 | Task | Status | Commit |
 | --- | --- | --- |
-| T0. Benchmark app | Not started | |
+| T0. Benchmark app | Done | |
 | T1. Compose stack | Not started | |
 | T2. Analysis script | Not started | |
 | T3. k6 scenarios and runner | Not started | |
@@ -130,12 +130,14 @@ Do these in order. Each one ends with passing tests.
 
 **Done when** tests (supertest, against the test Redis) cover:
 
-- [ ] Each `ALGORITHM` value building the right limiter, `none` mounting none, and an unknown value failing at startup
-- [ ] `/healthz` never being limited and never using up a client's limit
-- [ ] `Server-Timing` being present on limited and allowed responses, and absent with `none`
-- [ ] `X-Instance` naming the instance
-- [ ] With `trust proxy` 1, two clients behind one proxy getting separate limits through `X-Forwarded-For` and `x-api-key`
-- [ ] The Docker image building and answering `/healthz`
+- [x] Each `ALGORITHM` value building the right limiter, `none` mounting none, and an unknown value failing at startup
+- [x] `/healthz` never being limited and never using up a client's limit
+- [x] `Server-Timing` being present on limited and allowed responses, and absent with `none`
+- [x] `X-Instance` naming the instance
+- [x] With `trust proxy` 1, two clients behind one proxy getting separate limits through `X-Forwarded-For` and `x-api-key`
+- [x] The Docker image building and answering `/healthz`
+
+As built: `bench/app/app.ts` exports `createApp`, which the tests use directly, and `server.ts` only reads the environment. A probe on Express 5.3.0 confirmed that `json`, `send` and `end` all send headers through `res.writeHead`, so `Server-Timing` is set there. The tests check which script ran by reading the tag each script stores in Redis, so the app sends nothing a real app wouldn't. Under Vitest, the package name points at `src/`, so the bench tests run against the code under test, not the last build. The image runs `server.ts` with Node's type stripping on `node:22.23.4-alpine`, and keeps the dev dependencies, because `ioredis` and `yaml` are dev dependencies here. `bench/app/image-check.sh` runs in its own CI job, `bench-image`, once rather than per Node version. Breaking each behaviour failed a test: mounting the limiter before `/healthz`, removing `trust proxy`, setting `Server-Timing` only through `next()`, and mapping `fixed-window` to another factory. The first break passed the `/healthz` test at first, because its rule only covered `/work`, so that test now uses a rule with no path, which matches every route.
 
 ### T1. Compose stack
 
@@ -225,7 +227,7 @@ The evidence half of [0009](decisions/0009-latency-budget-prefetch.md). See open
 
 New, Proposed until the tasks that build them are done:
 
-- **0017. How the benchmarks measure** (to write in T0): measuring the limiter's own cost with `Server-Timing` inside the app, not only end to end; round-robin nginx; k6 in Docker on the same machine; three runs and the median; and why CI doesn't compare numbers. Accepted after T5.
+- [0017](decisions/0017-how-the-benchmarks-measure.md) (written in T0): measuring the limiter's own cost with `Server-Timing` inside the app, not only end to end; round-robin nginx; k6 in Docker on the same machine; three runs and the median; and why CI doesn't compare numbers. Accepted after T5.
 
 Updated:
 

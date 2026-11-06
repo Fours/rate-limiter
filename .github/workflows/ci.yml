@@ -53,3 +53,13 @@ jobs:
         env:
           REDIS_URL: redis://localhost:6390
         run: examples/basic/demo-check.sh
+
+  # Builds the benchmark app's image (milestone 3) and checks it answers /healthz. A job of its own
+  # so the build runs once, not once per Node version.
+  bench-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and start the benchmark image
+        timeout-minutes: 5
+        run: bench/app/image-check.sh

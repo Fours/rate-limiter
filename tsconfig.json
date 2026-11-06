@@ -16,8 +16,10 @@
     "skipLibCheck": true,
     "types": ["node"],
     "noEmit": true,
+    // Node runs bench/ and examples/ by stripping types, which needs relative imports to end in .ts.
+    "allowImportingTsExtensions": true,
     // Lets examples import the package by name before dist/ is built, as CI typechecks first.
     "paths": { "@kylewillett/rate-limiter": ["./src/index.ts"] }
   },
-  "include": ["src", "test", "examples", "*.config.ts"]
+  "include": ["src", "test", "examples", "bench", "*.config.ts"]
 }

@@ -1,0 +1,7 @@
+# The default benchmark rule: /work, 10 per minute per client. Each k6 scenario (T3) brings its
+# own rules file next to this one.
+rules:
+  - id: work
+    limit: 10
+    windowMs: 60000
+    path: /work
