@@ -41,6 +41,7 @@
     "stack:up": "docker compose up -d --build --wait",
     "stack:check": "bench/stack-check.sh",
     "stack:down": "docker compose down -v",
+    "bench": "node --experimental-strip-types --disable-warning=ExperimentalWarning bench/run.ts",
     "bench:analyse": "node --experimental-strip-types --disable-warning=ExperimentalWarning bench/analyse.ts",
     "example": "npm run build && npm run example:serve",
     "example:serve": "node --experimental-strip-types examples/basic/server.ts"
@@ -52,6 +53,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/express": "^5.0.6",
+    "@types/k6": "^2.3.1",
     "@types/node": "^22.20.5",
     "@types/supertest": "^7.2.1",
     "@vitest/coverage-v8": "^4.1.12",

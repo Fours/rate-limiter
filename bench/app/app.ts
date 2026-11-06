@@ -65,6 +65,13 @@ export function createApp(opts: BenchAppOptions): BenchApp {
   app.set('trust proxy', 1);
   app.use((_req, res, next) => {
     res.set('X-Instance', opts.instance);
+    // When this instance received the request, epoch ms. The benchmarks time windows by it, not
+    // by k6's send time, because it's far closer to when the limiter decided. It's Date.now(),
+    // the same wall clock Redis TIME reads, and in whole ms like Redis. performance.timeOrigin +
+    // now() is finer, but it's a monotonic clock anchored at process start: a probe in T3 saw it
+    // wander 0.3 to 1.3 ms from the wall clock as Docker's VM corrected its time, differently in
+    // each instance (decision 0017).
+    res.set('X-Received-At', String(Date.now()));
     next();
   });
   // Before the limiter, so health checks and k6 setup never use up a client's limit.

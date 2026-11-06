@@ -118,8 +118,8 @@ Do these in order. Each one ends with passing tests.
 | --- | --- | --- |
 | T0. Benchmark app | Done | 3270a08 |
 | T1. Compose stack | Done | 2c3f7e4 |
-| T2. Analysis script | Done | |
-| T3. k6 scenarios and runner | Not started | |
+| T2. Analysis script | Done | 5d62967 |
+| T3. k6 scenarios and runner | Done | |
 | T4. Memory per key | Not started | |
 | T5. Run the benchmarks and decide 0008 | Not started | |
 | T6. Token pre-fetching measurements | Not started | |
@@ -186,10 +186,20 @@ Start with the k6 timestamp probe from "What gets measured", and record the resu
 
 **Done when:**
 
-- [ ] The steady, ramp and edge-burst scenarios each run against the stack for one algorithm and write raw output and `setup.json`
-- [ ] `npm run bench -- --algorithm fixed-window --scenario edges --quick` finishes in under a minute and the analysis shows overshoot above `limit`. That's the check that the edge-burst scenario actually hits a boundary.
-- [ ] The same quick run against `sliding-window-log` shows no overshoot.
-- [ ] Rerunning the analysis on saved output gives the same summary.
+- [x] The steady, ramp and edge-burst scenarios each run against the stack for one algorithm and write raw output and `setup.json`
+- [x] `npm run bench -- --algorithm fixed-window --scenario edges --quick` finishes in under a minute and the analysis shows overshoot above `limit`. That's the check that the edge-burst scenario actually hits a boundary. (Tightened to at least 1.8× the limit, see below.)
+- [x] The same quick run against `sliding-window-log` shows no overshoot.
+- [x] Rerunning the analysis on saved output gives the same summary.
+
+As built:
+
+- **The k6 probe:** on k6 2.3.0, the timestamp in k6's JSON output is when the response arrived, not when the request was sent. So each scenario logs one `REC` line per request from the script, and `bench/records.ts` turns k6's console log into `requests.jsonl`.
+- **Which clock times the windows** took three tries, recorded in [0017](decisions/0017-how-the-benchmarks-measure.md). k6's send time and the app's `performance` clock both made the sliding window log look over its limit, because neither matches the clock Redis decides by. Windows are now timed by `X-Received-At`, the app's `Date.now()` when the request arrives, and the analysis allows `RESOLUTION_MS` (2 ms) for Redis's whole-ms clock. Over 4 quick runs after the change, the log peaked at exactly 100 with no false denials.
+- **The `edges` trickle** is jittered (150 to 250 ms), and bursts fall on every other boundary, so requests don't recur exactly one window apart.
+- **`edges-check.sh` requires the fixed window to reach 1.8× the limit**, not just to go over it. With the bursts moved mid-window, the trickle alone reached 129 against 100, which "over the limit" didn't catch. The real runs reach 200. Quick runs took 34 to 40 s each.
+- **The ramp's target is 30,000 req/s**, not 10,000. At 10,000 nothing saturated. At 30,000 the stack sustained about 16,500 req/s (p99 under 50 ms). The apps were at about 84% of a core each, nginx at 57% and Redis at 38%, so the single-threaded Node apps saturate first, not nginx's one worker (T1's question). `docker stats` samples are saved with each ramp run.
+- **Runs:** each run recreates the stack, so it starts with an empty Redis. k6 runs in Docker on the stack's network as the current user, so it can write results on Linux too. A second run on the same day gets a `-2` directory. Quick runs go to `bench/results/`, which is gitignored. `setup.json` leaves out the hostname.
+- **Breaking it on purpose:** each of these failed a check: bursts mid-window instead of at a boundary (after the 1.8× change), a summary that depends on when it was analysed, and the parser reading the two timestamps in the wrong order.
 
 ### T4. Memory per key
 
@@ -224,7 +234,7 @@ The evidence half of [0009](decisions/0009-latency-budget-prefetch.md). See open
 
 **Done when:**
 
-- [ ] CI builds the image, starts the stack, runs `bench/stack-check.sh`, runs one `--quick` edge-burst benchmark, and stops the stack. No numbers are compared in CI.
+- [ ] CI builds the image, starts the stack, runs `bench/stack-check.sh` and `bench/edges-check.sh`, and stops the stack. No numbers are compared in CI.
 - [ ] The README gains a Benchmarks section: the summary table, what each number means, the machine they came from, and how to rerun them.
 - [ ] The README's algorithm table links to the benchmark numbers.
 

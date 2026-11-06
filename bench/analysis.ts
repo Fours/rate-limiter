@@ -6,8 +6,13 @@
 export interface RequestRecord {
   /** Who sent it: the `x-api-key` the scenario used. */
   readonly client: string;
-  /** When it was sent, epoch ms. */
+  /**
+   * When it reached the app, epoch ms (X-Received-At), which windows are timed by. Falls back to
+   * the send time for a request that got no response.
+   */
   readonly t: number;
+  /** When the load generator sent it, by its own clock, epoch ms. Kept for comparison only. */
+  readonly sentAt?: number;
   readonly status: number;
   /** End-to-end time, as the load generator saw it, ms. */
   readonly e2eMs: number;
@@ -32,6 +37,19 @@ export interface Run {
 /** "Sustained" means p99 under this, with no errors. It's milestone 4's timeout (0010). */
 export const SLO_MS = 50;
 
+/**
+ * How finely the records can place a request against the limiter's own clock, in ms. Redis
+ * `TIME` is truncated to whole ms, so two requests a sliding window log correctly allows exactly
+ * one window apart can be up to 1 ms less than a window apart in real time. The records' `t` is
+ * also taken in the app, a fraction of a ms before Redis decides. So window comparisons give
+ * this much benefit of the doubt: spans for the peak are this much shorter, and trailing windows
+ * for false denials this much longer.
+ *
+ * Added in T3, after the first quick runs: the log showed 101 against a limit of 100 in 10
+ * spans, each between 9,999.5 and 9,999.99 ms long for a 10,000 ms window (decision 0017).
+ */
+export const RESOLUTION_MS = 2;
+
 const ALLOWED = 200;
 const DENIED = 429;
 
@@ -53,7 +71,7 @@ export function maxInWindow(times: readonly number[], windowMs: number): number 
 }
 
 export interface Peak {
-  /** Most requests allowed for one client in any `windowMs` span. */
+  /** Most requests allowed for one client in any span of `windowMs − RESOLUTION_MS`. */
   readonly peak: number;
   /** That client, or undefined when nothing was allowed. */
   readonly client: string | undefined;
@@ -64,7 +82,7 @@ export function peakPerWindow(records: readonly RequestRecord[], windowMs: numbe
   for (const [client, own] of byClient(records)) {
     const peak = maxInWindow(
       own.filter((r) => r.status === ALLOWED).map((r) => r.t),
-      windowMs,
+      windowMs - RESOLUTION_MS,
     );
     if (peak > best.peak) best = { peak, client };
   }
@@ -73,7 +91,7 @@ export function peakPerWindow(records: readonly RequestRecord[], windowMs: numbe
 
 /**
  * Denials an exact sliding window would have allowed: a 429 when fewer than `limit` requests
- * were allowed for that client in the trailing window `(t − windowMs, t]`. The sliding window
+ * were allowed for that client in the trailing window `(t − windowMs − RESOLUTION_MS, t]`. The sliding window
  * log should score 0. The token and leaky buckets score high by design, since they refill
  * gradually or allow no burst: this measures distance from the exact ideal, not a bug.
  */
@@ -87,7 +105,11 @@ export function falseDenials(
     let oldest = 0;
     // Stable sort: requests in the same millisecond keep the order they were recorded in.
     for (const r of [...own].sort((a, b) => a.t - b.t)) {
-      while (oldest < allowed.length && (allowed[oldest] ?? 0) <= r.t - rule.windowMs) oldest++;
+      while (
+        oldest < allowed.length &&
+        (allowed[oldest] ?? 0) <= r.t - rule.windowMs - RESOLUTION_MS
+      )
+        oldest++;
       const inWindow = allowed.length - oldest;
       if (r.status === DENIED && inWindow < rule.limit) count++;
       if (r.status === ALLOWED) allowed.push(r.t);
@@ -268,7 +290,7 @@ export function summaryTable(
 export interface ChartPoint {
   /** ms since the client's first request */
   readonly t: number;
-  /** allowed in the trailing window `(t − windowMs, t]`, this request included */
+  /** allowed in the trailing span `(t − windowMs + RESOLUTION_MS, t]`, this request included */
   readonly allowed: number;
 }
 
@@ -300,7 +322,7 @@ export function chartFor(runs: readonly Run[]): AlgorithmChart {
   const first = own[0] ?? 0;
   const series = own.map((t, i) => {
     let inWindow = 0;
-    for (let j = i; j >= 0 && (own[j] ?? 0) > t - meta.windowMs; j--) inWindow++;
+    for (let j = i; j >= 0 && (own[j] ?? 0) > t - (meta.windowMs - RESOLUTION_MS); j--) inWindow++;
     return { t: t - first, allowed: inWindow };
   });
   return {

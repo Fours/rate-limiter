@@ -106,16 +106,21 @@ function byRunNumber(a: string, b: string): number {
   return Number(a.slice(4)) - Number(b.slice(4));
 }
 
+/** Analyses a results directory and writes summary.md and chart.json into it. */
+export async function analyseDir(dir: string): Promise<string> {
+  const { summary, chart } = analyse(await loadResults(dir));
+  await writeFile(join(dir, 'summary.md'), summary);
+  await writeFile(join(dir, 'chart.json'), `${JSON.stringify(chart, null, 2)}\n`);
+  return summary;
+}
+
 async function main(dir: string | undefined): Promise<void> {
   if (dir === undefined) {
     console.error('Usage: npm run bench:analyse -- <results-dir>');
     process.exitCode = 1;
     return;
   }
-  const { summary, chart } = analyse(await loadResults(dir));
-  await writeFile(join(dir, 'summary.md'), summary);
-  await writeFile(join(dir, 'chart.json'), `${JSON.stringify(chart, null, 2)}\n`);
-  console.log(summary);
+  console.log(await analyseDir(dir));
   console.log(`Wrote summary.md and chart.json in ${basename(dir)}/`);
 }
 

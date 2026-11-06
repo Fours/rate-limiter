@@ -10,6 +10,7 @@ import {
   median,
   peakPerWindow,
   percentile,
+  RESOLUTION_MS,
   runMetrics,
   summariseRuns,
   throughput,
@@ -56,6 +57,15 @@ describe('maxInWindow', () => {
 });
 
 describe('peakPerWindow', () => {
+  it('measures spans RESOLUTION_MS short of the window, the limiter clock’s resolution', () => {
+    // A sliding window log rightly allows requests at Redis ms 0 and 1000 with a 1000 ms window;
+    // in real time they can land up to 1 ms less than a window apart.
+    const atEdge = [rec(0.6, 200), rec(500, 200), rec(999.9, 200)];
+    expect(peakPerWindow(atEdge, W).peak).toBe(2);
+    const inside = [rec(0, 200), rec(500, 200), rec(997.9, 200)];
+    expect(peakPerWindow(inside, W).peak).toBe(3);
+  });
+
   it('counts only allowed requests, per client, and names the busiest client', () => {
     const records = [
       rec(0, 200, 'a'),
@@ -77,9 +87,17 @@ describe('falseDenials', () => {
   });
 
   it('counts a denial made while the trailing window had room', () => {
-    // At 1000 the request from 0 has left (t − W, t], so only 1 is in the window.
-    const records = [rec(0, 200), rec(100, 200), rec(1000, 429), rec(1099, 429), rec(1100, 429)];
+    // By 1002 the request from 0 is more than W + RESOLUTION_MS old, so only 1 is in the window.
+    const records = [rec(0, 200), rec(100, 200), rec(1003, 429), rec(1099, 429), rec(1100, 429)];
     expect(falseDenials(records, rule)).toBe(3);
+  });
+
+  it('gives a denial within RESOLUTION_MS of the window edge the benefit of the doubt', () => {
+    // The limiter's clock is whole ms, and t is taken a little before it decides, so a denial
+    // less than 2 ms past the edge may be the limiter correctly counting the old request.
+    const records = [rec(0, 200), rec(100, 200), rec(1000, 429), rec(1001, 429), rec(1001.9, 429)];
+    expect(RESOLUTION_MS).toBe(2);
+    expect(falseDenials(records, rule)).toBe(0);
   });
 
   it('keeps clients apart', () => {

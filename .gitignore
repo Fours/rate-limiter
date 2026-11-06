@@ -5,3 +5,5 @@ coverage/
 *.tsbuildinfo
 .env
 .VSCodeCounter
+# Quick benchmark runs (npm run bench -- --quick). Full runs go to docs/decisions/data/.
+bench/results/

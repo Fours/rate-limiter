@@ -155,6 +155,19 @@ describe('X-Instance', () => {
   });
 });
 
+describe('X-Received-At', () => {
+  it('stamps every response with when the instance received it, by the wall clock', async () => {
+    const { app } = start('none');
+    const before = Date.now();
+    const res = await request(app).get('/work');
+    const after = Date.now();
+    const header = String(res.headers['x-received-at']);
+    expect(header).toMatch(/^\d{13}$/);
+    expect(Number(header)).toBeGreaterThanOrEqual(before);
+    expect(Number(header)).toBeLessThanOrEqual(after);
+  });
+});
+
 describe('behind one proxy', () => {
   async function statuses(app: BenchApp['app'], headers: Record<string, string>, n: number) {
     const out: number[] = [];

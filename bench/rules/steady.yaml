@@ -1,0 +1,8 @@
+# For the steady and ramp scenarios: /work, 100 per minute per client. k6 spreads requests over
+# 1,000 clients, so at 500 req/s each sends about 30 a minute and nearly every request is allowed.
+# Latency is then the allowed path's, which is the one most traffic takes.
+rules:
+  - id: work
+    limit: 100
+    windowMs: 60000
+    path: /work

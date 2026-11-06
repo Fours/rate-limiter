@@ -1,0 +1,7 @@
+# For the edges scenario: 100 per 10 s per client. A short window keeps runs short, and 10 s
+# boundaries fall on the clock, where the fixed window resets.
+rules:
+  - id: work
+    limit: 100
+    windowMs: 10000
+    path: /work

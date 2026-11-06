@@ -20,9 +20,10 @@ Milestone 3 compares the five algorithms on added latency, throughput, Redis mem
 
 How the numbers are computed, fixed in T2 before any data existed (`bench/analysis.ts`):
 
-- **Records.** Every scenario writes one line per request, `{ client, t, status, e2eMs, limiterMs }`, whatever produced it (k6 or app logs). `t` is the send time in ms.
-- **Peak per window.** For each client, the most allowed requests in any span `[s, s + windowMs)`, and the summary reports the busiest client. The span is half-open, matching the sliding window log's own window `(now − windowMs, now]`, so two requests exactly `windowMs` apart never share one. Overshoot is the peak minus `limit`.
-- **False denials.** A 429 when fewer than `limit` requests were allowed for that client in the trailing window `(t − windowMs, t]`: a denial an exact sliding window would have allowed. It's reported as a share of all requests. The token bucket and the leaky bucket score high on it by design, since they refill gradually or allow no burst, so it measures distance from the exact ideal, not bugs.
+- **Records.** Every scenario writes one line per request, `{ client, t, sentAt, status, e2eMs, limiterMs }`. The k6 script logs each request itself. `t` is when the app received the request, by `Date.now()`: the same wall clock Redis `TIME` reads, and in whole ms like Redis. `sentAt` is k6's own send time, kept for comparison. *Changed in T3*, from "the send time": see the evidence below.
+- **Peak per window.** For each client, the most allowed requests in any span `[s, s + windowMs − 2 ms)`, and the summary reports the busiest client. The span is half-open, matching the sliding window log's own window `(now − windowMs, now]`. Overshoot is the peak minus `limit`.
+- **2 ms of resolution** (`RESOLUTION_MS`, *added in T3*). Redis `TIME` is truncated to whole ms, and so is `t`. Two requests the log correctly allows one window apart by Redis's clock can therefore look up to about 2 ms closer by `t`. Window comparisons give that much benefit of the doubt: spans for the peak are 2 ms shorter, and trailing windows for false denials 2 ms longer. That's 0.02% of a 10 s window, so it can't hide a real overshoot such as the fixed window's 2×.
+- **False denials.** A 429 when fewer than `limit` requests were allowed for that client in the trailing window `(t − windowMs − 2 ms, t]`: a denial an exact sliding window would have allowed. It's reported as a share of all requests. The token bucket and the leaky bucket score high on it by design, since they refill gradually or allow no burst, so it measures distance from the exact ideal, not bugs.
 - **Percentiles: nearest rank**, the `ceil(p/100 × n)`-th smallest sample. A p99 is then a latency some request actually saw, with no interpolation.
 - **Throughput.** The busiest whole second, by send time, whose p99 end-to-end time was under 50 ms and whose responses were all 200 or 429. A 429 is the limiter working, not an error.
 - **Medians.** Each metric is the median of its runs, taken separately, so each cell is a real middle value. With an even count, it's the mean of the middle two.
@@ -48,6 +49,14 @@ From milestone 3, T0:
 From T2:
 
 - `test/bench/analysis.test.ts` pins each definition above with hand-made records, and builds a summary and chart from a fixture directory whose every value was worked out by hand. Breaking each definition fails a test: a closed span, a trailing window that keeps `t − windowMs`, a percentile one rank high, using the first run instead of the median, an SLO that admits exactly 50 ms, and a throughput that ignores errors.
+
+From T3:
+
+- **k6's JSON output can't give send times.** A probe on k6 2.3.0 against a server that waits 500 ms before answering showed the JSON timestamp is when the response arrived, not when the request was sent. So the k6 scripts log each request themselves.
+- **Send time was the wrong clock.** The first quick runs timed windows by k6's send time and by the app's `performance.timeOrigin + performance.now()`. The sliding window log then showed 101 against a limit of 100 in 10 spans over 4 runs, each 9,999.5 to 9,999.99 ms long, and 3 false denials 5 to 14 ms past a window. Neither is possible for the log. A probe inside an app container showed the monotonic clock wandering 0.3 to 1.3 ms from the wall clock as Docker's VM corrected its time, differently in each instance. Redis reads the wall clock.
+- **With `Date.now()` in the app**, 4 more runs of the log gave a peak of exactly 100 with 0 false denials at a 2 ms resolution. At 0 ms, two runs still showed 101 and three showed false denials. At 1 ms, one false denial remained. That's what sets 2 ms.
+- **The trickle had to be jittered.** At a fixed 200 ms, which divides the 10 s window, trickle requests recurred exactly one window apart, on the very millisecond a slot freed up. It's now 150 to 250 ms at random, and bursts fall on every other boundary, so a burst ages out mid-trickle rather than during the next burst.
+- These changes came after seeing data, which T2 meant to avoid. They're kept because each one is about the measurement's resolution, not about which algorithm looks better, and each applies to every algorithm equally.
 
 Still to gather: in T5, the numbers this method produces, and whether three runs are enough to keep the medians stable. If the spread between runs is close to the differences between algorithms, that changes this record.
 
