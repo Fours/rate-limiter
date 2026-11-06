@@ -240,6 +240,10 @@ Do these in order. Each one ends with passing tests.
 - [ ] No runtime dependencies other than the Express peer dependency.
 - [ ] The public API is exported only from `src/index.ts`.
 
+## Decision records
+
+This milestone sets up records [0001](decisions/0001-async-algorithm-interface.md) to [0005](decisions/0005-metrics-through-hooks.md) in `docs/decisions/`. If the design changes during implementation, update the matching record in the same commit.
+
 ## Open questions
 
 - Should `RateLimit-Reset` while allowed mean "until full" (as specified here) or "until one more token"? This spec uses "until full" because it matches what clients usually read as "when my quota resets".

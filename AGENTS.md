@@ -82,6 +82,15 @@ docs/                   milestone specs and design notes
 - Keep functions small and pure where possible. I/O belongs at the edges.
 - Write comments that explain why, not what.
 
-## Design notes
+## Commits
 
-Many choices here feed the public write-up: fail open vs closed, accuracy vs cost, latency budget, clock skew, atomicity, where the limiter runs, and dependencies. When you make or change one of these, record the choice, the alternative you rejected, and the evidence for it in `docs/decisions/`. Benchmark numbers belong there too.
+- Never add an attribution line for Claude or any other AI to commit messages. That includes `Co-Authored-By: Claude ...` trailers and "Generated with ..." footers.
+
+## Design decisions
+
+`docs/decisions/` holds one numbered record per design choice: the context, the decision, the alternatives, the evidence and the consequences. These records become the public write-up in milestone 5. See `docs/decisions/README.md` for the format and the index.
+
+- Read the related records before changing anything they cover, such as the interface, key format, headers, atomicity, time source or fallback.
+- When you make or change a decision, add or update its record in the same commit as the code. Never rewrite an Accepted record. Supersede it with a new one instead.
+- When a test or benchmark proves a Proposed record, fill in its Evidence section and change its status to Accepted.
+- Raw benchmark output goes in `docs/decisions/data/`, with the setup recorded: machine, Node, Redis and k6 versions, and the exact command.
