@@ -3,23 +3,56 @@
 //
 // It imports the package by name, exactly as an app would. Node resolves that
 // name to this repo's own dist/, which `npm run example` builds first.
+//
+// Environment:
+//   PORT        default 3000
+//   REDIS_URL   share limits through Redis, e.g. redis://localhost:6390 (the test Redis)
+//   ALGORITHM   with Redis: token-bucket, leaky-bucket, fixed-window, sliding-window-log
+//               or sliding-window-counter (the default). Without Redis: token-bucket only.
 import express, { type Request } from 'express';
-import { rateLimit, type Rule } from '@kylewillett/rate-limiter';
+import { Redis } from 'ioredis';
+import {
+  createRedisFixedWindow,
+  createRedisLeakyBucket,
+  createRedisSlidingWindowCounter,
+  createRedisSlidingWindowLog,
+  createRedisTokenBucket,
+  fromIoredis,
+  loadRules,
+  rateLimit,
+  type Algorithm,
+  type RedisAlgorithmOptions,
+} from '@kylewillett/rate-limiter';
 
-const rules: Rule[] = [
-  // Every request: 10 per minute per client. With no API key or user, a client is its IP.
-  { id: 'global', limit: 10, windowMs: 60_000 },
-  // Placing orders on the free tier: 3 per minute. The most specific matching rule wins,
-  // so these requests count against this rule instead of the global one.
-  {
-    id: 'orders:free',
-    limit: 3,
-    windowMs: 60_000,
-    method: 'POST',
-    path: '/orders/*',
-    tier: 'free',
-  },
-];
+const rules = await loadRules(new URL('rules.yaml', import.meta.url).pathname);
+
+// ALGORITHM picks one for the demo. A real app would just call the one it wants.
+const redisAlgorithms: Record<string, (opts: RedisAlgorithmOptions) => Algorithm> = {
+  'token-bucket': createRedisTokenBucket,
+  'leaky-bucket': createRedisLeakyBucket,
+  'fixed-window': createRedisFixedWindow,
+  'sliding-window-log': createRedisSlidingWindowLog,
+  'sliding-window-counter': createRedisSlidingWindowCounter,
+};
+
+const redisUrl = process.env.REDIS_URL;
+const algorithmName =
+  process.env.ALGORITHM ?? (redisUrl ? 'sliding-window-counter' : 'token-bucket');
+const createAlgorithm = redisAlgorithms[algorithmName];
+if (createAlgorithm === undefined) {
+  throw new Error(
+    `Unknown ALGORITHM "${algorithmName}". Use one of: ${Object.keys(redisAlgorithms).join(', ')}`,
+  );
+}
+if (!redisUrl && algorithmName !== 'token-bucket') {
+  throw new Error(
+    `ALGORITHM=${algorithmName} needs REDIS_URL. Without Redis, only token-bucket runs.`,
+  );
+}
+
+// With Redis, every copy of this server shares limits. Without it, each process counts alone.
+const redis = redisUrl ? new Redis(redisUrl) : undefined;
+const algorithm = redis ? createAlgorithm({ client: fromIoredis(redis) }) : undefined;
 
 // A stand-in for a real account lookup. Derive the tier from the client's credentials,
 // never from a header that names the tier, or any client could claim to be "pro".
@@ -29,7 +62,7 @@ function tier(req: Request): string {
   return key !== undefined && proKeys.has(key) ? 'pro' : 'free';
 }
 
-const limiter = rateLimit({ rules, tier });
+const limiter = rateLimit({ rules, tier, ...(algorithm && { algorithm }) });
 
 const app = express();
 // Behind a load balancer or proxy, uncomment this so req.ip is the client, not the proxy.
@@ -47,13 +80,17 @@ app.post('/orders', (_req, res) => {
 
 const port = Number(process.env.PORT ?? 3000);
 const server = app.listen(port, () => {
-  console.log(`Listening on http://localhost:${String(port)}`);
+  const store = redisUrl ? `Redis at ${redisUrl}` : 'memory, in this process only';
+  console.log(`Listening on http://localhost:${String(port)}: ${algorithmName}, in ${store}`);
   console.log('Try: examples/basic/hammer.sh 12');
 });
 
-// Stop the limiter's sweep timer once the server has stopped taking requests.
-process.on('SIGINT', () => {
+// Once the server has stopped taking requests, stop the limiter's sweep timer and disconnect.
+function shutdown() {
   server.close(() => {
     limiter.close();
+    redis?.disconnect();
   });
-});
+}
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);

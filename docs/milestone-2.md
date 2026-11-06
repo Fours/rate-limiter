@@ -168,8 +168,8 @@ Do these in order. Each one ends with passing tests.
 | T6. Sliding window counter | Done | 44f6c56 |
 | T7. Leaky bucket | Done | e85c602 |
 | T8. Distributed correctness | Done | 9e7eefd |
-| T9. Rules from files | Done | |
-| T10. Example app and README | Not started | |
+| T9. Rules from files | Done | 1e81e4f |
+| T10. Example app and README | Done | |
 
 ### T0. Redis test setup
 
@@ -288,14 +288,16 @@ As built: everything is in `test/integration/distributed.test.ts`, except the mi
 
 **Done when:** the demo described in "Outcome" works from a clean clone with `docker compose -f docker-compose.test.yml up -d`.
 
+- [x] `examples/basic/demo-check.sh` starts two copies on one Redis, limits a client on one and checks the other limits it too, for all five algorithms. CI runs it against the Redis service, and it was run from a fresh clone. With Redis sharing turned off in the server, it fails.
+
 ## Definition of done
 
-- [ ] T0 to T10 are complete.
-- [ ] `npm run lint`, `typecheck`, `test`, `test:integration` and `build` all pass, locally and in CI.
-- [ ] Line coverage is at least 90% for `src/`. Lua isn't measured, which is why the behaviour suite exists.
-- [ ] No runtime dependencies other than the Express peer dependency. `yaml` is an optional peer dependency. Redis clients are dev dependencies only.
-- [ ] [0006](decisions/0006-atomic-lua-checks.md) and [0007](decisions/0007-redis-server-time.md) are Accepted, with evidence.
-- [ ] The public API is exported only from `src/index.ts`. The internal `createRedisAlgorithm` and its `clock` option are not exported.
+- [x] T0 to T10 are complete.
+- [x] `npm run lint`, `typecheck`, `test`, `test:integration` and `build` all pass, locally and in CI.
+- [x] Line coverage is at least 90% for `src/`. Lua isn't measured, which is why the behaviour suite exists.
+- [x] No runtime dependencies other than the Express peer dependency. `yaml` is an optional peer dependency. Redis clients are dev dependencies only.
+- [x] [0006](decisions/0006-atomic-lua-checks.md) and [0007](decisions/0007-redis-server-time.md) are Accepted, with evidence.
+- [x] The public API is exported only from `src/index.ts`. The internal `createRedisAlgorithm` and its `clock` option are not exported.
 
 ## Decision records
 

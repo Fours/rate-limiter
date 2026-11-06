@@ -46,3 +46,10 @@ jobs:
           until curl -s -o /dev/null http://localhost:3000/; do sleep 0.2; done
           examples/basic/hammer.sh 12 | tee hammer.txt
           grep -Eq '^[0-9]+ +429 ' hammer.txt
+      # The milestone 2 demo: two copies share the CI Redis, so a client one limits, the other
+      # limits too. Runs once per algorithm.
+      - name: Run the example on Redis, two instances, every algorithm
+        timeout-minutes: 2
+        env:
+          REDIS_URL: redis://localhost:6390
+        run: examples/basic/demo-check.sh

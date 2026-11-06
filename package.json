@@ -38,7 +38,8 @@
     "coverage": "vitest run --coverage",
     "redis:up": "docker compose -f docker-compose.test.yml up -d --wait",
     "redis:down": "docker compose -f docker-compose.test.yml down",
-    "example": "npm run build && node --experimental-strip-types examples/basic/server.ts"
+    "example": "npm run build && npm run example:serve",
+    "example:serve": "node --experimental-strip-types examples/basic/server.ts"
   },
   "peerDependencies": {
     "express": "^5.0.0",

@@ -1,0 +1,14 @@
+# Rules for the demo, loaded with loadRules(). Unknown fields are rejected, so a typo fails at startup.
+rules:
+  # Every request: 10 per minute per client. With no API key or user, a client is its IP.
+  - id: global
+    limit: 10
+    windowMs: 60000
+  # Placing orders on the free tier: 3 per minute. The most specific matching rule wins,
+  # so these requests count against this rule instead of the global one.
+  - id: orders:free
+    limit: 3
+    windowMs: 60000
+    method: POST
+    path: /orders/*
+    tier: free

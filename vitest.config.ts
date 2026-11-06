@@ -23,7 +23,8 @@ export default defineConfig({
     ],
     coverage: {
       provider: 'v8',
-      include: ['src/**'],
+      // Only TypeScript: Lua isn't measured (the behaviour suite covers it), and v8 can't parse it.
+      include: ['src/**/*.ts'],
       // index.ts only re-exports, so it has no lines worth measuring.
       exclude: ['src/index.ts'],
       thresholds: { lines: 90 },
