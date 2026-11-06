@@ -1,5 +1,6 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { Algorithm, Decision, Rule } from '../src/index.js';
+import { RULE_FIELDS } from '../src/rules-file.js';
 
 // These are compile-time checks enforced by `npm run typecheck`. An unused
 // ts-expect-error directive fails it, so each one proves the types reject that shape.
@@ -33,5 +34,11 @@ describe('public types', () => {
     // @ts-expect-error windowMs is required
     const missingWindow: Rule = { id: 'global', limit: 100 };
     expect(missingWindow).toBeDefined();
+  });
+
+  it('lists every Rule field as allowed in rules files', () => {
+    // If Rule gains a field, rules files would reject it until RULE_FIELDS lists it too (0015).
+    expectTypeOf<keyof Rule>().toEqualTypeOf<(typeof RULE_FIELDS)[number]>();
+    expect(RULE_FIELDS).toHaveLength(6);
   });
 });

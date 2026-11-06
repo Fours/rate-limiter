@@ -138,14 +138,15 @@ It runs against the in-memory token bucket and all five Redis algorithms. Redis-
 ### Rules from files ([0015](decisions/0015-rules-files.md))
 
 ```ts
-export function parseRules(text: string, format: 'json' | 'yaml'): Promise<Rule[]>;
+export function parseRules(text: string, format: 'json' | 'yaml', source?: string): Promise<Rule[]>;
 export function loadRules(path: string): Promise<Rule[]>; // format from .json, .yaml or .yml
 ```
 
 - The file holds `{ rules: Rule[] }`. Wrapping the list in an object leaves room for top-level settings later.
 - JSON uses `JSON.parse`. YAML uses the `yaml` package, an **optional peer dependency** loaded with a dynamic `import()`. If it isn't installed, `loadRules` throws a message saying to install `yaml`. JSON users install nothing extra.
-- Rules are validated with the milestone 1 `validateRules`. Files also **reject unknown fields**, so a typo such as `limt` fails at startup instead of silently becoming "no limit". Errors name the file, the rule's position and its id.
+- Rules are validated with the milestone 1 `validateRules`. Files also **reject unknown fields**, so a typo such as `limt` fails at startup instead of silently becoming "no limit". Errors name the file, the rule's position and its id. `parseRules` takes an optional `source`, such as a path, to put in front of its errors.
 - Both are async, because the YAML import is. They run before `rateLimit()`, so a bad file still fails at startup.
+- **Duplicate keys in JSON aren't caught.** YAML rejects them, but `JSON.parse` keeps the last one, so `"limit": 10, "limit": 1000` passes. Catching it would need a custom JSON parser. Use YAML if that matters.
 - **No per-API-key rules.** The project plan lists "API key" as a rule input. That's handled by mapping keys to tiers in `opts.tier`, as `examples/basic` already does. Raw API keys therefore never sit in a config file, in line with [0002](decisions/0002-hash-api-keys.md).
 
 ### Middleware
@@ -166,8 +167,8 @@ Do these in order. Each one ends with passing tests.
 | T5. Sliding window log | Done | 65c52c6 |
 | T6. Sliding window counter | Done | 44f6c56 |
 | T7. Leaky bucket | Done | e85c602 |
-| T8. Distributed correctness | Done | |
-| T9. Rules from files | Not started | |
+| T8. Distributed correctness | Done | 9e7eefd |
+| T9. Rules from files | Done | |
 | T10. Example app and README | Not started | |
 
 ### T0. Redis test setup
@@ -272,11 +273,11 @@ As built: everything is in `test/integration/distributed.test.ts`, except the mi
 
 **Done when** tests cover:
 
-- [ ] Loading the same rules from JSON, `.yaml` and `.yml`
-- [ ] Unknown fields, bad values and an empty or missing `rules` key, each with an error naming the file, position and id
-- [ ] A clear error when `yaml` isn't installed
-- [ ] An empty `rules` list being valid
-- [ ] A missing file being an error, not "no rules"
+- [x] Loading the same rules from JSON, `.yaml` and `.yml`
+- [x] Unknown fields, bad values and an empty or missing `rules` key, each with an error naming the file, position and id
+- [x] A clear error when `yaml` isn't installed
+- [x] An empty `rules` list being valid
+- [x] A missing file being an error, not "no rules"
 
 ### T10. Example app and README
 

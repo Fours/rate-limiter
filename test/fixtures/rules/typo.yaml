@@ -1,0 +1,7 @@
+rules:
+  - id: global
+    limit: 100
+    windowMs: 60000
+  - id: orders
+    limt: 10
+    windowMs: 60000

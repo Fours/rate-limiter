@@ -1,0 +1,11 @@
+# Same rules as rules.json and rules.yml.
+rules:
+  - id: global
+    limit: 100
+    windowMs: 60000
+  - id: orders:free
+    limit: 10
+    windowMs: 60000
+    method: POST
+    path: /orders/*
+    tier: free
