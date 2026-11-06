@@ -18,6 +18,16 @@ Milestone 3 compares the five algorithms on added latency, throughput, Redis mem
 - **Results are compared between algorithms, never presented as absolute numbers.** A laptop isn't a production cluster.
 - **CI never compares numbers.** It builds the image and smoke-tests the stack, because shared runners are too noisy for timings to mean anything.
 
+How the numbers are computed, fixed in T2 before any data existed (`bench/analysis.ts`):
+
+- **Records.** Every scenario writes one line per request, `{ client, t, status, e2eMs, limiterMs }`, whatever produced it (k6 or app logs). `t` is the send time in ms.
+- **Peak per window.** For each client, the most allowed requests in any span `[s, s + windowMs)`, and the summary reports the busiest client. The span is half-open, matching the sliding window log's own window `(now − windowMs, now]`, so two requests exactly `windowMs` apart never share one. Overshoot is the peak minus `limit`.
+- **False denials.** A 429 when fewer than `limit` requests were allowed for that client in the trailing window `(t − windowMs, t]`: a denial an exact sliding window would have allowed. It's reported as a share of all requests. The token bucket and the leaky bucket score high on it by design, since they refill gradually or allow no burst, so it measures distance from the exact ideal, not bugs.
+- **Percentiles: nearest rank**, the `ceil(p/100 × n)`-th smallest sample. A p99 is then a latency some request actually saw, with no interpolation.
+- **Throughput.** The busiest whole second, by send time, whose p99 end-to-end time was under 50 ms and whose responses were all 200 or 429. A 429 is the limiter working, not an error.
+- **Medians.** Each metric is the median of its runs, taken separately, so each cell is a real middle value. With an even count, it's the mean of the middle two.
+- **Chart data.** For the run with the median peak, the busiest client's allowed requests over time, each with the count in its trailing window.
+
 ## Alternatives considered
 
 | Option | Why not |
@@ -34,6 +44,10 @@ From milestone 3, T0:
 
 - A probe on Express 5.3.0 showed that `res.json`, `res.send` and `res.end` all send headers through `res.writeHead`, so the header can be set there for every response.
 - `test/integration/bench/app.test.ts` checks that `Server-Timing` is present and well formed on allowed responses and on 429s, and absent with `none` and on `/healthz`. Making the header depend on `next()` alone (so no 429 would get it) fails that test.
+
+From T2:
+
+- `test/bench/analysis.test.ts` pins each definition above with hand-made records, and builds a summary and chart from a fixture directory whose every value was worked out by hand. Breaking each definition fails a test: a closed span, a trailing window that keeps `t − windowMs`, a percentile one rank high, using the first run instead of the median, an SLO that admits exactly 50 ms, and a throughput that ignores errors.
 
 Still to gather: in T5, the numbers this method produces, and whether three runs are enough to keep the medians stable. If the spread between runs is close to the differences between algorithms, that changes this record.
 

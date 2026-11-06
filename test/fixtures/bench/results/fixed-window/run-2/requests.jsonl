@@ -1,0 +1,6 @@
+{"client": "a", "t": 100, "status": 200, "e2eMs": 20, "limiterMs": 2}
+{"client": "a", "t": 200, "status": 200, "e2eMs": 22, "limiterMs": 2}
+{"client": "a", "t": 300, "status": 429, "e2eMs": 21, "limiterMs": 2}
+{"client": "a", "t": 1100, "status": 200, "e2eMs": 23, "limiterMs": 2}
+{"client": "a", "t": 1200, "status": 200, "e2eMs": 60, "limiterMs": 4}
+{"client": "a", "t": 1250, "status": 500, "e2eMs": 5, "limiterMs": 1}

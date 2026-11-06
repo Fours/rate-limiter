@@ -102,7 +102,8 @@ bench/
   rules/              one rules file per scenario
   k6/                 one script per scenario
   memory.ts           Redis memory per key
-  analyse.ts          raw results → summary table and chart data
+  analysis.ts         the definitions: peak per window, false denials, percentiles, medians
+  analyse.ts          raw results → summary table and chart data (npm run bench:analyse)
   run.ts              npm run bench: starts the stack per algorithm, runs k6, saves results
 docker-compose.yml    the stack (docker-compose.test.yml stays as it is, for tests)
 ```
@@ -116,8 +117,8 @@ Do these in order. Each one ends with passing tests.
 | Task | Status | Commit |
 | --- | --- | --- |
 | T0. Benchmark app | Done | 3270a08 |
-| T1. Compose stack | Done | |
-| T2. Analysis script | Not started | |
+| T1. Compose stack | Done | 2c3f7e4 |
+| T2. Analysis script | Done | |
 | T3. k6 scenarios and runner | Not started | |
 | T4. Memory per key | Not started | |
 | T5. Run the benchmarks and decide 0008 | Not started | |
@@ -161,11 +162,21 @@ As built: `bench/stack-check.sh [algorithm ...]` checks the counter by default, 
 
 **Done when** unit tests with hand-made records cover:
 
-- [ ] The maximum allowed in any `windowMs` span: an exact limit, a 2× burst across a boundary, and spans that start between requests
-- [ ] False denials, including none when the limit is respected exactly
-- [ ] Percentiles (p50 and p99) on known samples, using one documented method
-- [ ] The median of three runs
-- [ ] A summary table in Markdown and chart data in JSON, from a small fixture directory
+- [x] The maximum allowed in any `windowMs` span: an exact limit, a 2× burst across a boundary, and spans that start between requests
+- [x] False denials, including none when the limit is respected exactly
+- [x] Percentiles (p50 and p99) on known samples, using one documented method
+- [x] The median of three runs
+- [x] A summary table in Markdown and chart data in JSON, from a small fixture directory
+
+As built: the pure functions are in `bench/analysis.ts`, and `bench/analyse.ts` is the command line (`npm run bench:analyse -- <results-dir>`), which writes `summary.md` and `chart.json` next to the data. The definitions are in [0017](decisions/0017-how-the-benchmarks-measure.md). **T3 writes this layout**, whatever the k6 probe decides:
+
+```
+<results-dir>/setup.json
+<results-dir>/<algorithm>/run-<n>/meta.json       { algorithm, scenario, run, limit, windowMs }
+<results-dir>/<algorithm>/run-<n>/requests.jsonl  one { client, t, status, e2eMs, limiterMs? } per line
+```
+
+All the runs in one directory must share a scenario and rule, or loading fails. The fixture in `test/fixtures/bench/results` makes each median in the fixed-window row come from a different run, so a summary that took one run's numbers would fail. Its `summary.md` and `chart.json` are the expected output, checked by hand. Each of these breaks failed a test: a closed span, a trailing window that keeps `t − windowMs`, a percentile one rank high, the first run instead of the median, an SLO that admits exactly 50 ms, and a throughput that ignores errors.
 
 ### T3. k6 scenarios and runner
 

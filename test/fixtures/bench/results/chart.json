@@ -1,0 +1,50 @@
+{
+  "limit": 2,
+  "windowMs": 1000,
+  "algorithms": [
+    {
+      "algorithm": "none",
+      "run": 1,
+      "peakPerWindow": 3,
+      "client": "c",
+      "series": [
+        {
+          "t": 0,
+          "allowed": 1
+        },
+        {
+          "t": 10,
+          "allowed": 2
+        },
+        {
+          "t": 20,
+          "allowed": 3
+        }
+      ]
+    },
+    {
+      "algorithm": "fixed-window",
+      "run": 3,
+      "peakPerWindow": 3,
+      "client": "a",
+      "series": [
+        {
+          "t": 0,
+          "allowed": 1
+        },
+        {
+          "t": 490,
+          "allowed": 2
+        },
+        {
+          "t": 500,
+          "allowed": 3
+        },
+        {
+          "t": 1200,
+          "allowed": 3
+        }
+      ]
+    }
+  ]
+}

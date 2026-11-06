@@ -1,0 +1,1 @@
+{ "algorithm": "fixed-window", "scenario": "edges", "run": 1, "limit": 2, "windowMs": 1000 }

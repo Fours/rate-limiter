@@ -41,6 +41,7 @@
     "stack:up": "docker compose up -d --build --wait",
     "stack:check": "bench/stack-check.sh",
     "stack:down": "docker compose down -v",
+    "bench:analyse": "node --experimental-strip-types --disable-warning=ExperimentalWarning bench/analyse.ts",
     "example": "npm run build && npm run example:serve",
     "example:serve": "node --experimental-strip-types examples/basic/server.ts"
   },
