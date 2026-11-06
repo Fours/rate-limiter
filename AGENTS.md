@@ -6,6 +6,7 @@ Guidance for coding agents working in this repo.
 
 This is a distributed rate limiter, shipped as a TypeScript middleware package for Express. It's a portfolio project meant to show backend and systems depth. Several app instances share limits through one Redis, with atomic Lua checks, five algorithms behind one interface, benchmarks, and a public design write-up.
 
+- Package: `@kylewillett/rate-limiter`, a public scoped package on npm (`publishConfig.access` is `public`). It isn't published until milestone 5.
 - Full plan: [Distributed rate limiter: project plan](https://claude.ai/artifact/UKY1bPShdNmagt4Tgftk1C)
 - Milestone specs: `docs/milestone-N.md`. **Work only on the current milestone.** Don't build features from later milestones early, but don't block them either.
 

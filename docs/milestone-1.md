@@ -111,6 +111,8 @@ The storage key is `rl:{rule.id}:{clientId}`, for example `rl:orders:free:key_3f
 ### Middleware
 
 ```ts
+import { rateLimit } from '@kylewillett/rate-limiter';
+
 rateLimit({
   rules: Rule[],
   algorithm?: Algorithm,            // default: in-memory token bucket
@@ -139,7 +141,12 @@ Do these in order. Each one ends with passing tests.
 
 ### T0. Scaffold the repo
 
-- `package.json` (ESM, `"engines": { "node": ">=22" }`), `.nvmrc`, `.gitignore`, `LICENSE` (MIT)
+- `package.json` with:
+  - `"name": "@kylewillett/rate-limiter"` and `"version": "0.1.0"`
+  - `"type": "module"` and `"engines": { "node": ">=22" }`
+  - `"publishConfig": { "access": "public" }`, so the scoped package publishes as public
+  - `"files": ["dist"]`, plus `exports` and `types` pointing into `dist/`
+- `.nvmrc`, `.gitignore`, `LICENSE` (MIT)
 - TypeScript strict config, built with `tsc` to `dist/` with type declarations
 - Vitest with coverage, ESLint and Prettier
 - Scripts: `build`, `typecheck`, `lint`, `format`, `test`, `test:watch`, `coverage`
@@ -235,6 +242,5 @@ Do these in order. Each one ends with passing tests.
 
 ## Open questions
 
-- Package name on npm (needed before milestone 5, and nice to have for the README now).
 - Should `RateLimit-Reset` while allowed mean "until full" (as specified here) or "until one more token"? This spec uses "until full" because it matches what clients usually read as "when my quota resets".
 - Should a rule allow a burst size separate from `limit`? This spec says no for now, and treats it as a possible milestone 2 change.
