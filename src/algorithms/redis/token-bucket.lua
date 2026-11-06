@@ -8,7 +8,7 @@ local limit = tonumber(ARGV[1])
 local window = tonumber(ARGV[2])
 
 local now = rl_now(ARGV[3])
-rl_claim(key, 'token-bucket')
+rl_claim(key, 'hash', 'token-bucket')
 
 -- Refill for the time since `last`. `last` only moves forward, so a clock that steps back and
 -- then returns can't refill the same span twice.

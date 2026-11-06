@@ -68,7 +68,7 @@ Why: apps already have a Redis client with their own connection, TLS, auth and r
 - **The high-water mark for time.** Each script stores the latest time it has seen and never goes backwards, so a failover to a replica with a slower clock can't refill the same span twice. This is the same rule as the in-memory token bucket.
 - **Shared prelude.** `src/algorithms/redis/prelude.lua` defines `rl_now` (Redis `TIME` or the test override) and `rl_claim` (the start-fresh check below). `loadScript` puts it in front of each algorithm's file before computing the SHA, so every check is still one script.
 - **Arguments:** `KEYS[1]` is the storage key. `ARGV` holds `limit` and `windowMs`, plus a time override that is empty in production (see "Testing time").
-- **Tag the state.** Every script stores its algorithm name with its state (an `alg` field in a hash). If the key holds another type, or a hash without its own tag, the script deletes it and treats the client as new, so switching algorithms never fails with `WRONGTYPE` ([0016](decisions/0016-switching-algorithms-starts-fresh.md)).
+- **Tag the state.** Every script stores its algorithm name with its state: an `alg` field in a hash, or a member named after the algorithm in a sorted set. If the key holds another type, or a hash without its own tag, the script deletes it and treats the client as new, so switching algorithms never fails with `WRONGTYPE` ([0016](decisions/0016-switching-algorithms-starts-fresh.md)).
 - **Never return `nil` inside the result table.** It silently shortens the reply.
 
 ### Keys and TTLs
@@ -85,7 +85,7 @@ Each one returns a `Decision`, with `resetMs` following [0003](decisions/0003-re
 | Token bucket | hash: `units`, `last` | up to `limit` at once, refilling `limit` per `windowMs` | until full / until one token | until full |
 | Leaky bucket ([0014](decisions/0014-leaky-bucket-as-gcra.md)) | hash: `tat` (theoretical arrival time) | one request per `windowMs / limit`, no burst | until drained / until the next slot | until drained |
 | Fixed window | hash: `window`, `count` | `limit` per window aligned to the epoch, so up to 2× across a boundary | until the window ends / until the window ends | until the window ends |
-| Sliding window log | sorted set of request times | exactly `limit` in any `windowMs` | `windowMs` / until the oldest entry ages out | `windowMs` |
+| Sliding window log | sorted set: one entry per allowed request, plus a tag member | exactly `limit` in any `windowMs` | `windowMs` / until the oldest entry ages out | `windowMs` |
 | Sliding window counter | hash: `window`, `curr`, `prev` | `prev × (remaining share of window) + curr < limit`, an estimate | until both counts have aged out / until the estimate drops below `limit` | until the end of the next window |
 
 Details each script must get right:
@@ -93,7 +93,7 @@ Details each script must get right:
 - **Token bucket:** a port of the milestone 1 maths, unchanged: integer units, the high-water mark, and carrying over whole tokens when a rule's limit changes. The behaviour suite runs against both versions, so they can't drift apart.
 - **Leaky bucket:** the GCRA ("virtual scheduling") form of the leaky bucket. It stores one timestamp, the theoretical arrival time, and admits a request only if it isn't earlier than that time. With no burst allowed, it smooths traffic to a steady rate, which is the point of offering it next to the token bucket. Without that, a leaky bucket used as a meter is the token bucket's maths in reverse, so it wouldn't be worth comparing in milestone 3. `remaining` is 1 when the next slot is open, otherwise 0.
 - **Fixed window:** a window starts at `floor(now / windowMs) × windowMs`. A new window resets the count. Windows are aligned to the epoch on purpose, so the milestone 3 benchmarks can show the 2× burst at a boundary. Once a window has started, it runs to the end it started with: a new `limit` applies at once, but a new `windowMs` applies from the next window, so a rule change mid-window never resets the count.
-- **Sliding window log:** members must be unique even when two requests arrive in the same millisecond. Use the microsecond time from `TIME` plus the set's current size, which is unique because Redis runs scripts one at a time. Only allowed requests are recorded.
+- **Sliding window log:** the window is `(now − windowMs, now]`. Only allowed requests are recorded, as `<now>-<live count>`, which is unique even within one millisecond: each insert raises the count, and an older entry from the same millisecond is still live. (Microseconds from `TIME` wouldn't work, because the test time override has none.) One extra member, `alg:sliding-window-log`, does two jobs: its name is the start-fresh tag a sorted set needs, since it has no fields, and its score is minus the latest time seen, since denied requests leave no entry. Its negative score keeps it out of trimming and counting, which start above 0. When denied, `resetMs` waits for the entry at position `count − limit`, which is the oldest unless the limit shrank. At most `limit` entries plus the tag are stored.
 - **Sliding window counter:** the comparison is done in integer units (`prev × (windowMs − elapsed) + curr × windowMs` against `limit × windowMs`), so there's no float rounding. The denied `resetMs` is the smallest wait after which the estimate allows one more request, and the tests check that exact bound.
 
 ### Testing time ([0007](decisions/0007-redis-server-time.md))
@@ -125,7 +125,7 @@ It checks, for each algorithm:
 
 The first three run with `limit: 1`, with 5 per minute, and with 48 per day, the case where float maths lands on 0.999… tokens.
 
-Every rule in the suite uses `windowMs` of 60 s or more. Redis keys expire in real time even when tests drive time with `FakeClock`, so a short window could expire mid-test and quietly reset the state.
+Every rule in the suite uses `windowMs` of 60 s or more. Redis keys expire in real time even when tests drive time with `FakeClock`, so a short window could expire mid-test and quietly reset the state. A state whose TTL is only a few ms could, in principle, still expire between two checks a few real ms apart. No test has been seen to flake from it (the Redis algorithm tests passed 15 runs in a row during T5), but it's the first thing to suspect if one does.
 
 It runs against the in-memory token bucket and all five Redis algorithms. Redis-only tests also check the TTL on each key and that the key is gone once its state no longer matters.
 
@@ -156,8 +156,8 @@ Do these in order. Each one ends with passing tests.
 | T1. Redis client interface and script runner | Done | bc55049 |
 | T2. Behaviour suite | Done | a8eac76 |
 | T3. Redis token bucket | Done | 9923d18 |
-| T4. Fixed window | Done | |
-| T5. Sliding window log | Not started | |
+| T4. Fixed window | Done | 02d146a |
+| T5. Sliding window log | Done | |
 | T6. Sliding window counter | Not started | |
 | T7. Leaky bucket | Not started | |
 | T8. Distributed correctness | Not started | |
@@ -226,9 +226,11 @@ As built: a TypeScript reference model in the test file must match the script st
 
 **T5. Sliding window log**
 
-- [ ] The behaviour suite passes, with its documented traits.
-- [ ] Being exact across a boundary, and two requests in the same millisecond both counting
-- [ ] Its TTL is checked.
+- [x] The behaviour suite passes, with `burst = limit` and `maxPerWindow = limit`.
+- [x] Being exact across a boundary, and two requests in the same millisecond both counting
+- [x] The TTL is when the newest entry ages out, and expiry loses nothing.
+
+As built: a reference model matches the script step for step; a burst across a minute boundary gets 3 through the log and 6 through the fixed window; after the limit shrinks, a denial waits for the right entry rather than the oldest; and 103 requests never store more than `limit` entries plus the tag. Of the deliberate breaks, only one went unnoticed: trimming off by one at the boundary. That's because counting enforces the same boundary, so the break leaves one dead entry in memory for one check and never changes a decision. Breaking the boundary in both places fails ten tests.
 
 **T6. Sliding window counter**
 

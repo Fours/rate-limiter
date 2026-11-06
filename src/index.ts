@@ -12,4 +12,5 @@ export { fromIoredis, fromNodeRedis } from './redis/client.js';
 export type { IoredisLike, NodeRedisLike, RedisScriptClient } from './redis/client.js';
 export { createRedisTokenBucket } from './algorithms/redis/token-bucket.js';
 export { createRedisFixedWindow } from './algorithms/redis/fixed-window.js';
+export { createRedisSlidingWindowLog } from './algorithms/redis/sliding-window-log.js';
 export type { RedisAlgorithmOptions } from './algorithms/redis/factory.js';

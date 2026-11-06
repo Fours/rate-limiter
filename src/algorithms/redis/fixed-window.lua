@@ -8,7 +8,7 @@ local limit = tonumber(ARGV[1])
 local window = tonumber(ARGV[2])
 
 local now = rl_now(ARGV[3])
-rl_claim(key, 'fixed-window')
+rl_claim(key, 'hash', 'fixed-window')
 
 local stored = redis.call('HMGET', key, 'start', 'end', 'count', 'last')
 local window_start, window_end, count

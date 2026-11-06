@@ -19,11 +19,23 @@ local function rl_now(override)
 end
 
 -- State another algorithm left under this key, after the app switched algorithms, would fail
--- with WRONGTYPE or be misread. Delete it so the client starts fresh (decision 0016). Hash
--- state is tagged with its algorithm in an `alg` field.
-local function rl_claim(key, tag)
-  local kind = redis.call('TYPE', key).ok
-  if kind ~= 'none' and (kind ~= 'hash' or redis.call('HGET', key, 'alg') ~= tag) then
+-- with WRONGTYPE or be misread. Delete it so the client starts fresh (decision 0016).
+-- `kind` is the Redis type this algorithm stores. A hash is tagged with an `alg` field; a sorted
+-- set, which has no fields, is tagged with a member named `tag`.
+local function rl_claim(key, kind, tag)
+  local actual = redis.call('TYPE', key).ok
+  if actual == 'none' then
+    return
+  end
+  local ours
+  if actual ~= kind then
+    ours = false
+  elseif kind == 'hash' then
+    ours = redis.call('HGET', key, 'alg') == tag
+  else
+    ours = redis.call('ZSCORE', key, tag) ~= false
+  end
+  if not ours then
     redis.call('DEL', key)
   end
 end
