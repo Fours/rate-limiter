@@ -71,10 +71,12 @@ docs/                   milestone specs and design notes
 
 ## Tests
 
-- Use `FakeClock` for anything time-based. Never use real sleeps or timers in tests.
+- Use `FakeClock` for anything time-based. Never use real sleeps or timers in tests. Vitest fake timers are fine for code that schedules work, such as the sweep interval: fake only `setInterval` and `clearInterval`, so `FakeClock` still controls time.
 - Test middleware through supertest against a real Express app.
 - Every behaviour listed in a milestone spec's "Done when" needs a test.
 - Keep line coverage on `src/` at 90% or higher.
+- Prove that the important tests can fail. After a task's tests pass, temporarily break each key behaviour, such as a fix to the spec or a guard against bypassing a limit. Check that a test fails, then restore the code, and say in the commit message what you broke. Coverage shows that code ran, not that a test would notice it being wrong.
+- Check library behaviour instead of assuming it. Before you design around how Express, Redis or Node behaves, run a quick probe against the installed version, for example a throwaway Express app that logs `req.baseUrl` and `req.path`. Then turn what you find into a test against the real library. Decision 0011 came from a probe like this.
 
 ## Style
 
