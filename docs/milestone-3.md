@@ -119,8 +119,8 @@ Do these in order. Each one ends with passing tests.
 | T0. Benchmark app | Done | 3270a08 |
 | T1. Compose stack | Done | 2c3f7e4 |
 | T2. Analysis script | Done | 5d62967 |
-| T3. k6 scenarios and runner | Done | |
-| T4. Memory per key | Not started | |
+| T3. k6 scenarios and runner | Done | eb16f6d |
+| T4. Memory per key | Done | |
 | T5. Run the benchmarks and decide 0008 | Not started | |
 | T6. Token pre-fetching measurements | Not started | |
 | T7. CI smoke test and README | Not started | |
@@ -207,8 +207,15 @@ As built:
 
 **Done when:**
 
-- [ ] For each algorithm and each of the limits 10, 100 and 1,000 per minute, it fills one key to its limit and reports `MEMORY USAGE`, written to `docs/decisions/data/` with its setup
-- [ ] A test checks that the sliding window log's memory grows with the limit and the counter's doesn't. That's the expected shape, and a quick check that the measurement measures something.
+- [x] For each algorithm and each of the limits 10, 100 and 1,000 per minute, it fills one key to its limit and reports `MEMORY USAGE`, written to `docs/decisions/data/` with its setup
+- [x] A test checks that the sliding window log's memory grows with the limit and the counter's doesn't. That's the expected shape, and a quick check that the measurement measures something.
+
+As built: `npm run bench:memory` builds, then measures against the test Redis (7.4.12, the same version as the stack's), and writes `memory.json`, `memory.md` and `setup.json` to [data/0008-memory-2026-11-06](decisions/data/0008-memory-2026-11-06/). The numbers are in [0008](decisions/0008-sliding-window-accuracy-vs-cost.md)'s Evidence. Its Decision and status wait for T5.
+
+- **Two limits beyond the spec's**, 127 and 128, sit either side of the point where Redis stops storing a sorted set compactly. The log holds one entry per allowed request plus its tag member, so it crosses 128 entries at a limit of 128, not 129 as first assumed. That one entry takes it from 4,176 to 15,328 bytes. At 1,000 per minute it's 102,944 bytes, against 192 for the counter at any limit.
+- **Every key is 35 bytes long**, like the README's example key, because `MEMORY USAGE` counts the key's name. The first run used long unique ids, which added 40 bytes to every cell.
+- **`SAMPLES 0`** counts every entry. `SAMPLES 1` gave the same numbers at these sizes, so no test can tell them apart. It stays at 0 because it's exact by definition.
+- **Breaking it on purpose:** each of these failed the test: filling the key only once, reading a different key, and never deleting keys. The test for leftover keys first matched an old key pattern, so it would have passed whatever happened. It now matches the keys the script actually writes.
 
 ### T5. Run the benchmarks and decide 0008
 

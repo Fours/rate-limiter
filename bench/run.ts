@@ -13,18 +13,18 @@
 //
 // For each run it recreates the whole stack, so every run starts with an empty Redis, then runs
 // k6 in Docker on the stack's network. See docs/milestone-3.md and decision 0017.
-import { execFileSync, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { createWriteStream } from 'node:fs';
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import { join, relative, resolve } from 'node:path';
+import { baseSetup, ROOT, sh } from './setup.ts';
 import { parseArgs } from 'node:util';
 import { parse as parseYaml } from 'yaml';
 import { analyseDir } from './analyse.ts';
 import type { RunMeta } from './analysis.ts';
 import { parseConsoleLog, resultsDirName } from './records.ts';
 
-const ROOT = resolve(import.meta.dirname, '..');
 const K6_IMAGE = 'grafana/k6:2.3.0';
 const APP_IMAGE = 'rate-limiter-bench:stack';
 const NETWORK = 'rate-limiter-stack_default';
@@ -202,25 +202,13 @@ function sampleDockerStats(file: string): { kill(): void } {
   };
 }
 
-/** Everything needed to rerun or judge the numbers. Leaves out the hostname, which can identify you. */
+/** Everything needed to rerun or judge the numbers: the shared parts, plus the stack's. */
 function setup(): Record<string, unknown> {
-  const cpus = os.cpus();
   const [dockerCpus, dockerMem] = sh('docker', ['info', '--format', '{{.NCPU}} {{.MemTotal}}'])
     .trim()
     .split(' ');
   return {
-    date: new Date().toISOString(),
-    command: `npm run bench -- ${process.argv.slice(2).join(' ')}`.trim(),
-    git: {
-      commit: sh('git', ['rev-parse', 'HEAD']).trim(),
-      uncommittedChanges: sh('git', ['status', '--porcelain']).trim() !== '',
-    },
-    host: {
-      os: `${os.type()} ${os.release()} ${os.arch()}`,
-      cpu: cpus[0]?.model ?? 'unknown',
-      cores: cpus.length,
-      memoryGiB: Math.round(os.totalmem() / 2 ** 30),
-    },
+    ...baseSetup(`npm run bench -- ${process.argv.slice(2).join(' ')}`.trim()),
     docker: {
       version: sh('docker', ['version', '--format', '{{.Server.Version}}']).trim(),
       cpus: Number(dockerCpus),
@@ -235,15 +223,4 @@ function setup(): Record<string, unknown> {
     },
     stack: { instances: 3, nginxWorkers: 1 },
   };
-}
-
-/** Runs a command from the repo root and returns its stdout. Its stderr goes to the terminal. */
-function sh(cmd: string, args: string[], env: Record<string, string> = {}): string {
-  return execFileSync(cmd, args, {
-    cwd: ROOT,
-    env: { ...process.env, ...env },
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'inherit'],
-    maxBuffer: 256 * 1024 * 1024,
-  });
 }

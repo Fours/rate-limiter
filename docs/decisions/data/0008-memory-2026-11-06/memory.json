@@ -1,0 +1,152 @@
+[
+  {
+    "algorithm": "token-bucket",
+    "limit": 10,
+    "bytes": 160,
+    "encoding": "listpack"
+  },
+  {
+    "algorithm": "token-bucket",
+    "limit": 100,
+    "bytes": 160,
+    "encoding": "listpack"
+  },
+  {
+    "algorithm": "token-bucket",
+    "limit": 127,
+    "bytes": 160,
+    "encoding": "listpack"
+  },
+  {
+    "algorithm": "token-bucket",
+    "limit": 128,
+    "bytes": 160,
+    "encoding": "listpack"
+  },
+  {
+    "algorithm": "token-bucket",
+    "limit": 1000,
+    "bytes": 160,
+    "encoding": "listpack"
+  },
+  {
+    "algorithm": "leaky-bucket",
+    "limit": 10,
+    "bytes": 176,
+    "encoding": "listpack"
+  },
+  {
+    "algorithm": "leaky-bucket",
+    "limit": 100,
+    "bytes": 176,
+    "encoding": "listpack"
+  },
+  {
+    "algorithm": "leaky-bucket",
+    "limit": 127,
+    "bytes": 176,
+    "encoding": "listpack"
+  },
+  {
+    "algorithm": "leaky-bucket",
+    "limit": 128,
+    "bytes": 176,
+    "encoding": "listpack"
+  },
+  {
+    "algorithm": "leaky-bucket",
+    "limit": 1000,
+    "bytes": 176,
+    "encoding": "listpack"
+  },
+  {
+    "algorithm": "fixed-window",
+    "limit": 10,
+    "bytes": 176,
+    "encoding": "listpack"
+  },
+  {
+    "algorithm": "fixed-window",
+    "limit": 100,
+    "bytes": 176,
+    "encoding": "listpack"
+  },
+  {
+    "algorithm": "fixed-window",
+    "limit": 127,
+    "bytes": 176,
+    "encoding": "listpack"
+  },
+  {
+    "algorithm": "fixed-window",
+    "limit": 128,
+    "bytes": 176,
+    "encoding": "listpack"
+  },
+  {
+    "algorithm": "fixed-window",
+    "limit": 1000,
+    "bytes": 176,
+    "encoding": "listpack"
+  },
+  {
+    "algorithm": "sliding-window-log",
+    "limit": 10,
+    "bytes": 400,
+    "encoding": "listpack"
+  },
+  {
+    "algorithm": "sliding-window-log",
+    "limit": 100,
+    "bytes": 3152,
+    "encoding": "listpack"
+  },
+  {
+    "algorithm": "sliding-window-log",
+    "limit": 127,
+    "bytes": 4176,
+    "encoding": "listpack"
+  },
+  {
+    "algorithm": "sliding-window-log",
+    "limit": 128,
+    "bytes": 15328,
+    "encoding": "skiplist"
+  },
+  {
+    "algorithm": "sliding-window-log",
+    "limit": 1000,
+    "bytes": 102944,
+    "encoding": "skiplist"
+  },
+  {
+    "algorithm": "sliding-window-counter",
+    "limit": 10,
+    "bytes": 192,
+    "encoding": "listpack"
+  },
+  {
+    "algorithm": "sliding-window-counter",
+    "limit": 100,
+    "bytes": 192,
+    "encoding": "listpack"
+  },
+  {
+    "algorithm": "sliding-window-counter",
+    "limit": 127,
+    "bytes": 192,
+    "encoding": "listpack"
+  },
+  {
+    "algorithm": "sliding-window-counter",
+    "limit": 128,
+    "bytes": 192,
+    "encoding": "listpack"
+  },
+  {
+    "algorithm": "sliding-window-counter",
+    "limit": 1000,
+    "bytes": 192,
+    "encoding": "listpack"
+  }
+]

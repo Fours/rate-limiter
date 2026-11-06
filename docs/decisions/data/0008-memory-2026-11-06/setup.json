@@ -1,0 +1,28 @@
+{
+  "date": "2026-11-06T23:33:51.070Z",
+  "command": "npm run bench:memory",
+  "git": {
+    "commit": "eb16f6df9ce48ed8eb9e1850e0c2d2a95359eae3",
+    "uncommittedChanges": true
+  },
+  "host": {
+    "os": "Darwin 25.4.0 arm64",
+    "cpu": "Apple M5 Pro",
+    "cores": 18,
+    "memoryGiB": 24
+  },
+  "versions": {
+    "node": "v25.8.2",
+    "redis": "7.4.12"
+  },
+  "redisConfig": {
+    "set-max-listpack-entries": "128",
+    "zset-max-listpack-value": "64",
+    "set-max-listpack-value": "64",
+    "hash-max-listpack-value": "64",
+    "zset-max-listpack-entries": "128",
+    "list-max-listpack-size": "-2",
+    "hash-max-listpack-entries": "512"
+  },
+  "method": "limit checks on one new 35-byte key per cell, then MEMORY USAGE key SAMPLES 0; windowMs 60000"
+}
