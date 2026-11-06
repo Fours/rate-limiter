@@ -141,8 +141,8 @@ Do these in order. Each one ends with passing tests.
 
 | Task | Status | Commit |
 | --- | --- | --- |
-| T0. Scaffold the repo | Done | |
-| T1. Core types and clock | Not started | |
+| T0. Scaffold the repo | Done | 02263ad |
+| T1. Core types and clock | Done | |
 | T2. In-memory token bucket | Not started | |
 | T3. Rule matching | Not started | |
 | T4. Client identification and key building | Not started | |
