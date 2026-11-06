@@ -103,16 +103,26 @@ Redis scripts can't use `FakeClock`, and AGENTS.md bans real sleeps in tests. An
 
 ### Behaviour suite
 
-`test/contract/algorithm-contract.ts` exports `describeAlgorithm(name, factory, traits)`, a set of tests any `Algorithm` must pass. The factory returns an algorithm and a `FakeClock` that drives it. `traits` records the documented differences, such as burst size (`limit`, or 1 for the leaky bucket) and whether the algorithm is exact.
+`test/contract/algorithm-contract.ts` exports `describeAlgorithm(name, setup, traits)`, a set of tests any `Algorithm` must pass. `setup` returns an algorithm, the `FakeClock` that drives it and an optional `close`, fresh for each test. `traits` records the documented differences:
+
+- `burst(rule)`: how many requests a new key allows at once. That's `limit`, or 1 for the leaky bucket.
+- `maxPerWindow(rule)`: the most requests any `windowMs`-wide span may allow under traffic faster than the limit. That's `limit` for the leaky bucket and the sliding window log, `2 × limit − 1` for the token bucket (a full burst plus what refills during the rest of the window), and `2 × limit` for fixed window and the sliding window counter.
 
 It checks, for each algorithm:
 
-- A new key allows exactly its burst size, then denies.
-- After a denial, waiting `resetMs` allows the next request, and waiting `resetMs − 1` doesn't (for exact algorithms).
+- A new key allows exactly its burst size, with `remaining` counting down to 0, then denies.
+- After a denial, waiting `resetMs` allows the next request, and waiting `resetMs − 1` doesn't. This holds for all five, since each computes the smallest correct wait.
+- After an allowed request, waiting its `resetMs` gives back a full burst, which is what [0003](decisions/0003-reset-semantics.md) means by "fully restored".
+- Denied requests are free: repeated denials return the same decision, and don't push back the next allowed time. Only allowed requests count, in every algorithm.
 - `remaining` and `resetMs` are whole numbers and never negative.
-- Separate keys and separate rules don't affect each other.
-- A clock that goes backwards doesn't add capacity.
-- Under steady traffic, no `windowMs` span allows more than the algorithm's documented maximum (`limit` for the exact ones, and the documented overshoot for fixed window and sliding window counter).
+- Separate clients and separate rules don't affect each other.
+- A clock that goes backwards, and then returns, doesn't add capacity.
+- Under traffic four times faster than the limit for five windows, no `windowMs` span allows more than `maxPerWindow`, and the busiest span reaches at least `limit`.
+- When a rule shrinks under the same key, no more than the new burst is allowed.
+
+The first three run with `limit: 1`, with 5 per minute, and with 48 per day, the case where float maths lands on 0.999… tokens.
+
+Every rule in the suite uses `windowMs` of 60 s or more. Redis keys expire in real time even when tests drive time with `FakeClock`, so a short window could expire mid-test and quietly reset the state.
 
 It runs against the in-memory token bucket and all five Redis algorithms. Redis-only tests also check the TTL on each key and that the key is gone once its state no longer matters.
 
@@ -140,8 +150,8 @@ Do these in order. Each one ends with passing tests.
 | Task | Status | Commit |
 | --- | --- | --- |
 | T0. Redis test setup | Done | c015cdd |
-| T1. Redis client interface and script runner | Done | |
-| T2. Behaviour suite | Not started | |
+| T1. Redis client interface and script runner | Done | bc55049 |
+| T2. Behaviour suite | Done | |
 | T3. Redis token bucket | Not started | |
 | T4. Fixed window | Not started | |
 | T5. Sliding window log | Not started | |
@@ -181,6 +191,8 @@ As built: the adapters check their client when created, so passing the `node-red
 `test/contract/algorithm-contract.ts` as described above, run against the in-memory token bucket.
 
 **Done when:** the in-memory token bucket passes, and breaking it (for example, allowing one extra request) makes the suite fail.
+
+As built: six breaks to the in-memory bucket were each caught by the property aimed at them: one extra request, a denied `resetMs` 1 ms short, an allowed `resetMs` 1 ms short, charging denied requests, no protection against a backwards clock, and a doubled refill rate.
 
 ### T3. Redis token bucket
 
