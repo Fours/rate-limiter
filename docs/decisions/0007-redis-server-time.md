@@ -10,7 +10,9 @@ Time-based algorithms compare "now" with stored timestamps. If each app instance
 
 ## Decision
 
-Scripts read `redis.call('TIME')` for the current time. App code never sends a timestamp. In-memory algorithms take an injected `Clock`.
+Scripts read `redis.call('TIME')` for the current time. In-memory algorithms take an injected `Clock`.
+
+Production code never sends a timestamp. Each script does take an optional time override as its last argument, so tests can drive Redis scripts with `FakeClock`. Only an internal factory, `createRedisAlgorithm(script, { client, clock })`, can set it. It isn't exported from `src/index.ts`, and the public factories always send the override empty.
 
 ## Alternatives considered
 
@@ -18,6 +20,8 @@ Scripts read `redis.call('TIME')` for the current time. App code never sends a t
 | --- | --- |
 | The app sends `Date.now()` | Clock skew between instances changes the limit |
 | Trusting NTP to keep app clocks in step | Reduces skew but doesn't remove it, and the limiter can't check it |
+| No override: tests control time through small windows and real waits | Slow and flaky, and AGENTS.md bans real sleeps in tests |
+| A `clock` option on the public factories | Lets production code opt back into app time by accident |
 
 ## Evidence
 
@@ -25,4 +29,6 @@ To gather in milestone 2: a test where instances report clocks that are off by Â
 
 ## Consequences
 
-Older Redis versions need script effects replication when scripts call `TIME`. Redis 7 does this by default. Tests of Redis algorithms can't use the fake clock, so they control time through the window sizes instead.
+Older Redis versions need script effects replication when scripts call `TIME`. Redis 7 does this by default, and a probe on Redis 7.4 confirmed that a script can read `TIME` and then write. Redis 7 or later is required.
+
+The override is a path in every script that production never takes, so one test must run without it and show the scripts really use `TIME`. The skew test above does that. The internal factory has to stay out of the public API, which the milestone 2 Definition of done checks.

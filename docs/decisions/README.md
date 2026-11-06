@@ -30,3 +30,6 @@ When you change a decision, update its record in the same commit as the code.
 | [0010](0010-fail-open-with-local-fallback.md) | Fail open with a local fallback when Redis is down | Proposed | 4 |
 | [0011](0011-match-paths-like-express.md) | Match paths and methods the way Express routes them | Accepted | 1 |
 | [0012](0012-rate-limit-header-format.md) | Three `RateLimit-*` headers in seconds from now, `Retry-After` at least 1 | Accepted | 1 |
+| [0013](0013-bring-your-own-redis-client.md) | The caller brings their own Redis client | Proposed | 2 |
+| [0014](0014-leaky-bucket-as-gcra.md) | The leaky bucket is a burst-free GCRA | Proposed | 2 |
+| [0015](0015-rules-files.md) | Rules files: one shape, strict fields, optional YAML | Proposed | 2 |
