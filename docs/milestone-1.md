@@ -160,8 +160,8 @@ Do these in order. Each one ends with passing tests.
 | T3. Rule matching | Done | 0d230a2 |
 | T4. Client identification and key building | Done | fbdc8fc |
 | T5. Header helper | Done | 3bbb20d |
-| T6. Express middleware | Done | |
-| T7. Example app and README | Not started | |
+| T6. Express middleware | Done | 897d45f |
+| T7. Example app and README | Done | |
 
 ### T0. Scaffold the repo
 
@@ -260,11 +260,11 @@ Do these in order. Each one ends with passing tests.
 
 ## Definition of done
 
-- [ ] T0 to T7 are complete.
+- [x] T0 to T7 are complete.
 - [ ] `npm run lint`, `typecheck`, `test` and `build` all pass, locally and in CI.
-- [ ] Line coverage is at least 90% for `src/`.
-- [ ] No runtime dependencies other than the Express peer dependency.
-- [ ] The public API is exported only from `src/index.ts`.
+- [x] Line coverage is at least 90% for `src/`.
+- [x] No runtime dependencies other than the Express peer dependency.
+- [x] The public API is exported only from `src/index.ts`.
 
 ## Decision records
 

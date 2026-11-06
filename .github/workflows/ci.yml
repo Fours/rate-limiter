@@ -21,3 +21,11 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      # Runs the demo for real on each Node version, not just typechecks it.
+      - name: Run the example
+        timeout-minutes: 1
+        run: |
+          node --experimental-strip-types examples/basic/server.ts &
+          until curl -s -o /dev/null http://localhost:3000/; do sleep 0.2; done
+          examples/basic/hammer.sh 12 | tee hammer.txt
+          grep -Eq '^[0-9]+ +429 ' hammer.txt

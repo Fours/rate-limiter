@@ -15,7 +15,9 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "types": ["node"],
-    "noEmit": true
+    "noEmit": true,
+    // Lets examples import the package by name before dist/ is built, as CI typechecks first.
+    "paths": { "@kylewillett/rate-limiter": ["./src/index.ts"] }
   },
-  "include": ["src", "test", "*.config.ts"]
+  "include": ["src", "test", "examples", "*.config.ts"]
 }
