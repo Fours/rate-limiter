@@ -23,8 +23,8 @@ When you change a decision, update its record in the same commit as the code.
 | [0003](0003-reset-semantics.md) | What `resetMs` means when allowed vs denied | Accepted | 1 |
 | [0004](0004-limit-in-app-middleware.md) | Limit in app middleware, not at the load balancer | Accepted | 1 |
 | [0005](0005-metrics-through-hooks.md) | Metrics through hooks, not a `prom-client` dependency | Accepted | 1, 4 |
-| [0006](0006-atomic-lua-checks.md) | Each check is one Lua script via `EVALSHA` | Proposed | 2 |
-| [0007](0007-redis-server-time.md) | Use Redis `TIME` inside scripts, not app time | Proposed | 2 |
+| [0006](0006-atomic-lua-checks.md) | Each check is one Lua script via `EVALSHA` | Accepted | 2 |
+| [0007](0007-redis-server-time.md) | Use Redis `TIME` inside scripts, not app time | Accepted | 2 |
 | [0008](0008-sliding-window-accuracy-vs-cost.md) | Sliding window log vs counter: accuracy vs cost | Proposed | 3 |
 | [0009](0009-latency-budget-prefetch.md) | Local token pre-fetching to cut Redis round trips | Proposed | 3, 4 |
 | [0010](0010-fail-open-with-local-fallback.md) | Fail open with a local fallback when Redis is down | Proposed | 4 |

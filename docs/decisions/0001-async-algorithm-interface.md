@@ -23,6 +23,8 @@ Every algorithm implements `check(key, rule): Promise<Decision>`, where `Decisio
 
 The middleware tests in milestone 1 run against the in-memory algorithm. In milestone 2, the same tests should pass against every Redis algorithm without changes to `src/middleware.ts`.
 
+**Milestone 2 (added 2026-11-06, decision unchanged):** `test/contract/middleware-contract.ts` holds the milestone 1 middleware behaviours in a form any algorithm can run: headers are checked against the algorithm's own decision, and counts against its burst. It passes for the in-memory token bucket (`test/middleware.contract.test.ts`) and all five Redis algorithms (`test/integration/middleware.test.ts`), with `src/middleware.ts` unchanged since milestone 1. Taking the `Reset` header from the rule instead of the decision fails it.
+
 ## Consequences
 
 The in-memory path pays for one microtask per check, which is negligible next to an HTTP request. The milestone 3 benchmarks can swap algorithms by changing one line.

@@ -165,8 +165,8 @@ Do these in order. Each one ends with passing tests.
 | T4. Fixed window | Done | 02d146a |
 | T5. Sliding window log | Done | 65c52c6 |
 | T6. Sliding window counter | Done | 44f6c56 |
-| T7. Leaky bucket | Done | |
-| T8. Distributed correctness | Not started | |
+| T7. Leaky bucket | Done | e85c602 |
+| T8. Distributed correctness | Done | |
 | T9. Rules from files | Not started | |
 | T10. Example app and README | Not started | |
 
@@ -258,11 +258,13 @@ As built: a reference model that keeps the TAT as one exact fraction (a `BigInt`
 
 **Done when** tests cover:
 
-- [ ] 200 concurrent checks over 4 separate connections against `limit: 50` allowing exactly 50, for every algorithm except fixed window at a boundary, which allows at most its documented maximum
-- [ ] A deliberately naive `GET`-then-`SET` token bucket in the test suite overshooting under the same load. This and the test above become the evidence for [0006](decisions/0006-atomic-lua-checks.md), and its status moves to Accepted.
-- [ ] Two "instances" with app clocks set ±2 s apart giving the same decisions with Redis time, and different decisions through the internal app-time option. This becomes the evidence for [0007](decisions/0007-redis-server-time.md), and its status moves to Accepted.
-- [ ] The milestone 1 middleware tests passing against every Redis algorithm, with no change to `src/middleware.ts`. This is the evidence promised in [0001](decisions/0001-async-algorithm-interface.md).
-- [ ] Two Express apps sharing one Redis limiting the same client together
+- [x] 200 concurrent checks over 4 separate connections against `limit: 50` allowing exactly each algorithm's burst: 50, or 1 for the leaky bucket, which has no burst by design. A window of 10^12 ms keeps any fixed-window boundary out of the test, so the fixed window is held to exactly 50 too.
+- [x] A deliberately naive `GET`-then-`SET` token bucket in the test suite overshooting under the same load. This and the test above become the evidence for [0006](decisions/0006-atomic-lua-checks.md), and its status moves to Accepted.
+- [x] Two "instances" with app clocks set ±2 s apart giving the same decisions with Redis time, and different decisions through the internal app-time option. This becomes the evidence for [0007](decisions/0007-redis-server-time.md), and its status moves to Accepted.
+- [x] The milestone 1 middleware tests passing against every Redis algorithm, with no change to `src/middleware.ts`. This is the evidence promised in [0001](decisions/0001-async-algorithm-interface.md).
+- [x] Two Express apps sharing one Redis limiting the same client together
+
+As built: everything is in `test/integration/distributed.test.ts`, except the middleware suite, which is `test/contract/middleware-contract.ts`, run against the in-memory bucket and all five Redis algorithms. The four connections are two `ioredis` and two `node-redis`. A probe beforehand ran the Lua token bucket and the naive version 10 times each: 50 allowed every time against 200 every time. The skew test uses 1 per 2 s, so the ±2 s instances are two whole windows apart, which fools all five algorithms under app time. The middleware suite checks headers against each algorithm's own decision rather than the token bucket's numbers, and [0001](decisions/0001-async-algorithm-interface.md) gained a dated line recording this, with its decision unchanged.
 
 ### T9. Rules from files
 

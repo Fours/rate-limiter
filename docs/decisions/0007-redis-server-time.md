@@ -1,6 +1,6 @@
 # 0007. Use Redis `TIME` inside scripts, not app time
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-06
 - **Milestone:** 2
 
@@ -25,7 +25,13 @@ Production code never sends a timestamp. Each script does take an optional time 
 
 ## Evidence
 
-To gather in milestone 2: a test where instances report clocks that are off by ±2 s gives the same decisions when using Redis time, and different decisions when using app time.
+`test/integration/distributed.test.ts`, for each of the five algorithms, with a rule of 1 per 2 s and two instances whose app clocks are 2 s behind and 2 s ahead:
+
+- **With app time** (the internal `ForTest` factories, given the skewed clocks), instance A takes the one request, and instance B, a moment later in real time, is **allowed** too: its clock says 4 s have passed. This is the failure this decision prevents, and it happens for all five.
+- **With Redis time** (the public factories), B is **denied**, for all five. Node's own clock is moved ±2 s around each instance's call with Vitest fake timers on `Date` only, so if a public factory ever read app time, this would fail. Making the public token bucket pass `Date.now()` as its clock fails it.
+- A real 2 s window boundary can fall between the two calls in a fraction of a percent of runs, which legitimately lets a fixed window allow B. The test reads Redis `TIME` before and after, and retries with a fresh key if a boundary was crossed.
+
+The behaviour suites for every Redis algorithm run through the test-only override, and each algorithm also has a test through its public factory, so both paths are covered.
 
 ## Consequences
 

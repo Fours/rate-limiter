@@ -1,6 +1,6 @@
 # 0006. Each check is one Lua script via `EVALSHA`
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-06
 - **Milestone:** 2
 
@@ -23,7 +23,17 @@ Each algorithm's check is a single Lua script. The script is loaded once with `S
 
 ## Evidence
 
-To gather in milestone 2: a test with N concurrent clients across several connections against a limit of L, which must allow exactly L. Run it against a naive `GET`/`SET` version too, to show the overshoot.
+`test/integration/distributed.test.ts` sends 200 concurrent checks over 4 separate connections (two through `ioredis`, two through `node-redis`) against a rule of 50 per 10^12 ms, using the public factories and Redis `TIME`:
+
+| Implementation | Allowed |
+| --- | --- |
+| Token bucket, fixed window, sliding window log, sliding window counter (Lua) | exactly 50 |
+| Leaky bucket (Lua, no burst by design, [0014](0014-leaky-bucket-as-gcra.md)) | exactly 1 |
+| Naive token bucket in the test file: read in one round trip, write in the next | over 50 (asserted) |
+
+Before writing the test, a probe ran the Lua token bucket and the naive version 10 times each under the same load: the Lua script allowed 50 every time, and the naive version allowed **200 every time**, because every read landed before any write. Setup: Apple M5 Pro, Node 25.8.2, Redis 7.4.12 in Docker (`redis:7-alpine`), run with `npm run test:integration`. CI runs the same test on Node 22 and 24 against a `redis:7-alpine` service.
+
+Each algorithm also passes the behaviour suite, a reference model step for step, and the milestone 1 middleware tests (see [0001](0001-async-algorithm-interface.md)).
 
 ## Consequences
 
