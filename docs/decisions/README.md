@@ -28,3 +28,4 @@ When you change a decision, update its record in the same commit as the code.
 | [0008](0008-sliding-window-accuracy-vs-cost.md) | Sliding window log vs counter: accuracy vs cost | Proposed | 3 |
 | [0009](0009-latency-budget-prefetch.md) | Local token pre-fetching to cut Redis round trips | Proposed | 3, 4 |
 | [0010](0010-fail-open-with-local-fallback.md) | Fail open with a local fallback when Redis is down | Proposed | 4 |
+| [0011](0011-match-paths-like-express.md) | Match paths and methods the way Express routes them | Accepted | 1 |

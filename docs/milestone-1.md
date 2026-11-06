@@ -79,11 +79,12 @@ export interface Clock {
 
 ### Rule matching
 
-A rule matches when every field it sets matches the request:
+A rule matches when every field it sets matches the request. Paths and methods match the way Express routes them, so a client can't get past a rule by changing case, adding a slash or sending HEAD ([0011](decisions/0011-match-paths-like-express.md)):
 
-- `method` is compared case-insensitively.
-- `tier` comes from `opts.tier(req)`.
-- `path` is checked against the request path without the query string (`req.baseUrl + req.path`).
+- `method` is compared case-insensitively. A `HEAD` request also matches a `GET` rule, because Express runs GET handlers for HEAD.
+- `tier` comes from `opts.tier(req)` and is compared exactly.
+- `path` is checked against the request path without the query string (`req.baseUrl + req.path`). Both sides are lower-cased, and one trailing slash is removed unless the path is `/`. A router's root (`/api` + `/`) therefore matches `/api`.
+- A wildcard `/orders/*` matches `/orders` itself and anything under `/orders/`, but not `/ordersXYZ`. `/*` matches every path.
 
 When several rules match, the most specific one wins, in this order:
 
@@ -94,7 +95,14 @@ When several rules match, the most specific one wins, in this order:
 
 No match means the request is not limited. `next()` runs and no headers are set.
 
-Rules are checked once, when the middleware is created: ids must be unique, `limit` and `windowMs` must be positive integers with `limit * windowMs <= Number.MAX_SAFE_INTEGER` (the token bucket counts in exact integer units), and `path` must be either exact or end in `/*`. Invalid rules throw at startup, never at request time.
+Rules are checked once, when the middleware is created. Types are checked at runtime too, because milestone 2 loads rules from YAML or JSON:
+
+- `id` is a non-empty string, unique across rules.
+- `limit` and `windowMs` are positive integers, with `limit * windowMs <= Number.MAX_SAFE_INTEGER` (the token bucket counts in exact integer units).
+- `path`, if set, starts with `/`, has no `?` or `#`, and is either exact or ends in `/*` with no other `*`.
+- `method`, if set, is letters only. `tier`, if set, is a non-empty string.
+
+Invalid rules throw an `InvalidRuleError` that names the rule's position and id, at startup, never at request time. An empty list of rules is valid and limits nothing.
 
 ### Client identification
 
@@ -144,8 +152,8 @@ Do these in order. Each one ends with passing tests.
 | --- | --- | --- |
 | T0. Scaffold the repo | Done | 02263ad |
 | T1. Core types and clock | Done | 3958aea |
-| T2. In-memory token bucket | Done | |
-| T3. Rule matching | Not started | |
+| T2. In-memory token bucket | Done | 59389a6 |
+| T3. Rule matching | Done | |
 | T4. Client identification and key building | Not started | |
 | T5. Header helper | Not started | |
 | T6. Express middleware | Not started | |
@@ -195,12 +203,12 @@ Do these in order. Each one ends with passing tests.
 
 **Done when** tests cover:
 
-- [ ] Each validation error
-- [ ] Exact path, wildcard path, and no path
-- [ ] Each step of the specificity order, including the declaration-order tie-break
-- [ ] Case-insensitive method matching
-- [ ] Ignoring the query string
-- [ ] Routers mounted with `baseUrl`
+- [x] Each validation error
+- [x] Exact path, wildcard path, and no path
+- [x] Each step of the specificity order, including the declaration-order tie-break
+- [x] Case-insensitive method matching
+- [x] Ignoring the query string
+- [x] Routers mounted with `baseUrl`
 
 ### T4. Client identification and key building
 
