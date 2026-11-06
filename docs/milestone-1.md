@@ -142,7 +142,9 @@ For each request:
    - `RateLimit-Reset: <ceil(resetMs / 1000)>` (seconds)
 4. If the request is allowed, call `next()`.
 5. If it's denied, set `Retry-After: <max(1, ceil(resetMs / 1000))>` and respond `429 { "error": "rate_limited" }`. The route handler never runs.
-6. If `check` throws, call `next(err)`. Milestone 4 replaces this with the fallback.
+6. If `check` throws, call `next(err)`. Milestone 4 replaces this with the fallback. A custom `identify` or `tier` that throws goes to `next(err)` too.
+
+The returned `close()` stops the default token bucket's sweep timer. An `algorithm` passed in is left alone, because the caller owns it and may share it with other limiters. `identify`, `tier` and `algorithm` are checked when the middleware is created, alongside the rules, and throw a `TypeError` if they can't be used.
 
 Express 5 is a peer dependency.
 
@@ -157,8 +159,8 @@ Do these in order. Each one ends with passing tests.
 | T2. In-memory token bucket | Done | 59389a6 |
 | T3. Rule matching | Done | 0d230a2 |
 | T4. Client identification and key building | Done | fbdc8fc |
-| T5. Header helper | Done | |
-| T6. Express middleware | Not started | |
+| T5. Header helper | Done | 3bbb20d |
+| T6. Express middleware | Done | |
 | T7. Example app and README | Not started | |
 
 ### T0. Scaffold the repo
@@ -237,22 +239,22 @@ Do these in order. Each one ends with passing tests.
 
 **Done when** supertest tests cover:
 
-- [ ] Headers on allowed and denied responses
-- [ ] The 429 body
-- [ ] `Retry-After`
-- [ ] The handler not running when the request is denied
-- [ ] Requests with no matching rule passing through with no headers
-- [ ] A custom `identify` and a custom `tier`
-- [ ] `trust proxy` making `X-Forwarded-For` change the identity
-- [ ] `next(err)` when the algorithm throws
-- [ ] 50 concurrent requests against `limit: 10` giving exactly 10 allowed
+- [x] Headers on allowed and denied responses
+- [x] The 429 body
+- [x] `Retry-After`
+- [x] The handler not running when the request is denied
+- [x] Requests with no matching rule passing through with no headers
+- [x] A custom `identify` and a custom `tier`
+- [x] `trust proxy` making `X-Forwarded-For` change the identity
+- [x] `next(err)` when the algorithm throws
+- [x] 50 concurrent requests against `limit: 10` giving exactly 10 allowed
 
 ### T7. Example app and README
 
 - `examples/basic/server.ts` sets up two rules (a global per-IP rule and a stricter `POST /orders` rule for the free tier).
 - `examples/basic/hammer.sh` sends N requests and prints the status and headers for each.
 - `npm run example` starts the server.
-- The README covers install, a quick start, the options, the `trust proxy` note, and the header semantics. It also warns that a custom `identify` should return IDs that can't be confused with another rule's keys. Rule ids may contain `:`, so rule `a` with client ID `b:ip_1` and rule `a:b` with `ip_1` both give `rl:a:b:ip_1`. The default IDs always start with `key_`, `user_`, `ip_` or `anon`, so they can only collide like this if a rule id contains a segment such as `:user_`.
+- The README covers install, a quick start, the options, the `trust proxy` note, and the header semantics. It also warns that a custom `identify` should return IDs that can't be confused with another rule's keys. Rule ids may contain `:`, so rule `a` with client ID `b:ip_1` and rule `a:b` with `ip_1` both give `rl:a:b:ip_1`. The default IDs always start with `key_`, `user_`, `ip_` or `anon`, so they can only collide like this if a rule id contains a segment such as `:user_`. A custom `identify` that returns an empty string puts every such request into one bucket.
 
 **Done when:** the demo described in "Outcome" works from a clean clone.
 
