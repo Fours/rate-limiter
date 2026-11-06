@@ -66,6 +66,7 @@ Why: apps already have a Redis client with their own connection, TLS, auth and r
 - **Integers only.** Redis truncates Lua numbers in replies toward zero (7.9 becomes 7, −2.5 becomes −2), so each script rounds explicitly, with `math.ceil` for times, before returning. As in milestone 1, state is kept in exact integer units.
 - **No `tostring` on numbers.** It formats with 14 significant digits, so 9007199254740991 becomes `9.007199254741e+15`. Numbers passed directly to `redis.call` are written at full precision.
 - **The high-water mark for time.** Each script stores the latest time it has seen and never goes backwards, so a failover to a replica with a slower clock can't refill the same span twice. This is the same rule as the in-memory token bucket.
+- **Shared prelude.** `src/algorithms/redis/prelude.lua` defines `rl_now` (Redis `TIME` or the test override) and `rl_claim` (the start-fresh check below). `loadScript` puts it in front of each algorithm's file before computing the SHA, so every check is still one script.
 - **Arguments:** `KEYS[1]` is the storage key. `ARGV` holds `limit` and `windowMs`, plus a time override that is empty in production (see "Testing time").
 - **Tag the state.** Every script stores its algorithm name with its state (an `alg` field in a hash). If the key holds another type, or a hash without its own tag, the script deletes it and treats the client as new, so switching algorithms never fails with `WRONGTYPE` ([0016](decisions/0016-switching-algorithms-starts-fresh.md)).
 - **Never return `nil` inside the result table.** It silently shortens the reply.
@@ -91,7 +92,7 @@ Details each script must get right:
 
 - **Token bucket:** a port of the milestone 1 maths, unchanged: integer units, the high-water mark, and carrying over whole tokens when a rule's limit changes. The behaviour suite runs against both versions, so they can't drift apart.
 - **Leaky bucket:** the GCRA ("virtual scheduling") form of the leaky bucket. It stores one timestamp, the theoretical arrival time, and admits a request only if it isn't earlier than that time. With no burst allowed, it smooths traffic to a steady rate, which is the point of offering it next to the token bucket. Without that, a leaky bucket used as a meter is the token bucket's maths in reverse, so it wouldn't be worth comparing in milestone 3. `remaining` is 1 when the next slot is open, otherwise 0.
-- **Fixed window:** the window number is `floor(now / windowMs)`. A new window resets the count. Windows are aligned to the epoch on purpose, so the milestone 3 benchmarks can show the 2× burst at a boundary.
+- **Fixed window:** a window starts at `floor(now / windowMs) × windowMs`. A new window resets the count. Windows are aligned to the epoch on purpose, so the milestone 3 benchmarks can show the 2× burst at a boundary. Once a window has started, it runs to the end it started with: a new `limit` applies at once, but a new `windowMs` applies from the next window, so a rule change mid-window never resets the count.
 - **Sliding window log:** members must be unique even when two requests arrive in the same millisecond. Use the microsecond time from `TIME` plus the set's current size, which is unique because Redis runs scripts one at a time. Only allowed requests are recorded.
 - **Sliding window counter:** the comparison is done in integer units (`prev × (windowMs − elapsed) + curr × windowMs` against `limit × windowMs`), so there's no float rounding. The denied `resetMs` is the smallest wait after which the estimate allows one more request, and the tests check that exact bound.
 
@@ -118,7 +119,7 @@ It checks, for each algorithm:
 - Denied requests are free: repeated denials return the same decision, and don't push back the next allowed time. Only allowed requests count, in every algorithm.
 - `remaining` and `resetMs` are whole numbers and never negative.
 - Separate clients and separate rules don't affect each other.
-- A clock that goes backwards, and then returns, doesn't add capacity.
+- A clock that goes backwards is treated as standing still: while it's behind, and when it returns, decisions equal the ones at the latest time seen. No extra capacity, and no longer wait either.
 - Under traffic four times faster than the limit for five windows, no `windowMs` span allows more than `maxPerWindow`, and the busiest span reaches at least `limit`.
 - When a rule shrinks under the same key, no more than the new burst is allowed.
 
@@ -154,8 +155,8 @@ Do these in order. Each one ends with passing tests.
 | T0. Redis test setup | Done | c015cdd |
 | T1. Redis client interface and script runner | Done | bc55049 |
 | T2. Behaviour suite | Done | a8eac76 |
-| T3. Redis token bucket | Done | |
-| T4. Fixed window | Not started | |
+| T3. Redis token bucket | Done | 9923d18 |
+| T4. Fixed window | Done | |
 | T5. Sliding window log | Not started | |
 | T6. Sliding window counter | Not started | |
 | T7. Leaky bucket | Not started | |
@@ -213,14 +214,32 @@ As built: the build copies `src/**/*.lua` into `dist/` (`scripts/copy-lua.js`), 
 
 One task each, in this order: fixed window, sliding window log, sliding window counter, leaky bucket. Each adds `src/algorithms/redis/<name>.lua` and `createRedis<Name>({ client })`.
 
-**Each is done when:**
+**Each is done when** the behaviour suite passes against it with its documented traits, its TTL is checked, and tests cover its own behaviour:
 
-- [ ] The behaviour suite passes against it, with its documented traits.
-- [ ] Tests cover the algorithm's own behaviour:
-  - **Fixed window:** a reset at the boundary, and the 2× burst across it
-  - **Sliding window log:** being exact across a boundary, and two requests in the same millisecond both counting
-  - **Sliding window counter:** the weighted estimate at 0%, 50% and 100% of a window, and the exact denied `resetMs`
-  - **Leaky bucket:** steady spacing, no burst, and `remaining` being 0 or 1
+**T4. Fixed window**
+
+- [x] The behaviour suite passes, with `burst = limit` and `maxPerWindow = 2 × limit`.
+- [x] A reset exactly at the boundary, and the 2× burst across it
+- [x] The TTL is the time to the end of the window, and expiry loses nothing.
+
+As built: a TypeScript reference model in the test file must match the script step for step over the same sequence the token bucket uses. Two of the deliberate breaks first slipped through, and each now has a test: counting denied requests (invisible until the limit grows mid-window) and a broken start-fresh check (invisible while two algorithms' field names don't overlap). A third, removing the backwards-clock protection, was caught only by the reference model until the behaviour suite's clock test was made stricter.
+
+**T5. Sliding window log**
+
+- [ ] The behaviour suite passes, with its documented traits.
+- [ ] Being exact across a boundary, and two requests in the same millisecond both counting
+- [ ] Its TTL is checked.
+
+**T6. Sliding window counter**
+
+- [ ] The behaviour suite passes, with its documented traits.
+- [ ] The weighted estimate at 0%, 50% and 100% of a window, and the exact denied `resetMs`
+- [ ] Its TTL is checked.
+
+**T7. Leaky bucket**
+
+- [ ] The behaviour suite passes, with its documented traits.
+- [ ] Steady spacing, no burst, and `remaining` being 0 or 1
 - [ ] Its TTL is checked.
 
 ### T8. Distributed correctness

@@ -135,15 +135,17 @@ export function describeAlgorithm(
       expect((await check(second)).allowed).toBe(true);
     });
 
-    it('adds no capacity when the clock goes backwards, or when it returns', async () => {
+    it('treats a clock that goes backwards as standing still, then returning', async () => {
       const rule = freshRule();
-      await exhaust(rule);
+      const denied = await exhaust(rule);
       const now = t.clock.now();
 
+      // Time only moves forward: while the clock is behind, every decision is the one it would
+      // be at the latest time seen. No extra capacity, and no longer wait either.
       t.clock.set(now - 3_600_000);
-      expect((await check(rule)).allowed).toBe(false);
+      expect(await check(rule)).toStrictEqual(denied);
       t.clock.set(now);
-      expect((await check(rule)).allowed).toBe(false);
+      expect(await check(rule)).toStrictEqual(denied);
     });
 
     it('never allows more than its maximum in any windowMs span, under steady traffic', async () => {

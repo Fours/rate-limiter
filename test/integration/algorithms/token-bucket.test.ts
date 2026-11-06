@@ -1,34 +1,26 @@
-import type { Redis } from 'ioredis';
 import { createClient } from 'redis';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createTokenBucket } from '../../../src/algorithms/token-bucket.js';
 import {
   createRedisTokenBucket,
   createRedisTokenBucketForTest,
 } from '../../../src/algorithms/redis/token-bucket.js';
 import { buildKey } from '../../../src/identify.js';
-import { fromIoredis, type RedisScriptClient } from '../../../src/redis/client.js';
-import type { Algorithm, Decision, Rule } from '../../../src/types.js';
+import type { RedisScriptClient } from '../../../src/redis/client.js';
+import type { Rule } from '../../../src/types.js';
 import { describeAlgorithm } from '../../contract/algorithm-contract.js';
 import { FakeClock } from '../../helpers/fake-clock.js';
-import { connectIoredis, uniqueRuleId } from '../helpers/redis.js';
+import {
+  comparisonSteps,
+  expectTtlNear,
+  runSteps,
+  useRedis,
+  withFakeClock,
+} from '../helpers/algorithms.js';
+import { uniqueRuleId } from '../helpers/redis.js';
 
-let redis: Redis;
-let client: RedisScriptClient;
-
-beforeAll(async () => {
-  redis = await connectIoredis();
-  client = fromIoredis(redis);
-});
-
-afterAll(async () => {
-  await redis.quit();
-});
-
-function redisBucket(): { algorithm: Algorithm; clock: FakeClock } {
-  const clock = new FakeClock();
-  return { algorithm: createRedisTokenBucketForTest({ client, clock }), clock };
-}
+const r = useRedis();
+const redisBucket = withFakeClock(r, createRedisTokenBucketForTest);
 
 describeAlgorithm('Redis token bucket', redisBucket, {
   burst: (rule) => rule.limit,
@@ -37,37 +29,14 @@ describeAlgorithm('Redis token bucket', redisBucket, {
 
 describe('Redis token bucket', () => {
   it('returns exactly the same decisions as the in-memory bucket, step for step', async () => {
-    const id = uniqueRuleId('parity');
-    const base: Rule = { id, limit: 5, windowMs: 60_000 };
-    const daily: Rule = { id: `${id}:daily`, limit: 48, windowMs: 86_400_000 };
-    // [ms to advance (negative: clock steps back), rule, client]
-    const steps: [number, Rule, string][] = [];
-    const gaps = [0, 0, 0, 0, 0, 0, 1, 11_999, 1, 7, 13, 30_001, 0, 2, 59_999, 60_000, 5];
-    for (const gap of gaps) steps.push([gap, base, 'a'], [0, base, 'b']);
-    steps.push([-3_600_000, base, 'a'], [0, base, 'a'], [3_600_000, base, 'a']);
-    steps.push([0, { ...base, limit: 9 }, 'a'], [4_321, { ...base, limit: 9 }, 'a']);
-    steps.push([0, { ...base, limit: 2 }, 'a'], [0, { ...base, limit: 2 }, 'a']);
-    steps.push(
-      [0, { ...base, windowMs: 120_000 }, 'b'],
-      [17_777, { ...base, windowMs: 120_000 }, 'b'],
-    );
-    for (const gap of [0, 0, 1_799_999, 1, 1_800_000, 0, 1]) steps.push([gap, daily, 'a']);
-
-    const run = async (algorithm: Algorithm, clock: FakeClock): Promise<Decision[]> => {
-      const out: Decision[] = [];
-      for (const [gap, rule, who] of steps) {
-        clock.set(clock.now() + gap);
-        out.push(await algorithm.check(buildKey(rule, who), rule));
-      }
-      return out;
-    };
-
+    const steps = comparisonSteps();
     const memoryClock = new FakeClock();
     const memory = createTokenBucket({ clock: memoryClock });
-    const expected = await run(memory, memoryClock);
+    const expected = await runSteps(memory, memoryClock, steps);
     memory.close();
+
     const { algorithm, clock } = redisBucket();
-    expect(await run(algorithm, clock)).toStrictEqual(expected);
+    expect(await runSteps(algorithm, clock, steps)).toStrictEqual(expected);
     expect(expected.some((d) => !d.allowed)).toBe(true);
   });
 
@@ -79,10 +48,10 @@ describe('Redis token bucket', () => {
 
       const allowed = await algorithm.check(key, rule);
       // Allowed resetMs is "until full", which is exactly what the TTL should be.
-      await expectTtlNear(key, allowed.resetMs);
+      await expectTtlNear(r.redis, key, allowed.resetMs);
 
       for (let i = 0; i < 10; i++) await algorithm.check(key, rule);
-      await expectTtlNear(key, rule.windowMs);
+      await expectTtlNear(r.redis, key, rule.windowMs);
     });
 
     it('loses nothing when the key expires: a deleted key gives the same answer as a kept one', async () => {
@@ -94,7 +63,7 @@ describe('Redis token bucket', () => {
       const last = await algorithm.check(expired, rule);
 
       clock.advance(last.resetMs);
-      await redis.del(expired); // what Redis does when the TTL runs out
+      await r.redis.del(expired); // what Redis does when the TTL runs out
       expect(await algorithm.check(expired, rule)).toStrictEqual(await algorithm.check(kept, rule));
     });
   });
@@ -135,7 +104,7 @@ describe('Redis token bucket', () => {
   });
 
   it('uses Redis time when built through the public factory', async () => {
-    const algorithm = createRedisTokenBucket({ client });
+    const algorithm = createRedisTokenBucket({ client: r.client });
     const rule: Rule = { id: uniqueRuleId('time'), limit: 3, windowMs: 60_000 };
     const key = buildKey(rule, 'c');
     const results = [];
@@ -145,26 +114,26 @@ describe('Redis token bucket', () => {
 
   describe('state left by another algorithm', () => {
     it.each([
-      ['a sorted set', (key: string) => redis.zadd(key, 1, 'x')],
-      ['a string', (key: string) => redis.set(key, '42')],
+      ['a sorted set', (key: string) => r.redis.zadd(key, 1, 'x')],
+      ['a string', (key: string) => r.redis.set(key, '42')],
       [
         'a hash tagged with another algorithm',
-        (key: string) => redis.hset(key, 'alg', 'fixed-window', 'units', '0'),
+        (key: string) => r.redis.hset(key, 'alg', 'fixed-window', 'units', '0'),
       ],
-      ['an untagged hash', (key: string) => redis.hset(key, 'units', '0', 'last', '0')],
+      ['an untagged hash', (key: string) => r.redis.hset(key, 'units', '0', 'last', '0')],
     ])('starts fresh over %s, without a WRONGTYPE error', async (_label, plant) => {
       const { algorithm } = redisBucket();
       const rule: Rule = { id: uniqueRuleId('switch'), limit: 4, windowMs: 60_000 };
       const key = buildKey(rule, 'c');
       await plant(key);
       expect(await algorithm.check(key, rule)).toMatchObject({ allowed: true, remaining: 3 });
-      expect(await redis.type(key)).toBe('hash');
+      expect(await r.redis.type(key)).toBe('hash');
     });
   });
 
   describe('startup checks', () => {
     it.each([
-      ['a raw ioredis client', () => redis, /fromIoredis/],
+      ['a raw ioredis client', () => r.redis, /fromIoredis/],
       ['a raw node-redis client', () => createClient(), /fromNodeRedis/],
       ['null', () => null, /RedisScriptClient/],
     ])('rejects %s', (_label, value, message) => {
@@ -174,10 +143,3 @@ describe('Redis token bucket', () => {
     });
   });
 });
-
-async function expectTtlNear(key: string, ms: number): Promise<void> {
-  const ttl = await redis.pttl(key);
-  // Real time passes between the check and PTTL; allow for a slow CI machine.
-  expect(ttl).toBeLessThanOrEqual(ms);
-  expect(ttl).toBeGreaterThan(ms - 1_000);
-}

@@ -1,6 +1,6 @@
 # 0016. Switching algorithms starts each client fresh
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-06
 - **Milestone:** 2
 
@@ -22,10 +22,10 @@ Every script tags its state with its algorithm name: an `alg` field in a hash, o
 
 ## Evidence
 
-To gather in milestone 2:
-
-- T3: `test/integration/algorithms/token-bucket.test.ts` plants a sorted set, a string, a hash tagged with another algorithm and an untagged hash under a key. Each time, the Redis token bucket treats the client as new, with no `WRONGTYPE` error. Removing the check makes all four fail.
-- T4: the same test against fixed window, switching both ways between it and the token bucket. The status moves to Accepted then, once two real algorithms show it working.
+- `test/integration/algorithms/token-bucket.test.ts` plants a sorted set, a string, a hash tagged with another algorithm and an untagged hash under a key. Each time, the Redis token bucket treats the client as new, with no `WRONGTYPE` error.
+- `test/integration/algorithms/fixed-window.test.ts` switches both ways between the token bucket and the fixed window on a used-up key. Each time the client starts fresh.
+- The same file plants a hash tagged as another algorithm but shaped like a used-up fixed window. With the check, the client starts fresh. Without it, the request is denied by state that isn't the fixed window's.
+- That last test matters because breaking the check left the real two-way switch tests passing: the token bucket and fixed window store different field names, so neither misreads the other. The check earns its keep when field names overlap, as they will between the token bucket's `window` and the sliding window counter's. Breaking it fails the planted-hash tests in both files.
 
 ## Consequences
 

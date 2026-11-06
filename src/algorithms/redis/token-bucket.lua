@@ -1,33 +1,14 @@
 -- Token bucket. The same maths as src/algorithms/token-bucket.ts: state is kept in integer
 -- "units", where one token is windowMs units and the bucket refills `limit` units per ms, so
 -- every value is exact (limit * windowMs <= 2^53, checked by rule validation).
---
--- KEYS[1]  storage key
--- ARGV[1]  limit
--- ARGV[2]  windowMs
--- ARGV[3]  time override in ms: empty in production, set only by tests (decision 0007)
---
--- Returns {allowed (0 or 1), remaining, resetMs}, all integers. Never put nil in the result:
--- it silently shortens the reply.
+-- Arguments, reply, rl_now and rl_claim: see prelude.lua.
 
 local key = KEYS[1]
 local limit = tonumber(ARGV[1])
 local window = tonumber(ARGV[2])
 
-local now
-if ARGV[3] ~= '' then
-  now = tonumber(ARGV[3])
-else
-  local t = redis.call('TIME')
-  now = tonumber(t[1]) * 1000 + math.floor(tonumber(t[2]) / 1000)
-end
-
--- State left by another algorithm under this key, after the app switched algorithms, would
--- fail with WRONGTYPE or be misread. Start fresh instead (decision 0016).
-local kind = redis.call('TYPE', key).ok
-if kind ~= 'none' and (kind ~= 'hash' or redis.call('HGET', key, 'alg') ~= 'token-bucket') then
-  redis.call('DEL', key)
-end
+local now = rl_now(ARGV[3])
+rl_claim(key, 'token-bucket')
 
 -- Refill for the time since `last`. `last` only moves forward, so a clock that steps back and
 -- then returns can't refill the same span twice.
