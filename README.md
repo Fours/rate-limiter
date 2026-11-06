@@ -150,8 +150,10 @@ Each design choice is recorded in [docs/decisions](docs/decisions/README.md), wi
 ```bash
 npm run lint
 npm run typecheck
-npm test
-npm run coverage
+npm test                  # unit tests, no Redis needed
+npm run redis:up          # test Redis in Docker, on port 6390
+npm run test:integration
+npm run coverage          # unit and integration together
 npm run build
 ```
 

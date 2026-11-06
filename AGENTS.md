@@ -32,13 +32,16 @@ This is a distributed rate limiter, shipped as a TypeScript middleware package f
 npm install
 npm run lint
 npm run typecheck
-npm test            # vitest run
-npm run coverage
+npm test            # unit tests only, no Redis needed
+npm run redis:up    # test Redis on port 6390 (docker-compose.test.yml)
+npm run test:integration   # needs the test Redis
+npm run coverage    # unit + integration, so it needs the test Redis too
+npm run redis:down
 npm run build       # tsc → dist/
 npm run example     # examples/basic
 ```
 
-Before you say a task is done, run lint, typecheck and test, and make sure all three pass.
+Before you say a task is done, run lint, typecheck and test, and make sure all three pass. If the task touches Redis code, run `test:integration` and `coverage` too.
 
 ## Layout
 
@@ -73,6 +76,7 @@ docs/                   milestone specs and design notes
 
 - Use `FakeClock` for anything time-based. Never use real sleeps or timers in tests. Vitest fake timers are fine for code that schedules work, such as the sweep interval: fake only `setInterval` and `clearInterval`, so `FakeClock` still controls time.
 - Test middleware through supertest against a real Express app.
+- Integration tests live in `test/integration/` and run against a real Redis. Never flush the database (`FLUSHDB`, `FLUSHALL`): `REDIS_URL` might point at a Redis that isn't ours. Keep tests apart with `uniqueRuleId()` from `test/integration/helpers/redis.ts` instead.
 - Every behaviour listed in a milestone spec's "Done when" needs a test.
 - Keep line coverage on `src/` at 90% or higher.
 - Prove that the important tests can fail. After a task's tests pass, temporarily break each key behaviour, such as a fix to the spec or a guard against bypassing a limit. Check that a test fails, then restore the code, and say in the commit message what you broke. Coverage shows that code ran, not that a test would notice it being wrong.

@@ -1,0 +1,12 @@
+# Redis for the integration tests: npm run redis:up, then npm run test:integration.
+# Published on 6390, not 6379, so the tests can't reach a Redis you use for anything else.
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6390:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 1s
+      timeout: 3s
+      retries: 30

@@ -2,8 +2,25 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    include: ['test/**/*.test.ts'],
     passWithNoTests: true,
+    // Two projects: `npm test` runs unit only and needs no Redis; `npm run test:integration`
+    // needs one (npm run redis:up). Coverage runs both, since Redis code is only exercised there.
+    projects: [
+      {
+        test: {
+          name: 'unit',
+          include: ['test/**/*.test.ts'],
+          exclude: ['test/integration/**'],
+        },
+      },
+      {
+        test: {
+          name: 'integration',
+          include: ['test/integration/**/*.test.ts'],
+          globalSetup: ['test/integration/setup.ts'],
+        },
+      },
+    ],
     coverage: {
       provider: 'v8',
       include: ['src/**'],

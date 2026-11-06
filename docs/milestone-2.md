@@ -139,7 +139,7 @@ Do these in order. Each one ends with passing tests.
 
 | Task | Status | Commit |
 | --- | --- | --- |
-| T0. Redis test setup | Not started | |
+| T0. Redis test setup | Done | |
 | T1. Redis client interface and script runner | Not started | |
 | T2. Behaviour suite | Not started | |
 | T3. Redis token bucket | Not started | |
@@ -159,6 +159,8 @@ Do these in order. Each one ends with passing tests.
 - Dev dependencies: `ioredis` and `redis`
 
 **Done when:** a test that sends `PING` through each client passes locally and in CI, and `npm test` still passes with no Redis running.
+
+As built: the test Redis is published on port 6390, not 6379, so tests can't reach a Redis used for anything else. `npm run redis:up` and `redis:down` start and stop it. `test/integration/setup.ts` fails the run with a clear message if Redis is missing or older than 7, rather than skipping. `npm run coverage` runs both projects, and CI now runs it, so the 90% threshold is enforced there.
 
 ### T1. Redis client interface and script runner
 

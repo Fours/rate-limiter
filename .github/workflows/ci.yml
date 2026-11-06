@@ -10,6 +10,17 @@ jobs:
     strategy:
       matrix:
         node: [22, 24]
+    # For npm run test:integration. Same port as docker-compose.test.yml.
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6390:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 1s
+          --health-timeout 3s
+          --health-retries 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -20,6 +31,9 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      - run: npm run test:integration
+      # Runs unit and integration together, and enforces the 90% line threshold.
+      - run: npm run coverage
       - run: npm run build
       # Runs the demo for real on each Node version, not just typechecks it.
       - name: Run the example
