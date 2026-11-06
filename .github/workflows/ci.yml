@@ -35,6 +35,9 @@ jobs:
       # Runs unit and integration together, and enforces the 90% line threshold.
       - run: npm run coverage
       - run: npm run build
+      # tsc doesn't copy Lua; check the build step put the scripts where the modules read them.
+      - name: Check the package ships its Lua scripts
+        run: npm pack --dry-run 2>&1 | grep -q 'dist/algorithms/redis/token-bucket.lua'
       # Runs the demo for real on each Node version, not just typechecks it.
       - name: Run the example
         timeout-minutes: 1

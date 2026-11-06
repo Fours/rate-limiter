@@ -12,7 +12,7 @@ Time-based algorithms compare "now" with stored timestamps. If each app instance
 
 Scripts read `redis.call('TIME')` for the current time. In-memory algorithms take an injected `Clock`.
 
-Production code never sends a timestamp. Each script does take an optional time override as its last argument, so tests can drive Redis scripts with `FakeClock`. Only an internal factory, `createRedisAlgorithm(script, { client, clock })`, can set it. It isn't exported from `src/index.ts`, and the public factories always send the override empty.
+Production code never sends a timestamp. Each script does take an optional time override as its last argument, so tests can drive Redis scripts with `FakeClock`. Only the internal factory, `createRedisAlgorithm(script, name, { client, clock })` in `src/algorithms/redis/factory.ts`, can set it, through a small `…ForTest` wrapper per algorithm. Neither is exported from `src/index.ts`, and the public factories pass on only the client, so they always send the override empty.
 
 ## Alternatives considered
 

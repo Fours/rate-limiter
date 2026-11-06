@@ -51,6 +51,8 @@ src/
   types.ts              Rule, Decision, Algorithm, Clock
   clock.ts
   algorithms/           one file per algorithm
+    redis/              Lua script + factory per Redis algorithm, copied to dist/ by scripts/copy-lua.js
+  redis/                client adapters (public) and the script runner (internal)
   rules.ts              validation and most-specific matching
   identify.ts           client ID and storage key
   headers.ts

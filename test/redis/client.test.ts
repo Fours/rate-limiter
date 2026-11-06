@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  assertScriptClient,
   fromIoredis,
   fromNodeRedis,
   type IoredisLike,
@@ -64,5 +65,45 @@ describe('adapter checks at startup', () => {
   ])('rejects %s', (_label, value) => {
     expect(() => fromIoredis(value as unknown as IoredisLike)).toThrow(TypeError);
     expect(() => fromNodeRedis(value as unknown as NodeRedisLike)).toThrow(TypeError);
+  });
+});
+
+describe('assertScriptClient', () => {
+  const ioredisRaw = {
+    evalsha: () => Promise.resolve(),
+    eval: () => Promise.resolve(),
+    defineCommand: () => undefined,
+  };
+  const nodeRedisRaw = { evalSha: () => Promise.resolve(), eval: () => Promise.resolve() };
+
+  it('accepts adapted clients, even when the raw client looks like ioredis', () => {
+    expect(() => {
+      assertScriptClient(fromIoredis(ioredisRaw), 'test');
+    }).not.toThrow();
+    expect(() => {
+      assertScriptClient(fromNodeRedis(nodeRedisRaw), 'test');
+    }).not.toThrow();
+  });
+
+  it('accepts a hand-written client', () => {
+    const own = { evalsha: () => Promise.resolve(), eval: () => Promise.resolve() };
+    expect(() => {
+      assertScriptClient(own, 'test');
+    }).not.toThrow();
+  });
+
+  it.each([
+    ['a raw ioredis client', ioredisRaw, /looks like an ioredis client.*fromIoredis/],
+    ['a raw node-redis client', nodeRedisRaw, /looks like a node-redis client.*fromNodeRedis/],
+    ['null', null, /must be a RedisScriptClient/],
+    ['a URL string', 'redis://localhost', /must be a RedisScriptClient/],
+    ['an object without the methods', { eval: () => Promise.resolve() }, /evalsha and eval/],
+  ])('rejects %s, naming the caller', (_label, value, message) => {
+    expect(() => {
+      assertScriptClient(value, 'createRedisTokenBucket');
+    }).toThrow(message);
+    expect(() => {
+      assertScriptClient(value, 'createRedisTokenBucket');
+    }).toThrow(/^createRedisTokenBucket: /);
   });
 });

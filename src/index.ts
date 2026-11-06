@@ -10,3 +10,5 @@ export type { RateLimitMiddleware, RateLimitOptions } from './middleware.js';
 export { InvalidRuleError } from './rules.js';
 export { fromIoredis, fromNodeRedis } from './redis/client.js';
 export type { IoredisLike, NodeRedisLike, RedisScriptClient } from './redis/client.js';
+export { createRedisTokenBucket } from './algorithms/redis/token-bucket.js';
+export type { RedisAlgorithmOptions } from './algorithms/redis/factory.js';

@@ -67,6 +67,8 @@ Why: apps already have a Redis client with their own connection, TLS, auth and r
 - **No `tostring` on numbers.** It formats with 14 significant digits, so 9007199254740991 becomes `9.007199254741e+15`. Numbers passed directly to `redis.call` are written at full precision.
 - **The high-water mark for time.** Each script stores the latest time it has seen and never goes backwards, so a failover to a replica with a slower clock can't refill the same span twice. This is the same rule as the in-memory token bucket.
 - **Arguments:** `KEYS[1]` is the storage key. `ARGV` holds `limit` and `windowMs`, plus a time override that is empty in production (see "Testing time").
+- **Tag the state.** Every script stores its algorithm name with its state (an `alg` field in a hash). If the key holds another type, or a hash without its own tag, the script deletes it and treats the client as new, so switching algorithms never fails with `WRONGTYPE` ([0016](decisions/0016-switching-algorithms-starts-fresh.md)).
+- **Never return `nil` inside the result table.** It silently shortens the reply.
 
 ### Keys and TTLs
 
@@ -151,8 +153,8 @@ Do these in order. Each one ends with passing tests.
 | --- | --- | --- |
 | T0. Redis test setup | Done | c015cdd |
 | T1. Redis client interface and script runner | Done | bc55049 |
-| T2. Behaviour suite | Done | |
-| T3. Redis token bucket | Not started | |
+| T2. Behaviour suite | Done | a8eac76 |
+| T3. Redis token bucket | Done | |
 | T4. Fixed window | Not started | |
 | T5. Sliding window log | Not started | |
 | T6. Sliding window counter | Not started | |
@@ -200,10 +202,12 @@ As built: six breaks to the in-memory bucket were each caught by the property ai
 
 **Done when:**
 
-- [ ] The behaviour suite passes against it, with the same traits as the in-memory version.
-- [ ] Given the same sequence of checks and times, it returns exactly the same decisions as the in-memory version.
-- [ ] The key's TTL equals the time until the bucket is full, and the key is gone after that.
-- [ ] A limit change on the same key carries over whole tokens only.
+- [x] The behaviour suite passes against it, with the same traits as the in-memory version.
+- [x] Given the same sequence of checks and times, it returns exactly the same decisions as the in-memory version.
+- [x] The key's TTL equals the time until the bucket is full, and expiry loses nothing: once that time has passed, a deleted key gives the same answer as a kept one. (Watching Redis expire a key would need a real wait, which AGENTS.md bans. Expiring keys is Redis's job; what this library must get right is that expiry never discards state that still matters.)
+- [x] A limit change on the same key carries over whole tokens only.
+
+As built: the build copies `src/**/*.lua` into `dist/` (`scripts/copy-lua.js`), and each factory reads its script next to its own module, so it works from `src/` in tests and `dist/` when published. `createRedisTokenBucket` checks its client at startup, and rejects a raw `ioredis` or `node-redis` client with a message saying which adapter to use. A state left by another algorithm starts the client fresh ([0016](decisions/0016-switching-algorithms-starts-fresh.md)).
 
 ### T4 to T7. The other four algorithms
 
