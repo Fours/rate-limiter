@@ -141,7 +141,7 @@ For each request:
    - `RateLimit-Remaining: <remaining>`
    - `RateLimit-Reset: <ceil(resetMs / 1000)>` (seconds)
 4. If the request is allowed, call `next()`.
-5. If it's denied, set `Retry-After: <ceil(resetMs / 1000)>` and respond `429 { "error": "rate_limited" }`. The route handler never runs.
+5. If it's denied, set `Retry-After: <max(1, ceil(resetMs / 1000))>` and respond `429 { "error": "rate_limited" }`. The route handler never runs.
 6. If `check` throws, call `next(err)`. Milestone 4 replaces this with the fallback.
 
 Express 5 is a peer dependency.
@@ -156,8 +156,8 @@ Do these in order. Each one ends with passing tests.
 | T1. Core types and clock | Done | 3958aea |
 | T2. In-memory token bucket | Done | 59389a6 |
 | T3. Rule matching | Done | 0d230a2 |
-| T4. Client identification and key building | Done | |
-| T5. Header helper | Not started | |
+| T4. Client identification and key building | Done | fbdc8fc |
+| T5. Header helper | Done | |
 | T6. Express middleware | Not started | |
 | T7. Example app and README | Not started | |
 
@@ -228,6 +228,8 @@ Do these in order. Each one ends with passing tests.
 `src/headers.ts` exports `rateLimitHeaders(rule, decision)` and `retryAfter(decision)`.
 
 **Done when** tests check the second rounding (ceil), including `resetMs` of 0 and of 1.
+
+`Retry-After` is never below 1, because `Retry-After: 0` would tell a denied client to retry at once ([0012](decisions/0012-rate-limit-header-format.md)).
 
 ### T6. Express middleware
 
