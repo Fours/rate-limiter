@@ -8,6 +8,7 @@ import { createRedisSlidingWindowCounterForTest } from '../../../src/algorithms/
 import { createRedisSlidingWindowLogForTest } from '../../../src/algorithms/redis/sliding-window-log.js';
 import { createRedisTokenBucketForTest } from '../../../src/algorithms/redis/token-bucket.js';
 import { buildKey } from '../../../src/identify.js';
+import type { RedisScriptClient } from '../../../src/redis/client.js';
 import type { Algorithm, Decision, Rule } from '../../../src/types.js';
 import { describeAlgorithm } from '../../contract/algorithm-contract.js';
 import { FakeClock } from '../../helpers/fake-clock.js';
@@ -131,19 +132,41 @@ describe('Redis leaky bucket', () => {
   });
 
   describe('a rule faster than one request per ms: 10 per 4 ms', () => {
-    // The script expires a key when its bucket drains, a few ms here, by Redis's real clock,
-    // while these tests move a fake one. On a slow machine (CI under coverage) enough real time
-    // passed between two checks for the key to expire and the bucket to restart, and an 11th
-    // request was allowed. These tests are about the slot arithmetic, so each check is followed
-    // by PERSIST. Expiry has its own tests above.
-    const check = async (algorithm: Algorithm, key: string, rule: Rule) => {
-      const decision = await algorithm.check(key, rule);
-      await r.redis.persist(key);
-      return decision;
-    };
+    // The script expires a key when its bucket drains, by Redis's real clock: as little as 1 ms
+    // here. These tests move a fake clock, so on a slow machine the key could expire between two
+    // checks and the bucket restart. A PERSIST sent after each check wasn't enough: on CI the
+    // key sometimes expired before the PERSIST arrived. So each check runs in one MULTI with its
+    // PERSIST, and the key never has a TTL between checks. These tests are about the slot
+    // arithmetic; expiry has its own tests above.
+    function persisting(): { algorithm: Algorithm; clock: FakeClock } {
+      const run = async (
+        cmd: 'evalsha' | 'eval',
+        first: string,
+        keys: string[],
+        args: string[],
+      ) => {
+        const key = keys[0] ?? '';
+        const results = await r.redis
+          .multi()
+          [cmd](first, keys.length, ...keys, ...args)
+          .persist(key)
+          .exec();
+        const [error, value] = results?.[0] ?? [new Error('MULTI was discarded'), undefined];
+        // Rethrown as is, so a NOSCRIPT error still makes the factory load the script.
+        if (error) throw error;
+        return value;
+      };
+      const client: RedisScriptClient = {
+        evalsha: (sha, keys, args) => run('evalsha', sha, keys, args),
+        eval: (script, keys, args) => run('eval', script, keys, args),
+      };
+      const clock = new FakeClock();
+      return { algorithm: createRedisLeakyBucketForTest({ client, clock }), clock };
+    }
+    const check = (algorithm: Algorithm, key: string, rule: Rule) => algorithm.check(key, rule);
 
     it('allows the slots that start within this ms, counting remaining down', async () => {
-      const { algorithm } = redisLeaky();
+      const { algorithm } = persisting();
       const rule = freshRule({ limit: 10, windowMs: 4 });
       const key = buildKey(rule, 'c');
       // Slots at 0, 0.4 and 0.8 ms all start within the first millisecond.
@@ -159,7 +182,7 @@ describe('Redis leaky bucket', () => {
     });
 
     it('allows exactly 10 in 4 ms', async () => {
-      const { algorithm, clock } = redisLeaky();
+      const { algorithm, clock } = persisting();
       const rule = freshRule({ limit: 10, windowMs: 4 });
       const key = buildKey(rule, 'c');
       let allowed = 0;
