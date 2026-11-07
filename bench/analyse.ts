@@ -10,12 +10,18 @@
 //   <results-dir>/<algorithm>/run-<n>/seconds.jsonl         per-second totals (ramp), used
 //                                                           instead of the records when present
 //   <results-dir>/<algorithm>/run-<n>/docker-stats.jsonl    CPU samples (ramp)
+//
+// Chaos results (milestone 4) have a level more, one directory per case, and each run also has
+// faults.json, the fault times, and k6-summary.json, for k6's dropped iterations:
+//   <results-dir>/{kill,pause}/<algorithm>/run-<n>/
 import { access, readdir, readFile, writeFile } from 'node:fs/promises';
 import { gunzipSync } from 'node:zlib';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   byAlgorithmOrder,
+  chaosMetrics,
+  chaosTable,
   chartFor,
   cpuTable,
   redisTable,
@@ -24,6 +30,8 @@ import {
   summariseRuns,
   summaryTable,
   type AlgorithmChart,
+  type ChaosRun,
+  type Fault,
   type CpuSample,
   type RequestRecord,
   type SecondTotals,
@@ -169,10 +177,71 @@ export async function analyseDir(dir: string): Promise<string> {
   return summary;
 }
 
+const CHAOS_CASES = ['kill', 'pause'] as const;
+
+/** The chaos runs in a results directory, per case present, each case's algorithms in order. */
+export async function loadChaosResults(
+  dir: string,
+): Promise<[string, { limit: number; windowMs: number }, Map<string, ChaosRun[]>][]> {
+  const cases: [string, { limit: number; windowMs: number }, Map<string, ChaosRun[]>][] = [];
+  for (const chaosCase of CHAOS_CASES) {
+    const caseDir = join(dir, chaosCase);
+    if (!(await exists(caseDir))) continue;
+    const results = await loadResults(caseDir);
+    const algorithms = new Map<string, ChaosRun[]>();
+    for (const [algorithm, runs] of results.algorithms) {
+      const chaosRuns: ChaosRun[] = [];
+      for (const run of runs) {
+        const runDir = join(caseDir, algorithm, `run-${String(run.meta.run)}`);
+        const faults = JSON.parse(await readFile(join(runDir, 'faults.json'), 'utf8')) as Fault[];
+        const dropped = await droppedIterations(join(runDir, 'k6-summary.json'));
+        chaosRuns.push({ ...run, faults, ...(dropped === undefined ? {} : { dropped }) });
+      }
+      algorithms.set(algorithm, chaosRuns);
+    }
+    cases.push([chaosCase, { limit: results.limit, windowMs: results.windowMs }, algorithms]);
+  }
+  if (cases.length === 0) throw new Error(`${dir}: no kill/ or pause/ results`);
+  return cases;
+}
+
+/** k6's dropped_iterations from --summary-export: 0 when it dropped none, as k6 then omits it. */
+async function droppedIterations(file: string): Promise<number | undefined> {
+  if (!(await exists(file))) return undefined;
+  const summary = JSON.parse(await readFile(file, 'utf8')) as {
+    metrics?: Record<string, { count?: number } | undefined>;
+  };
+  return summary.metrics?.dropped_iterations?.count ?? 0;
+}
+
+/** Analyses chaos results and writes summary.md into the results directory. */
+export async function analyseChaosDir(dir: string): Promise<string> {
+  const tables = (await loadChaosResults(dir)).map(([chaosCase, rule, algorithms]) =>
+    chaosTable(
+      chaosCase,
+      rule,
+      [...algorithms].map(([algorithm, runs]) => [algorithm, runs.map(chaosMetrics)] as const),
+    ),
+  );
+  const summary = tables.join('\n');
+  await writeFile(join(dir, 'summary.md'), summary);
+  return summary;
+}
+
+async function isChaosDir(dir: string): Promise<boolean> {
+  for (const c of CHAOS_CASES) if (await exists(join(dir, c))) return true;
+  return false;
+}
+
 async function main(dir: string | undefined): Promise<void> {
   if (dir === undefined) {
     console.error('Usage: npm run bench:analyse -- <results-dir>');
     process.exitCode = 1;
+    return;
+  }
+  if (await isChaosDir(dir)) {
+    console.log(await analyseChaosDir(dir));
+    console.log(`Wrote summary.md in ${basename(dir)}/`);
     return;
   }
   console.log(await analyseDir(dir));

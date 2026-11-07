@@ -1,10 +1,12 @@
-// Runs the milestone 3 benchmarks against the stack (docker-compose.yml) and analyses them.
+// Runs the benchmarks against the stack (docker-compose.yml) and analyses them.
 //
-//   npm run bench                                    every scenario and algorithm, 3 runs each
+//   npm run bench                                    milestone 3's scenarios, every algorithm
 //   npm run bench -- --scenario edges --algorithm fixed-window,sliding-window-log --quick
+//   npm run bench -- --scenario chaos                Redis killed and paused under load (M4)
 //
 // Options:
-//   --scenario  steady | ramp | edges | all (default all)
+//   --scenario  steady | ramp | edges | chaos | all (default all: steady, ramp and edges)
+//   --case      chaos only: kill, pause or both, comma-separated (default both)
 //   --algorithm comma-separated (default: the five, plus none for steady and ramp)
 //   --runs      runs per algorithm (default 3, or 1 with --quick)
 //   --quick     short scenarios, written to bench/results/ (gitignored) instead of
@@ -28,7 +30,7 @@ import { createInterface } from 'node:readline';
 import { parseArgs } from 'node:util';
 import { createGunzip, gzipSync } from 'node:zlib';
 import { parse as parseYaml } from 'yaml';
-import { analyseDir } from './analyse.ts';
+import { analyseChaosDir, analyseDir } from './analyse.ts';
 import type { RunMeta } from './analysis.ts';
 import {
   K6Seconds,
@@ -60,7 +62,20 @@ const SCENARIOS: Readonly<Record<string, Scenario>> = {
   steady: { rules: 'steady.yaml', algorithms: ['none', ...LIMITERS] },
   ramp: { rules: 'steady.yaml', algorithms: ['none', ...LIMITERS] },
   edges: { rules: 'edges.yaml', algorithms: LIMITERS },
+  // Fallbacks only exist with a limiter, so chaos leaves `none` out too.
+  chaos: { rules: 'chaos.yaml', algorithms: LIMITERS },
 };
+
+/**
+ * The chaos cases: how Redis goes away at a third of the run, and comes back at two thirds.
+ * A kill drops its connections, so with the offline queue off checks fail at once. A pause keeps
+ * them open and silent, so every check waits out the timeout (decision 0018).
+ */
+const CHAOS_CASES = {
+  kill: { down: 'kill', up: 'start' },
+  pause: { down: 'pause', up: 'unpause' },
+} as const;
+type ChaosCase = keyof typeof CHAOS_CASES;
 
 const { values } = parseArgs({
   options: {
@@ -72,10 +87,12 @@ const { values } = parseArgs({
     rate: { type: 'string' },
     decision: { type: 'string', default: '0008' },
     metrics: { type: 'boolean', default: false },
+    case: { type: 'string', default: 'kill,pause' },
   },
 });
 
-const scenarioNames = values.scenario === 'all' ? Object.keys(SCENARIOS) : [values.scenario];
+// Chaos takes 45 minutes and answers a different question, so `all` leaves it out.
+const scenarioNames = values.scenario === 'all' ? ['steady', 'ramp', 'edges'] : [values.scenario];
 for (const name of scenarioNames) {
   if (!(name in SCENARIOS)) {
     throw new Error(
@@ -93,6 +110,15 @@ if (rate !== undefined && scenarioNames.some((n) => n !== 'steady')) {
   throw new Error('--rate applies to steady only: use --scenario steady');
 }
 if (!/^\d{4}$/.test(values.decision)) throw new Error('--decision must be four digits, e.g. 0009');
+const chaosCases = values.case.split(',') as ChaosCase[];
+for (const c of chaosCases) {
+  if (!(c in CHAOS_CASES)) throw new Error(`Unknown --case "${c}". Use kill, pause or both.`);
+}
+// Chaos data is evidence for 0010 unless told otherwise.
+const decision =
+  scenarioNames.includes('chaos') && process.argv.every((a) => !a.startsWith('--decision'))
+    ? '0010'
+    : values.decision;
 const outRoot = resolve(
   values.out ?? (values.quick ? join(ROOT, 'bench/results') : join(ROOT, 'docs/decisions/data')),
 );
@@ -108,12 +134,14 @@ for (const name of scenarioNames) {
   await mkdir(outRoot, { recursive: true });
   const label =
     (rate === undefined ? name : `${name}-${String(rate)}rps`) + (values.metrics ? '-metrics' : '');
-  const dir = join(
-    outRoot,
-    resultsDirName(label, new Date(), await readdir(outRoot), values.decision),
-  );
+  const dir = join(outRoot, resultsDirName(label, new Date(), await readdir(outRoot), decision));
   await mkdir(dir);
   console.log(`\n== ${name} → ${relative(ROOT, dir)}`);
+
+  if (name === 'chaos') {
+    await runChaos(dir, algorithms, scenario, rule);
+    continue;
+  }
 
   let setupWritten = false;
   for (const algorithm of algorithms) {
@@ -139,6 +167,55 @@ for (const name of scenarioNames) {
   console.log(`\n${await analyseDir(dir)}`);
 }
 console.log('The stack is still running; stop it with npm run stack:down.');
+
+/**
+ * Each case, algorithm and run: a fresh stack, then k6 for DURATION seconds while Redis goes
+ * away at a third of it and comes back at two thirds. When each fault's command returned, by the
+ * host's clock, goes into faults.json; the analysis splits the run into phases by those times.
+ * Results: <dir>/<case>/<algorithm>/run-<n>/, analysed into <dir>/summary.md.
+ */
+async function runChaos(
+  dir: string,
+  algorithms: readonly string[],
+  scenario: Scenario,
+  rule: { limit: number; windowMs: number },
+): Promise<void> {
+  const durationS = values.quick ? 30 : 60;
+  let setupWritten = false;
+  for (const chaosCase of chaosCases) {
+    const { down, up } = CHAOS_CASES[chaosCase];
+    for (const algorithm of algorithms) {
+      for (let run = 1; run <= runs; run++) {
+        process.stdout.write(`   ${chaosCase} ${algorithm} run ${String(run)}/${String(runs)} … `);
+        startStack(algorithm, scenario.rules);
+        if (!setupWritten) {
+          await writeFile(join(dir, 'setup.json'), `${JSON.stringify(setup(), null, 2)}\n`);
+          setupWritten = true;
+        }
+        const runDir = join(dir, chaosCase, algorithm, `run-${String(run)}`);
+        await mkdir(runDir, { recursive: true });
+        const meta: RunMeta = { algorithm, scenario: 'chaos', run, ...rule };
+        await writeFile(join(runDir, 'meta.json'), `${JSON.stringify(meta)}\n`);
+
+        const faults: { action: string; at: number }[] = [];
+        const inject = async (action: string, afterMs: number) => {
+          await new Promise((r) => setTimeout(r, afterMs));
+          await shAsync('docker', ['compose', '--progress', 'quiet', action, 'redis']);
+          faults.push({ action, at: Date.now() });
+        };
+        // k6 takes about a second to start sending, so the phases come out near 20 / 20 / 20 s;
+        // the analysis uses the recorded times, not these.
+        const third = (durationS * 1000) / 3;
+        const injecting = inject(down, third).then(() => inject(up, third));
+        const count = await runK6('chaos', runDir, rule, { DURATION: String(durationS) });
+        await injecting;
+        await writeFile(join(runDir, 'faults.json'), `${JSON.stringify(faults)}\n`);
+        console.log(`${String(count)} requests`);
+      }
+    }
+  }
+  console.log(`\n${await analyseChaosDir(dir)}`);
+}
 
 async function readRule(file: string): Promise<{ limit: number; windowMs: number }> {
   const parsed = parseYaml(await readFile(join(ROOT, 'bench/rules', file), 'utf8')) as {
@@ -167,6 +244,7 @@ async function runK6(
   scenario: string,
   runDir: string,
   rule: { limit: number; windowMs: number },
+  env: Readonly<Record<string, string>> = {},
 ): Promise<number> {
   const ramp = scenario === 'ramp';
   const stats = ramp ? sampleDockerStats(join(runDir, 'docker-stats.jsonl')) : undefined;
@@ -198,6 +276,7 @@ async function runK6(
       '-e',
       `WINDOW_MS=${String(rule.windowMs)}`,
       ...(rate === undefined ? [] : ['-e', `RATE=${String(rate)}`]),
+      ...Object.entries(env).flatMap(([k, v]) => ['-e', `${k}=${v}`]),
       ...k6Args,
       '--summary-export=/out/k6-summary.json',
       `/scripts/${scenario}.ts`,

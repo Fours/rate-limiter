@@ -1,0 +1,1 @@
+{"algorithm":"token-bucket","scenario":"chaos","run":3,"limit":20,"windowMs":10000}

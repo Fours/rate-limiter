@@ -34,6 +34,32 @@ describe('parseRecordLine', () => {
     expect(parseRecordLine(line('REC c - 999 0 10000.000 -'))).toMatchObject({ t: 999, status: 0 });
   });
 
+  it('reads the instance and source that milestone 4 added', () => {
+    expect(parseRecordLine(line('REC c 1000 999 429 1.5 0.2 app-2 fallback'))).toEqual({
+      client: 'c',
+      t: 1000,
+      sentAt: 999,
+      status: 429,
+      e2eMs: 1.5,
+      limiterMs: 0.2,
+      instance: 'app-2',
+      source: 'fallback',
+    });
+    // No response, so neither is known.
+    const none = parseRecordLine(line('REC c - 999 0 10000.000 - - -'));
+    expect(none).not.toHaveProperty('instance');
+    expect(none).not.toHaveProperty('source');
+  });
+
+  it('rejects 7 fields, and a source that is neither primary nor fallback', () => {
+    expect(() => parseRecordLine(line('REC c 1000 999 200 1.5 - app-1'))).toThrow(
+      /want 6 or 8 fields/,
+    );
+    expect(() => parseRecordLine(line('REC c 1000 999 200 1.5 - app-1 redis'))).toThrow(
+      /source is not primary, fallback or -/,
+    );
+  });
+
   it('ignores lines that are not records', () => {
     expect(
       parseRecordLine('time="…" level=warning msg="Insufficient VUs" source=k6'),
@@ -42,11 +68,11 @@ describe('parseRecordLine', () => {
   });
 
   it('rejects a malformed record instead of dropping it', () => {
-    expect(() => parseRecordLine(line('REC c 1000 999 200 1.5'))).toThrow(/want 6 fields/);
+    expect(() => parseRecordLine(line('REC c 1000 999 200 1.5'))).toThrow(/want 6 or 8 fields/);
     expect(() => parseRecordLine(line('REC c 1000 999 OK 1.5 -'))).toThrow(
       /status is not a number/,
     );
-    expect(() => parseRecordLine(line('REC  1000 999 200 1.5 -'))).toThrow(/want 6 fields/);
+    expect(() => parseRecordLine(line('REC  1000 999 200 1.5 -'))).toThrow(/want 6 or 8 fields/);
   });
 });
 

@@ -24,6 +24,8 @@ x-app: &app
     RULES: /app/bench/rules/${RULES:-default.yaml}
     REDIS_URL: redis://redis:6379
     METRICS: ${METRICS:-0}
+    # Three instances share each limit, so each one's fallback allows a third of it (0018).
+    FALLBACK_INSTANCES: 3
   depends_on:
     redis:
       condition: service_healthy

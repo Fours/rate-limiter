@@ -144,8 +144,8 @@ Do these in order. Each one ends with passing tests.
 | T0. Timeout and fallback | Done | 1329011 |
 | T1. Hooks | Done | 547e7e7 |
 | T2. `prometheusHooks()` | Done | 0756b6a |
-| T3. Prometheus and Grafana in the stack | Done | |
-| T4. Chaos test and decide 0010 | Not started | |
+| T3. Prometheus and Grafana in the stack | Done | dc72cd6 |
+| T4. Chaos test and decide 0010 | Done | |
 | T5. IPv6 clients by /64 | Not started | |
 | T6. CI and README | Not started | |
 
@@ -214,13 +214,15 @@ Probe the installed `prom-client` first: how it registers metrics on the global 
 
 Add the `chaos` scenario to the runner and the analysis. The new measures (error rate per phase, p99 per phase, peaks around each change, time to recover) are pure functions in `bench/analysis.ts` with unit tests, like milestone 3's.
 
+*As built:* the benchmark app now turns off ioredis's offline queue, as 0018 recommends, runs the fallback with `FALLBACK_INSTANCES` (3 in the stack), and passes its own hooks: `onDecision` sets `X-RateLimit-Source`, and only switches between the primary and the fallback are logged, one line each way per outage. `BenchApp.ready()` lets tests wait for the connection, since with the queue off a check sent before it falls back; the server doesn't wait, so `/healthz` still answers without Redis. REC lines gain the instance and the source (8 fields; 6 still parse). `bench/k6/chaos.ts` sends 500 req/s: 10 heavy clients at 10 req/s each against `bench/rules/chaos.yaml`'s 20 per 10 s, and 400 req/s of light traffic over 400 clients. The runner kills or pauses Redis a third of the way through and brings it back at two thirds, recording when each command returned in `faults.json`. `--scenario all` still means milestone 3's three scenarios. Recovery is the slowest instance's, since the fallback panel only reaches zero when every instance is back.
+
 **Done when:**
 
-- [ ] The analysis has unit tests with hand-made inputs, including an outage with a known recovery time and a known peak
-- [ ] `npm run bench -- --scenario chaos` runs both cases for every algorithm, three runs each, and writes to `docs/decisions/data/0010-chaos-<date>/` with a `setup.json`
-- [ ] No request fails in any run, or else 0010 says why and what changed
-- [ ] [0010](decisions/0010-fail-open-with-local-fallback.md) is Accepted, with the numbers, the data and the consequences, including the overshoot when Redis goes away and when it comes back
-- [ ] Open question 3 (a circuit breaker) is answered from the pause case's p99
+- [x] The analysis has unit tests with hand-made inputs, including an outage with a known recovery time and a known peak
+- [x] `npm run bench -- --scenario chaos` runs both cases for every algorithm, three runs each, and writes to `docs/decisions/data/0010-chaos-<date>/` with a `setup.json`
+- [x] No request fails in any run, or else 0010 says why and what changed
+- [x] [0010](decisions/0010-fail-open-with-local-fallback.md) is Accepted, with the numbers, the data and the consequences, including the overshoot when Redis goes away and when it comes back
+- [x] Open question 3 (a circuit breaker) is answered from the pause case's p99
 
 ### T5. IPv6 clients by /64
 
@@ -276,6 +278,8 @@ Updated:
 3. **A circuit breaker.** When Redis hangs rather than refusing connections, every request waits the full `timeoutMs` before it falls back. A breaker (after a few failures in a row, skip Redis for a second, then try one check) would remove that wait, at the cost of more state and another decision record. Recommendation: measure first. If the pause case's p99 is about 50 ms more than normal, as expected, decide in T4 whether that's acceptable, the way T6 of milestone 3 decided pre-fetching from its baseline.
 
    *Answer (spec review): measure first, and decide in T4.*
+
+   *Answer (T4): no breaker. While Redis was paused, the limiter's p99 was 52.4 to 52.8 ms in all 15 runs, the expected 50 ms timeout plus normal, and a killed Redis cost nothing. Revisit if production metrics show hangs. Reasons in [0010](decisions/0010-fail-open-with-local-fallback.md).*
 4. **Hook errors.** Swallowing a hook's error hides bugs in it. Letting it through means a metrics bug can fail requests. Recommendation: swallow, and say so in the README, because the limiter must never fail a request for its own bookkeeping.
 
    *Answer (spec review): swallow.*

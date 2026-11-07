@@ -16,9 +16,15 @@ export function parseRecordLine(line: string): RequestRecord | undefined {
   const match = LINE.exec(line);
   if (match === null) return undefined;
   const fields = (match[1] ?? '').split(' ');
-  const [client, receivedAt, sentAt, status, e2eMs, limiterMs] = fields;
+  const [client, receivedAt, sentAt, status, e2eMs, limiterMs, instance, source] = fields;
   const bad = (why: string) => new Error(`bad REC line (${why}): ${line}`);
-  if (fields.length !== 6 || client === undefined || client === '') throw bad('want 6 fields');
+  // 8 since milestone 4 (instance and source); results from before have 6.
+  if ((fields.length !== 6 && fields.length !== 8) || client === undefined || client === '') {
+    throw bad('want 6 or 8 fields');
+  }
+  if (source !== undefined && !['primary', 'fallback', '-'].includes(source)) {
+    throw bad('source is not primary, fallback or -');
+  }
   const num = (value: string | undefined, name: string): number => {
     if (value === undefined || !NUMBER.test(value)) throw bad(`${name} is not a number`);
     return Number(value);
@@ -31,6 +37,8 @@ export function parseRecordLine(line: string): RequestRecord | undefined {
     status: num(status, 'status'),
     e2eMs: num(e2eMs, 'e2eMs'),
     ...(limiterMs === '-' ? {} : { limiterMs: num(limiterMs, 'limiterMs') }),
+    ...(instance === undefined || instance === '-' ? {} : { instance }),
+    ...(source === 'primary' || source === 'fallback' ? { source } : {}),
   };
 }
 

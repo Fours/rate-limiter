@@ -10,8 +10,9 @@
 //   PORT        default 3000
 //   METRICS     1 to record decisions with prometheusHooks() and serve GET /metrics; 0 or unset
 //               for none
+//   FALLBACK_INSTANCES  the fallback's instance count, default 1; the stack sets 3
 import { loadRules } from '@kylewillett/rate-limiter';
-import { createApp, parseMetrics } from './app.ts';
+import { createApp, parseInstances, parseMetrics } from './app.ts';
 
 const rules = await loadRules(
   process.env.RULES ?? new URL('../rules/default.yaml', import.meta.url).pathname,
@@ -19,7 +20,15 @@ const rules = await loadRules(
 const algorithm = process.env.ALGORITHM ?? 'sliding-window-counter';
 const instance = process.env.INSTANCE ?? 'local';
 const metrics = parseMetrics(process.env.METRICS);
-const bench = createApp({ algorithm, rules, instance, redisUrl: process.env.REDIS_URL, metrics });
+const fallbackInstances = parseInstances(process.env.FALLBACK_INSTANCES);
+const bench = createApp({
+  algorithm,
+  rules,
+  instance,
+  redisUrl: process.env.REDIS_URL,
+  metrics,
+  fallbackInstances,
+});
 
 const port = Number(process.env.PORT ?? 3000);
 const server = bench.app.listen(port, () => {

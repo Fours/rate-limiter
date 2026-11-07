@@ -15,6 +15,9 @@ import {
   fromIoredis,
   rateLimit,
   type Algorithm,
+  type DecisionEvent,
+  type FallbackEvent,
+  type RateLimitHooks,
   type RedisAlgorithmOptions,
   type Rule,
 } from '@kylewillett/rate-limiter';
@@ -43,10 +46,20 @@ export interface BenchAppOptions {
    * so benchmarks without it measure the limiter alone, as in milestone 3.
    */
   readonly metrics?: boolean;
+  /** The fallback's instance count (decision 0018): the stack runs 3. Default 1. */
+  readonly fallbackInstances?: number;
+  /** Where the switches between primary and fallback are logged. Default console.log. */
+  readonly log?: (line: string) => void;
 }
 
 export interface BenchApp {
   readonly app: Express;
+  /**
+   * Resolves once the Redis client is connected. With the offline queue off, ioredis refuses
+   * commands until then, so a check sent earlier falls back. Tests wait for this; the server
+   * doesn't, so the app still starts and answers /healthz without Redis.
+   */
+  ready(): Promise<void>;
   /** Disconnects from Redis. Call it after the HTTP server has closed. */
   close(): void;
 }
@@ -65,11 +78,18 @@ export function createApp(opts: BenchAppOptions): BenchApp {
     if (opts.redisUrl === undefined || opts.redisUrl === '') {
       throw new Error(`ALGORITHM=${opts.algorithm} needs REDIS_URL`);
     }
-    redis = new Redis(opts.redisUrl);
+    // The offline queue off, as decision 0018 recommends: while Redis is down, a check fails at
+    // once and the fallback answers, instead of waiting out the timeout in ioredis's queue.
+    redis = new Redis(opts.redisUrl, { enableOfflineQueue: false });
     limiter = rateLimit({
       rules: opts.rules,
       algorithm: factory({ client: fromIoredis(redis) }),
-      ...(registry === undefined ? {} : { hooks: prometheusHooks({ registry }) }),
+      fallback: { instances: opts.fallbackInstances ?? 1 },
+      hooks: benchHooks(
+        opts.instance,
+        opts.log ?? console.log,
+        registry === undefined ? undefined : prometheusHooks({ registry }),
+      ),
     });
   }
 
@@ -104,8 +124,17 @@ export function createApp(opts: BenchAppOptions): BenchApp {
     res.json({ ok: true });
   });
 
+  const client = redis;
   return {
     app,
+    ready: () =>
+      client === undefined || client.status === 'ready'
+        ? Promise.resolve()
+        : new Promise((resolve) => {
+            client.once('ready', () => {
+              resolve();
+            });
+          }),
     close: () => {
       redis?.disconnect();
     },
@@ -140,4 +169,51 @@ export function parseMetrics(value: string | undefined): boolean {
   if (value === undefined || value === '' || value === '0') return false;
   if (value === '1') return true;
   throw new Error(`METRICS must be 1 or 0, not "${value}"`);
+}
+
+/**
+ * The app's own hooks, around prometheusHooks() when METRICS=1.
+ *
+ * - X-RateLimit-Source says which source decided, so the chaos benchmark can time how long the
+ *   primary takes to come back after Redis does (milestone 4, T4).
+ * - Only switches are logged, from the primary to the fallback and back: one line per outage
+ *   per instance, rather than one per request.
+ */
+export function benchHooks(
+  instance: string,
+  log: (line: string) => void,
+  metrics: RateLimitHooks | undefined,
+): RateLimitHooks {
+  let source: 'primary' | 'fallback' = 'primary';
+  return {
+    onFallback: (event: FallbackEvent) => {
+      if (source === 'primary') {
+        source = 'fallback';
+        const why = event.reason === 'error' ? `error: ${errorMessage(event.error)}` : 'timeout';
+        log(`${instance}: Redis check failed (${why}); answering from the in-memory fallback`);
+      }
+      metrics?.onFallback?.(event);
+    },
+    onDecision: (event: DecisionEvent) => {
+      event.req.res?.setHeader('X-RateLimit-Source', event.source);
+      if (event.source === 'primary' && source === 'fallback') {
+        source = 'primary';
+        log(`${instance}: Redis answering again; back on the primary`);
+      }
+      metrics?.onDecision?.(event);
+    },
+  };
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** FALLBACK_INSTANCES: a positive integer, or unset for 1. Anything else fails at startup. */
+export function parseInstances(value: string | undefined): number {
+  if (value === undefined || value === '') return 1;
+  if (!/^[1-9]\d*$/.test(value)) {
+    throw new Error(`FALLBACK_INSTANCES must be a positive integer, not "${value}"`);
+  }
+  return Number(value);
 }

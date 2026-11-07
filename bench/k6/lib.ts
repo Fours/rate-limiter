@@ -1,7 +1,10 @@
 // Shared by every scenario. Each request is logged as one line, which bench/run.ts turns into a
 // RequestRecord (bench/analysis.ts):
 //
-//   REC <client> <receivedAt> <sentAt> <status> <e2eMs> <limiterMs>
+//   REC <client> <receivedAt> <sentAt> <status> <e2eMs> <limiterMs> <instance> <source>
+//
+// instance is X-Instance, and source is X-RateLimit-Source (primary or fallback), added in
+// milestone 4 for the chaos scenario. Older results have only the first six fields.
 //
 // receivedAt comes from the app's X-Received-At header and is what windows are timed by; sentAt
 // is k6's own clock just before sending, kept for comparison. "-" marks a missing value, such as
@@ -43,8 +46,10 @@ function log(client: string, sentAt: number, res: RefinedResponse<ResponseType |
   const timing = /rl;dur=([\d.]+)/.exec(res.headers['Server-Timing'] ?? '');
   const limiterMs = timing?.[1] ?? '-';
   const e2eMs = res.timings.duration.toFixed(3);
+  const instance = res.headers['X-Instance'] ?? '-';
+  const source = res.headers['X-Ratelimit-Source'] ?? '-';
   console.log(
-    `REC ${client} ${receivedAt} ${String(sentAt)} ${String(res.status)} ${e2eMs} ${limiterMs}`,
+    `REC ${client} ${receivedAt} ${String(sentAt)} ${String(res.status)} ${e2eMs} ${limiterMs} ${instance} ${source}`,
   );
 }
 

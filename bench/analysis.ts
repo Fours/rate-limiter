@@ -18,6 +18,10 @@ export interface RequestRecord {
   readonly e2eMs: number;
   /** The limiter's own time from `Server-Timing`, ms. Absent with ALGORITHM=none. */
   readonly limiterMs?: number;
+  /** The app instance that answered (X-Instance). Recorded since milestone 4. */
+  readonly instance?: string;
+  /** Which source decided (X-RateLimit-Source). Absent when nothing was limited. */
+  readonly source?: 'primary' | 'fallback';
 }
 
 export interface RunMeta {
@@ -594,3 +598,240 @@ function byClient(records: readonly RequestRecord[]): Map<string, RequestRecord[
   }
   return out;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Chaos (milestone 4, T4): Redis killed or paused under steady load, then brought back. Every
+// measure is per phase or around a change, from the fault times the runner recorded.
+
+/** One fault the runner injected, timed by the host's clock when the command returned. */
+export interface Fault {
+  readonly action: 'kill' | 'start' | 'pause' | 'unpause';
+  /** epoch ms */
+  readonly at: number;
+}
+
+/** When Redis went away and when it came back, epoch ms. */
+export interface Outage {
+  readonly downAt: number;
+  readonly upAt: number;
+}
+
+export type Phase = 'before' | 'outage' | 'after';
+export const PHASES: readonly Phase[] = ['before', 'outage', 'after'];
+
+const DOWN: ReadonlySet<Fault['action']> = new Set(['kill', 'pause']);
+
+/** The outage in a run's faults: exactly one kill or pause, then the start or unpause after it. */
+export function outageOf(faults: readonly Fault[]): Outage {
+  const [down, up, ...rest] = [...faults].sort((a, b) => a.at - b.at);
+  const pairs = { kill: 'start', pause: 'unpause' } as const;
+  if (
+    down === undefined ||
+    up === undefined ||
+    rest.length > 0 ||
+    !DOWN.has(down.action) ||
+    up.action !== pairs[down.action as 'kill' | 'pause']
+  ) {
+    throw new Error(
+      `want a kill then a start, or a pause then an unpause: ${JSON.stringify(faults)}`,
+    );
+  }
+  return { downAt: down.at, upAt: up.at };
+}
+
+/** Which phase a time falls in. A change belongs to the phase it starts. */
+export function phaseOf(t: number, outage: Outage): Phase {
+  if (t < outage.downAt) return 'before';
+  return t < outage.upAt ? 'outage' : 'after';
+}
+
+/** A failed request: anything but a 200 or a 429, including 0 for no response at all. */
+export function isFailure(r: RequestRecord): boolean {
+  return r.status !== ALLOWED && r.status !== DENIED;
+}
+
+export interface PhaseStats {
+  readonly requests: number;
+  readonly failures: number;
+  readonly e2eP99: number | undefined;
+  readonly limiterP99: number | undefined;
+  /** Share of limited requests the fallback decided, 0 to 1. */
+  readonly fallbackShare: number | undefined;
+}
+
+export function phaseStats(
+  records: readonly RequestRecord[],
+  outage: Outage,
+): Readonly<Record<Phase, PhaseStats>> {
+  const split: Record<Phase, RequestRecord[]> = { before: [], outage: [], after: [] };
+  for (const r of records) split[phaseOf(r.t, outage)].push(r);
+  const stats = (rs: readonly RequestRecord[]): PhaseStats => {
+    const limiter = rs.flatMap((r) => (r.limiterMs === undefined ? [] : [r.limiterMs]));
+    const decided = rs.filter((r) => r.source !== undefined);
+    return {
+      requests: rs.length,
+      failures: rs.filter(isFailure).length,
+      e2eP99:
+        rs.length > 0
+          ? percentile(
+              rs.map((r) => r.e2eMs),
+              99,
+            )
+          : undefined,
+      limiterP99: limiter.length > 0 ? percentile(limiter, 99) : undefined,
+      fallbackShare:
+        decided.length > 0
+          ? decided.filter((r) => r.source === 'fallback').length / decided.length
+          : undefined,
+    };
+  };
+  return { before: stats(split.before), outage: stats(split.outage), after: stats(split.after) };
+}
+
+/**
+ * The most requests allowed for one client in any window that spans `at`: the overshoot when
+ * Redis goes away (the fallback's buckets start full) or comes back (empty, with no persistence).
+ * Spans are `windowMs − RESOLUTION_MS` long and half-open, as in peakPerWindow. A span containing
+ * `at` starts in `(at − span, at]`, and the busiest one can be slid right until it starts at a
+ * request or at `at` itself, so only those starts need checking.
+ */
+export function peakAround(records: readonly RequestRecord[], windowMs: number, at: number): Peak {
+  const span = windowMs - RESOLUTION_MS;
+  let best: Peak = { peak: 0, client: undefined };
+  for (const [client, own] of byClient(records)) {
+    const times = own
+      .filter((r) => r.status === ALLOWED)
+      .map((r) => r.t)
+      .sort((a, b) => a - b);
+    const starts = [...times.filter((t) => t > at - span && t <= at), at];
+    for (const s of starts) {
+      const count = lowerBound(times, s + span) - lowerBound(times, s);
+      if (count > best.peak) best = { peak: count, client };
+    }
+  }
+  return best;
+}
+
+/** Index of the first value >= target in a sorted array. */
+function lowerBound(sorted: readonly number[], target: number): number {
+  let lo = 0;
+  let hi = sorted.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if ((sorted[mid] as number) < target) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
+export interface Recovery {
+  /** Per instance: ms from Redis's return to its first primary decision, or undefined if none. */
+  readonly byInstance: Readonly<Record<string, number | undefined>>;
+  /** The slowest instance, or undefined if any never got back to the primary. */
+  readonly worstMs: number | undefined;
+}
+
+/**
+ * How long each instance took to decide from the primary again once Redis was back. The worst
+ * one is what the demo sees: the fallback panel reaches zero only when every instance is back.
+ */
+export function recovery(records: readonly RequestRecord[], upAt: number): Recovery {
+  const first = new Map<string, number | undefined>();
+  for (const r of records) {
+    if (r.instance === undefined) continue;
+    if (!first.has(r.instance)) first.set(r.instance, undefined);
+    if (r.source === 'primary' && r.t >= upAt) {
+      const seen = first.get(r.instance);
+      if (seen === undefined || r.t < seen) first.set(r.instance, r.t);
+    }
+  }
+  const byInstance = Object.fromEntries(
+    [...first]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([i, t]) => [i, t === undefined ? undefined : t - upAt]),
+  );
+  const values = Object.values(byInstance);
+  return {
+    byInstance,
+    worstMs:
+      values.length === 0 || values.some((v) => v === undefined)
+        ? undefined
+        : Math.max(...(values as number[])),
+  };
+}
+
+export interface ChaosRun extends Run {
+  readonly faults: readonly Fault[];
+  /** Requests k6 couldn't start, from its summary. Undefined if not recorded. */
+  readonly dropped?: number;
+}
+
+export interface ChaosMetrics {
+  readonly phases: Readonly<Record<Phase, PhaseStats>>;
+  readonly peakDown: number;
+  readonly peakUp: number;
+  readonly recoveryMs: number | undefined;
+  readonly dropped: number | undefined;
+}
+
+export function chaosMetrics(run: ChaosRun): ChaosMetrics {
+  const outage = outageOf(run.faults);
+  return {
+    phases: phaseStats(run.records, outage),
+    peakDown: peakAround(run.records, run.meta.windowMs, outage.downAt).peak,
+    peakUp: peakAround(run.records, run.meta.windowMs, outage.upAt).peak,
+    recoveryMs: recovery(run.records, outage.upAt).worstMs,
+    dropped: run.dropped,
+  };
+}
+
+/**
+ * One case (kill or pause): a row per algorithm, each cell the median of its runs, and a row per
+ * run underneath, since a chaos test is judged on its worst run as much as its typical one.
+ */
+export function chaosTable(
+  chaosCase: string,
+  rule: Rule,
+  runsByAlgorithm: readonly (readonly [string, readonly ChaosMetrics[]])[],
+): string {
+  const sorted = [...runsByAlgorithm].sort(([a], [b]) => byAlgorithmOrder(a, b));
+  const failures = (m: ChaosMetrics) => PHASES.reduce((n, p) => n + m.phases[p].failures, 0);
+  const mid = (values: (number | undefined)[]) => {
+    const known = values.filter((v): v is number => v !== undefined);
+    return known.length === values.length && known.length > 0 ? median(known) : undefined;
+  };
+  const row = (label: string, ms_: readonly ChaosMetrics[]) => {
+    const p = (phase: Phase, pick: (s: PhaseStats) => number | undefined) =>
+      mid(ms_.map((m) => pick(m.phases[phase])));
+    return `| ${[
+      label,
+      String(ms_.reduce((n, m) => n + failures(m), 0)),
+      PHASES.map((phase) => ms(p(phase, (s) => s.e2eP99))).join(' / '),
+      ms(p('outage', (s) => s.limiterP99)),
+      pct(p('outage', (s) => s.fallbackShare)),
+      pct(p('after', (s) => s.fallbackShare)),
+      count(mid(ms_.map((m) => m.peakDown)), rule.limit),
+      count(mid(ms_.map((m) => m.peakUp)), rule.limit),
+      ms_.some((m) => m.recoveryMs === undefined)
+        ? 'never'
+        : String(Math.round(mid(ms_.map((m) => m.recoveryMs)) ?? 0)),
+      String(ms_.reduce((n, m) => n + (m.dropped ?? 0), 0)),
+    ].join(' | ')} |`;
+  };
+  return [
+    `## chaos: Redis ${chaosCase === 'kill' ? 'killed' : 'paused'}`,
+    '',
+    `Rule: ${String(rule.limit)} per ${String(rule.windowMs)} ms per client. Each algorithm's row is the median of its runs, except failed requests and k6's dropped iterations, which are totals; the rows under it are its runs. End-to-end p99 is before / during / after the outage. Peaks are the most one client got in a window spanning Redis going away, then coming back. Recovery is the slowest instance's time from Redis's return to its first decision from the primary.`,
+    '',
+    '| Algorithm | Failed requests | End-to-end p99 (ms) | Limiter p99, outage (ms) | Fallback share, outage | Fallback share, after | Peak, going away | Peak, coming back | Recovery (ms) | Dropped by k6 |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+    ...sorted.flatMap(([algorithm, metrics]) => [
+      row(`**${algorithm}**`, metrics),
+      ...metrics.map((m, i) => row(`run ${String(i + 1)}`, [m])),
+    ]),
+    '',
+  ].join('\n');
+}
+
+const count = (v: number | undefined, limit: number) =>
+  v === undefined ? '–' : `${String(v)} (${(v / limit).toFixed(2)}×)`;

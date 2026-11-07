@@ -2,8 +2,16 @@ import { randomUUID } from 'node:crypto';
 import type { Redis } from 'ioredis';
 import request from 'supertest';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { ALGORITHMS, createApp, parseMetrics, type BenchApp } from '../../../bench/app/app.ts';
+import {
+  ALGORITHMS,
+  benchHooks,
+  createApp,
+  parseInstances,
+  parseMetrics,
+  type BenchApp,
+} from '../../../bench/app/app.ts';
 import { buildKey, defaultIdentify } from '../../../src/identify.js';
+import type { DecisionEvent, FallbackEvent } from '../../../src/hooks.js';
 import type { Rule } from '../../../src/types.js';
 import { connectIoredis, redisUrl, uniqueRuleId } from '../helpers/redis.js';
 
@@ -26,9 +34,11 @@ function workRule(): Rule {
   return { id: uniqueRuleId('bench'), limit: LIMIT, windowMs: 60_000, path: '/work' };
 }
 
-function start(algorithm: string, rule = workRule(), instance = 'test-1', metrics = false) {
-  const bench = createApp({ algorithm, rules: [rule], instance, redisUrl, metrics });
+async function start(algorithm: string, rule = workRule(), instance = 'test-1', metrics = false) {
+  const bench = createApp({ algorithm, rules: [rule], instance, redisUrl, metrics, log: () => {} });
   apps.push(bench);
+  // With the offline queue off, a check before the client connects would fall back.
+  await bench.ready();
   return { app: bench.app, rule };
 }
 
@@ -65,7 +75,7 @@ describe('ALGORITHM', () => {
   });
 
   it.each(redisAlgorithms)('%s runs its own script', async (algorithm) => {
-    const { app, rule } = start(algorithm);
+    const { app, rule } = await start(algorithm);
     const client = newClient();
     const res = await request(app).get('/work').set('x-api-key', client);
     expect(res.status).toBe(200);
@@ -74,7 +84,7 @@ describe('ALGORITHM', () => {
   });
 
   it('none mounts no limiter and stores nothing', async () => {
-    const { app, rule } = start('none');
+    const { app, rule } = await start('none');
     const client = newClient();
     for (let i = 0; i < LIMIT * 2; i++) {
       const res = await request(app).get('/work').set('x-api-key', client);
@@ -106,7 +116,7 @@ describe('/healthz', () => {
   // With a /work-only rule this test would pass even then.
   it('is never limited and never uses up a client’s limit, even under a catch-all rule', async () => {
     const everyRoute: Rule = { id: uniqueRuleId('bench'), limit: LIMIT, windowMs: 60_000 };
-    const { app } = start('token-bucket', everyRoute);
+    const { app } = await start('token-bucket', everyRoute);
     const client = newClient();
     for (let i = 0; i < LIMIT * 3; i++) {
       const res = await request(app).get('/healthz').set('x-api-key', client);
@@ -129,7 +139,7 @@ describe('/metrics (METRICS=1)', () => {
   }
 
   it('counts allowed and denied decisions, and times them, as requests arrive', async () => {
-    const { app, rule } = start('sliding-window-counter', workRule(), 'test-1', true);
+    const { app, rule } = await start('sliding-window-counter', workRule(), 'test-1', true);
     const client = newClient();
     const allowed = `ratelimit_decisions_total{rule="${rule.id}",outcome="allowed",source="primary"}`;
     const denied = `ratelimit_decisions_total{rule="${rule.id}",outcome="denied",source="primary"}`;
@@ -149,7 +159,7 @@ describe('/metrics (METRICS=1)', () => {
 
   it('is never limited, and scrapes are not counted as decisions, even under a catch-all rule', async () => {
     const everyRoute: Rule = { id: uniqueRuleId('bench'), limit: LIMIT, windowMs: 60_000 };
-    const { app } = start('token-bucket', everyRoute, 'test-1', true);
+    const { app } = await start('token-bucket', everyRoute, 'test-1', true);
     for (let i = 0; i < LIMIT * 3; i++) {
       const res = await request(app).get('/metrics');
       expect(res.status).toBe(200);
@@ -159,14 +169,14 @@ describe('/metrics (METRICS=1)', () => {
   });
 
   it('is absent, and nothing is recorded, without METRICS', async () => {
-    const { app } = start('sliding-window-counter');
+    const { app } = await start('sliding-window-counter');
     await request(app).get('/work').set('x-api-key', newClient());
     expect((await request(app).get('/metrics')).status).toBe(404);
   });
 
   it('gives each app its own registry, so two can run in one process', async () => {
-    const one = start('token-bucket', workRule(), 'test-1', true);
-    const two = start('token-bucket', workRule(), 'test-2', true);
+    const one = await start('token-bucket', workRule(), 'test-1', true);
+    const two = await start('token-bucket', workRule(), 'test-2', true);
     await request(one.app).get('/work').set('x-api-key', newClient());
     expect((await request(one.app).get('/metrics')).text).toContain(`rule="${one.rule.id}"`);
     expect((await request(two.app).get('/metrics')).text).not.toContain(`rule="${one.rule.id}"`);
@@ -185,7 +195,7 @@ describe('Server-Timing', () => {
   const timing = /^rl;dur=(\d+\.\d{3})$/;
 
   it('is on allowed responses and on 429s', async () => {
-    const { app } = start('sliding-window-counter');
+    const { app } = await start('sliding-window-counter');
     const client = newClient();
     const responses = [];
     for (let i = 0; i <= LIMIT; i++) {
@@ -200,16 +210,16 @@ describe('Server-Timing', () => {
   });
 
   it('is absent with none and on /healthz', async () => {
-    const { app } = start('none');
+    const { app } = await start('none');
     expect((await request(app).get('/work')).headers['server-timing']).toBeUndefined();
-    const limited = start('token-bucket').app;
+    const limited = (await start('token-bucket')).app;
     expect((await request(limited).get('/healthz')).headers['server-timing']).toBeUndefined();
   });
 });
 
 describe('X-Instance', () => {
   it('names the instance, on every route', async () => {
-    const { app } = start('fixed-window', workRule(), 'app-2');
+    const { app } = await start('fixed-window', workRule(), 'app-2');
     expect((await request(app).get('/healthz')).headers['x-instance']).toBe('app-2');
     expect((await request(app).get('/work')).headers['x-instance']).toBe('app-2');
   });
@@ -217,7 +227,7 @@ describe('X-Instance', () => {
 
 describe('X-Received-At', () => {
   it('stamps every response with when the instance received it, by the wall clock', async () => {
-    const { app } = start('none');
+    const { app } = await start('none');
     const before = Date.now();
     const res = await request(app).get('/work');
     const after = Date.now();
@@ -238,15 +248,101 @@ describe('behind one proxy', () => {
 
   // Each test's rule id is unique, so fixed addresses can't collide with earlier runs' keys.
   it('gives two forwarded addresses separate limits', async () => {
-    const { app } = start('token-bucket');
+    const { app } = await start('token-bucket');
     expect(await statuses(app, { 'x-forwarded-for': '198.51.100.7' }, LIMIT + 1)).toEqual(full);
     expect(await statuses(app, { 'x-forwarded-for': '203.0.113.7' }, LIMIT + 1)).toEqual(full);
   });
 
   it('gives two API keys from one address separate limits', async () => {
-    const { app } = start('token-bucket');
+    const { app } = await start('token-bucket');
     const from = { 'x-forwarded-for': '192.0.2.10' };
     expect(await statuses(app, { ...from, 'x-api-key': newClient() }, LIMIT + 1)).toEqual(full);
     expect(await statuses(app, { ...from, 'x-api-key': newClient() }, LIMIT + 1)).toEqual(full);
+  });
+});
+
+describe('X-RateLimit-Source and the fallback (milestone 4, T4)', () => {
+  it('says primary while Redis answers', async () => {
+    const { app } = await start('sliding-window-counter');
+    const res = await request(app).get('/work').set('x-api-key', newClient());
+    expect(res.headers['x-ratelimit-source']).toBe('primary');
+  });
+
+  it('says fallback when Redis is unreachable, with the limit split over the instances', async () => {
+    const lines: string[] = [];
+    const rule = { ...workRule(), limit: 10 };
+    // A closed port: with the offline queue off, every check fails at once.
+    const bench = createApp({
+      algorithm: 'token-bucket',
+      rules: [rule],
+      instance: 'app-9',
+      redisUrl: 'redis://127.0.0.1:1',
+      fallbackInstances: 3,
+      log: (line) => lines.push(line),
+    });
+    apps.push(bench);
+    const client = newClient();
+    const statuses: number[] = [];
+    for (let i = 0; i < 5; i++) {
+      const res = await request(bench.app).get('/work').set('x-api-key', client);
+      expect(res.headers['x-ratelimit-source']).toBe('fallback');
+      expect(res.headers['ratelimit-limit']).toBe('4');
+      statuses.push(res.status);
+    }
+    expect(statuses).toEqual([200, 200, 200, 200, 429]);
+    // One line for the switch, not one per request.
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatch(
+      /^app-9: Redis check failed \(error: .+\); answering from the in-memory fallback$/,
+    );
+  });
+
+  it('reads FALLBACK_INSTANCES as a positive integer, default 1, and rejects anything else', () => {
+    expect(parseInstances(undefined)).toBe(1);
+    expect(parseInstances('')).toBe(1);
+    expect(parseInstances('3')).toBe(3);
+    for (const bad of ['0', '-1', '1.5', 'three']) {
+      expect(() => parseInstances(bad)).toThrow(
+        `FALLBACK_INSTANCES must be a positive integer, not "${bad}"`,
+      );
+    }
+  });
+
+  it('logs each switch once, each way, sets the header, and passes events on to metrics', () => {
+    const lines: string[] = [];
+    const seen: string[] = [];
+    const hooks = benchHooks('app-1', (line) => lines.push(line), {
+      onDecision: (e) => seen.push(`decision:${e.source}`),
+      onFallback: (e) => seen.push(`fallback:${e.reason}`),
+    });
+    const headers: Record<string, string> = {};
+    const req = { res: { setHeader: (k: string, v: string) => (headers[k] = v) } };
+    const decide = (source: 'primary' | 'fallback') =>
+      hooks.onDecision?.({ req, source } as unknown as DecisionEvent);
+    const fail = () => hooks.onFallback?.({ req, reason: 'timeout' } as unknown as FallbackEvent);
+
+    decide('primary');
+    fail();
+    decide('fallback');
+    expect(headers['X-RateLimit-Source']).toBe('fallback');
+    fail();
+    decide('fallback');
+    decide('primary');
+    decide('primary');
+    expect(headers['X-RateLimit-Source']).toBe('primary');
+
+    expect(lines).toEqual([
+      'app-1: Redis check failed (timeout); answering from the in-memory fallback',
+      'app-1: Redis answering again; back on the primary',
+    ]);
+    expect(seen).toEqual([
+      'decision:primary',
+      'fallback:timeout',
+      'decision:fallback',
+      'fallback:timeout',
+      'decision:fallback',
+      'decision:primary',
+      'decision:primary',
+    ]);
   });
 });

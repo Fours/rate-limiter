@@ -1,0 +1,22 @@
+
+
+  █ TOTAL RESULTS 
+
+    HTTP
+    http_req_duration..............: avg=670.84µs min=25.33µs med=588.85µs max=7.2ms   p(90)=1.05ms p(95)=1.25ms
+      { expected_response:true }...: avg=670.84µs min=25.33µs med=588.85µs max=7.2ms   p(90)=1.05ms p(95)=1.25ms
+    http_req_failed................: 0.00%  0 out of 30002
+    http_reqs......................: 30002  500.010913/s
+
+    EXECUTION
+    iteration_duration.............: avg=884.12µs min=249.5µs med=771.7µs  max=16.78ms p(90)=1.37ms p(95)=1.65ms
+    iterations.....................: 30002  500.010913/s
+    vus............................: 0      min=0          max=2  
+    vus_max........................: 150    min=150        max=150
+
+    NETWORK
+    data_received..................: 13 MB  215 kB/s
+    data_sent......................: 2.5 MB 42 kB/s
+
+
+

@@ -1,0 +1,7 @@
+# For the chaos scenario: /work, 20 per 10 s per client. With FALLBACK_INSTANCES=3, each
+# instance's fallback allows ceil(20 / 3) = 7. A short window gives each 20 s phase two windows.
+rules:
+  - id: work
+    limit: 20
+    windowMs: 10000
+    path: /work
