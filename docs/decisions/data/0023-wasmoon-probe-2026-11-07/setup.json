@@ -1,0 +1,18 @@
+{
+  "date": "2026-11-07T21:27:43.000Z",
+  "command": "node compare.mjs 200 100 && node speed.mjs (from a scratch folder with wasmoon installed; see results.md)",
+  "git": {
+    "commit": "b4d11db0ef524bffed12139eb7f933aed993dbdd",
+    "uncommittedChanges": false
+  },
+  "host": {
+    "os": "Darwin 25.4.0 arm64",
+    "cpu": "Apple M5 Pro"
+  },
+  "versions": {
+    "node": "v25.8.2",
+    "redis": "7.4.12",
+    "ioredis": "6.0.0",
+    "wasmoon": "1.16.0"
+  }
+}
