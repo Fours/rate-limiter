@@ -131,13 +131,24 @@ describe('Redis leaky bucket', () => {
   });
 
   describe('a rule faster than one request per ms: 10 per 4 ms', () => {
+    // The script expires a key when its bucket drains, a few ms here, by Redis's real clock,
+    // while these tests move a fake one. On a slow machine (CI under coverage) enough real time
+    // passed between two checks for the key to expire and the bucket to restart, and an 11th
+    // request was allowed. These tests are about the slot arithmetic, so each check is followed
+    // by PERSIST. Expiry has its own tests above.
+    const check = async (algorithm: Algorithm, key: string, rule: Rule) => {
+      const decision = await algorithm.check(key, rule);
+      await r.redis.persist(key);
+      return decision;
+    };
+
     it('allows the slots that start within this ms, counting remaining down', async () => {
       const { algorithm } = redisLeaky();
       const rule = freshRule({ limit: 10, windowMs: 4 });
       const key = buildKey(rule, 'c');
       // Slots at 0, 0.4 and 0.8 ms all start within the first millisecond.
       const decisions = [];
-      for (let i = 0; i < 4; i++) decisions.push(await algorithm.check(key, rule));
+      for (let i = 0; i < 4; i++) decisions.push(await check(algorithm, key, rule));
       expect(decisions.map((d) => [d.allowed, d.remaining])).toStrictEqual([
         [true, 2],
         [true, 1],
@@ -153,7 +164,7 @@ describe('Redis leaky bucket', () => {
       const key = buildKey(rule, 'c');
       let allowed = 0;
       for (let ms = 0; ms < 4; ms++) {
-        while ((await algorithm.check(key, rule)).allowed) allowed++;
+        while ((await check(algorithm, key, rule)).allowed) allowed++;
         clock.advance(1);
       }
       expect(allowed).toBe(10);
