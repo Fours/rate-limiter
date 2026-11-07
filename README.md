@@ -103,7 +103,9 @@ How it stays correct with many instances:
 - **One clock.** Scripts use Redis's own time, so instances whose clocks disagree still agree on the limit ([0007](docs/decisions/0007-redis-server-time.md)).
 - **One key per client and rule,** `rl:{rule.id}:{clientId}`, with a TTL, so idle clients cost nothing. Switching algorithms on a live Redis starts each client fresh instead of misreading the old algorithm's state ([0016](docs/decisions/0016-switching-algorithms-starts-fresh.md)).
 
-If Redis is unreachable, the check fails once your client stops retrying, and the request goes to Express's error handler. A timeout and an in-memory fallback come in milestone 4.
+If Redis fails or takes longer than `timeoutMs` (default 50 ms), the request is answered from an in-memory token bucket instead, so a Redis outage isn't an API outage. Set `fallback: { instances: N }` to the number of instances sharing the limit, so each allows `limit / N` while Redis is down. `fallback: false` sends the error, or a `RateLimitTimeoutError`, to Express's error handler instead ([0018](docs/decisions/0018-timeout-and-fallback-in-the-middleware.md)).
+
+Turn off your client's offline queue, so checks fail at once while Redis is unreachable instead of each waiting out the timeout: `new Redis(url, { enableOfflineQueue: false })` for ioredis, `createClient({ url, disableOfflineQueue: true })` for node-redis.
 
 ## Choosing an algorithm
 

@@ -57,6 +57,8 @@ rateLimit({
 
 **The Redis client matters as much as the timeout.** If the client queues commands while it reconnects, every check during an outage waits the full 50 ms, and the queue grows with traffic. **Probe first:** with the installed `ioredis` and `node-redis`, kill a Redis and pause one (`docker pause`), and record what a command does in each case: how fast it fails, whether it's queued, and how the client reconnects. Record what the probe finds in this spec, and give recommended client settings in the README (for example, turning off the offline queue).
 
+*Probe (T0), ioredis 6.0.0 and node-redis 6.3.1 against Redis 7.4.12:* with the offline queue on, the default for both, commands to a killed or absent Redis queue until it's back, so every check would wait out the timeout. With it off (`enableOfflineQueue: false`, `disableOfflineQueue: true`) they fail in 0.1 ms or less. A paused Redis hangs commands whatever the settings, and they all run once it's back. So the timeout is the only thing that bounds a hung Redis, and each check sent meanwhile still lands. With its offline queue off, ioredis also refuses commands until its first connection is ready. Data and setup: [0018's probe](decisions/data/0018-client-probe-2026-11-06/results.md). Vitest fake timers (`setTimeout` and `clearTimeout` only) work with supertest, but `vi.waitFor` moves fake time on every poll, so tests wait for the timer with `setImmediate` instead (`test/helpers/timers.ts`).
+
 ### Hooks
 
 ```ts
@@ -137,7 +139,7 @@ Do these in order. Each one ends with passing tests.
 
 | Task | Status | Commit |
 | --- | --- | --- |
-| T0. Timeout and fallback | Not started | |
+| T0. Timeout and fallback | Done | |
 | T1. Hooks | Not started | |
 | T2. `prometheusHooks()` | Not started | |
 | T3. Prometheus and Grafana in the stack | Not started | |
@@ -151,16 +153,16 @@ Probe the two Redis clients first, as described under Design, and record what yo
 
 **Done when:**
 
-- [ ] A check that hangs falls back after `timeoutMs`, tested with a fake algorithm and Vitest fake timers (only `setTimeout` and `clearTimeout` faked)
-- [ ] A check that rejects, or throws synchronously, falls back at once
-- [ ] A check that settles in time clears its timer, and no timers are left behind
-- [ ] A check that rejects after its timeout causes no `unhandledRejection`
-- [ ] The fallback allows `max(1, ceil(limit / instances))` per window, and the headers report that limit
-- [ ] The fallback isn't created until the first failure, and `close()` stops it
-- [ ] With `fallback: false`, the error reaches Express's error handler, as in milestone 3
-- [ ] Errors from `identify`, `tier` and matching still go to `next(err)`, with or without a fallback
-- [ ] Bad `timeoutMs` and `instances` throw at startup
-- [ ] Integration: a Redis algorithm on an unreachable Redis falls back, with each client, using the settings the probe recommends
+- [x] A check that hangs falls back after `timeoutMs`, tested with a fake algorithm and Vitest fake timers (only `setTimeout` and `clearTimeout` faked)
+- [x] A check that rejects, or throws synchronously, falls back at once
+- [x] A check that settles in time clears its timer, and no timers are left behind
+- [x] A check that rejects after its timeout causes no `unhandledRejection`
+- [x] The fallback allows `max(1, ceil(limit / instances))` per window, and the headers report that limit
+- [x] The fallback isn't created until the first failure, and `close()` stops it
+- [x] With `fallback: false`, the error reaches Express's error handler, as in milestone 3
+- [x] Errors from `identify`, `tier` and matching still go to `next(err)`, with or without a fallback
+- [x] Bad `timeoutMs` and `instances` throw at startup
+- [x] Integration: a Redis algorithm on an unreachable Redis falls back, with each client, using the settings the probe recommends
 
 ### T1. Hooks
 

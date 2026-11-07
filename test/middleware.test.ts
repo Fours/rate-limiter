@@ -147,10 +147,10 @@ describe('rateLimit middleware', () => {
   });
 
   describe('errors', () => {
-    it('passes an algorithm failure to next(err) and skips the handler', async () => {
+    it('with fallback: false, passes an algorithm failure to next(err) and skips the handler', async () => {
       const failure = new Error('store down');
       const algorithm: Algorithm = { check: () => Promise.reject(failure) };
-      const { app, errors, handled } = harness({ algorithm });
+      const { app, errors, handled } = harness({ algorithm, fallback: false });
       const res = await request(app).get('/');
       expect(res.status).toBe(500);
       expect(errors).toStrictEqual([failure]);

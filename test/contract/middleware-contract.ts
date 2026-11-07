@@ -178,7 +178,7 @@ export function describeMiddleware(
       },
     );
 
-    it('passes a failed check to next(err) and skips the handler', async () => {
+    it('with fallback: false, passes a failed check to next(err) and skips the handler', async () => {
       const failure = new Error('store down');
       // The real check runs, then fails, so the error path is taken with this algorithm's state.
       const failing: Algorithm = {
@@ -187,10 +187,27 @@ export function describeMiddleware(
             throw failure;
           }),
       };
-      const h = harness({ rules: [freshRule()], algorithm: failing });
+      const h = harness({ rules: [freshRule()], algorithm: failing, fallback: false });
       expect((await request(h.app).get('/')).status).toBe(500);
       expect(h.errors).toStrictEqual([failure]);
       expect(h.handled()).toBe(0);
+    });
+
+    it('answers a failed check from the fallback, with the limit split over the instances', async () => {
+      const rule = freshRule({ limit: 10 });
+      // The real check runs first, so this algorithm's state is touched, then the check fails.
+      const failing: Algorithm = {
+        check: (key, r) =>
+          t.algorithm.check(key, r).then(() => {
+            throw new Error('store down');
+          }),
+      };
+      const h = harness({ rules: [rule], algorithm: failing, fallback: { instances: 3 } });
+      const res = await request(h.app).get('/');
+      expect(res.status).toBe(200);
+      expect(res.headers['ratelimit-limit']).toBe('4');
+      expect(h.errors).toStrictEqual([]);
+      expect(h.handled()).toBe(1);
     });
 
     it('allows exactly its burst of 50 concurrent requests against limit: 10', async () => {

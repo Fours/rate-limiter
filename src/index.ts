@@ -6,7 +6,8 @@ export type { TokenBucket, TokenBucketOptions } from './algorithms/token-bucket.
 export { buildKey, defaultIdentify } from './identify.js';
 export type { IdentifiableRequest } from './identify.js';
 export { rateLimit } from './middleware.js';
-export type { RateLimitMiddleware, RateLimitOptions } from './middleware.js';
+export type { FallbackOptions, RateLimitMiddleware, RateLimitOptions } from './middleware.js';
+export { RateLimitTimeoutError } from './timeout.js';
 export { InvalidRuleError } from './rules.js';
 export { loadRules, parseRules } from './rules-file.js';
 export type { RulesFormat } from './rules-file.js';

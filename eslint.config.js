@@ -3,7 +3,8 @@ import prettier from 'eslint-config-prettier';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist/', 'coverage/', 'node_modules/'] },
+  // docs/decisions/data/ holds evidence kept as it was run, such as probe scripts, like Prettier.
+  { ignores: ['dist/', 'coverage/', 'node_modules/', 'docs/decisions/data/'] },
   js.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
   {
