@@ -9,7 +9,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node: [22, 24]
+        # Exact patch releases: older 22.x and 24.x have critical security bugs. Keep in step with
+        # engines in package.json, .nvmrc and bench/app/Dockerfile.
+        node: [22.23.4, 24.22.1]
     # For npm run test:integration. Same port as docker-compose.test.yml.
     services:
       redis:
@@ -65,7 +67,7 @@ jobs:
       # The benchmark runner and analysis run on the host, and import yaml from devDependencies.
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 22.23.4
           cache: npm
       - run: npm ci
       - name: Build the benchmark image and check it answers /healthz without Redis

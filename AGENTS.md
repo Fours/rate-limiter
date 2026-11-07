@@ -21,7 +21,7 @@ This is a distributed rate limiter, shipped as a TypeScript middleware package f
 
 ## Stack
 
-- Node 22 or later, TypeScript in strict mode, ESM
+- Node 22.23.4 or later on 22.x, or 24.22.1 or later on 24.x (older patches have critical security bugs; keep `engines`, `.nvmrc`, CI and `bench/app/Dockerfile` in step), TypeScript in strict mode, ESM
 - Express 5, as a peer dependency
 - Vitest and supertest for tests
 - ESLint and Prettier

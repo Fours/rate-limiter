@@ -12,7 +12,7 @@ Once published:
 npm install @kylewillett/rate-limiter express
 ```
 
-Express 5 is a peer dependency. Node 22 or later is required.
+Express 5 is a peer dependency. Node 22.23.4 or later on 22.x, or 24.22.1 or later on 24.x, is required: earlier patch releases have critical security bugs.
 
 To share limits across instances, also install a Redis client: [`ioredis`](https://github.com/redis/ioredis) or [`redis`](https://github.com/redis/node-redis) (node-redis). The server must be **Redis 7 or later**. To load rules from YAML files, install [`yaml`](https://eemeli.org/yaml/). All three are optional, so nothing is installed that you don't use.
 
