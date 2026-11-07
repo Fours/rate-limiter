@@ -18,6 +18,7 @@ import {
   byAlgorithmOrder,
   chartFor,
   cpuTable,
+  redisTable,
   runMetrics,
   spreadTable,
   summariseRuns,
@@ -78,9 +79,10 @@ export function analyse(results: Results): Analysis {
   const entries = [...results.algorithms];
   const metrics = entries.map(([algorithm, runs]) => [algorithm, runs.map(runMetrics)] as const);
   const rows = metrics.map(([algorithm, m]) => summariseRuns(algorithm, m));
-  const cpu = cpuTable(entries);
+  // Extra tables only where the runs recorded the data, so older summaries stay as they were.
+  const extras = [cpuTable(entries), redisTable(entries)].filter((t) => t !== '');
   return {
-    summary: summaryTable(results.scenario, results, rows) + (cpu === '' ? '' : `\n${cpu}`),
+    summary: [summaryTable(results.scenario, results, rows), ...extras].join('\n'),
     spread: spreadTable(results.scenario, metrics),
     chart: {
       limit: results.limit,
@@ -101,7 +103,14 @@ async function loadRun(dir: string): Promise<Run> {
         await readFile(join(dir, 'docker-stats.jsonl'), 'utf8'),
       )
     : undefined;
-  const extra = cpu === undefined ? {} : { cpu };
+  const redisFile = join(dir, 'redis-calls.json');
+  const redisCalls = (await exists(redisFile))
+    ? (JSON.parse(await readFile(redisFile, 'utf8')) as Record<string, number>)
+    : undefined;
+  const extra = {
+    ...(cpu === undefined ? {} : { cpu }),
+    ...(redisCalls === undefined ? {} : { redisCalls }),
+  };
   // Per-second totals win when present, so a ramp analysed from git (totals only) and one
   // analysed locally (raw records too) give the same summary.
   if (await exists(join(dir, 'seconds.jsonl'))) {

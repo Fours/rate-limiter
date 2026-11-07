@@ -101,12 +101,49 @@ export class K6Seconds {
   }
 }
 
+/** Calls per command from Redis `INFO commandstats`, e.g. `{ evalsha: 1500, ping: 60 }`. */
+export function parseCommandStats(info: string): Record<string, number> {
+  const calls: Record<string, number> = {};
+  for (const line of info.split(/\r?\n/)) {
+    const match = /^cmdstat_([^:]+):calls=(\d+),/.exec(line);
+    if (match?.[1] !== undefined && match[2] !== undefined) calls[match[1]] = Number(match[2]);
+  }
+  return calls;
+}
+
 /**
- * `0008-<scenario>-<date>`, or with `-2`, `-3`… if that name is taken, so a second run on the same
- * day never overwrites the first.
+ * Commands that aren't the limiter's: the Compose healthcheck pings every second, the runner
+ * reads `INFO` before and after, and `redis-cli` may ask for `COMMAND DOCS` when it connects.
  */
-export function resultsDirName(scenario: string, date: Date, existing: readonly string[]): string {
-  const base = `0008-${scenario}-${date.toISOString().slice(0, 10)}`;
+const NOT_THE_LIMITER = /^(ping|info|command(\|.*)?)$/;
+
+/**
+ * The limiter's Redis calls during a run, per command: the difference between two
+ * `INFO commandstats` snapshots, leaving out commands that aren't the limiter's.
+ */
+export function redisCallsBetween(
+  before: Readonly<Record<string, number>>,
+  after: Readonly<Record<string, number>>,
+): Record<string, number> {
+  const calls: Record<string, number> = {};
+  for (const [command, n] of Object.entries(after)) {
+    const delta = n - (before[command] ?? 0);
+    if (delta > 0 && !NOT_THE_LIMITER.test(command)) calls[command] = delta;
+  }
+  return calls;
+}
+
+/**
+ * `<decision>-<scenario>-<date>`, or with `-2`, `-3`… if that name is taken, so a second run on
+ * the same day never overwrites the first. The decision is the record the data is evidence for.
+ */
+export function resultsDirName(
+  scenario: string,
+  date: Date,
+  existing: readonly string[],
+  decision = '0008',
+): string {
+  const base = `${decision}-${scenario}-${date.toISOString().slice(0, 10)}`;
   if (!existing.includes(base)) return base;
   for (let n = 2; ; n++) {
     const name = `${base}-${String(n)}`;

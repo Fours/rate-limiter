@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   K6Seconds,
   parseConsoleLog,
+  parseCommandStats,
   parseRecordLine,
+  redisCallsBetween,
   resultsDirName,
 } from '../../bench/records.ts';
 
@@ -61,6 +63,12 @@ describe('parseConsoleLog', () => {
 });
 
 describe('resultsDirName', () => {
+  it('prefixes the decision the data is evidence for', () => {
+    expect(resultsDirName('steady-15000rps', new Date('2026-11-07T12:00:00Z'), [], '0009')).toBe(
+      '0009-steady-15000rps-2026-11-07',
+    );
+  });
+
   const day = new Date('2026-11-06T22:00:00Z');
 
   it('names a directory after the decision, scenario and date', () => {
@@ -145,5 +153,39 @@ describe('K6Seconds', () => {
     expect(() => {
       totals.add(point('http_req_duration', 'not a time', 1, '200'));
     }).toThrow(/bad k6 point/);
+  });
+});
+
+describe('parseCommandStats', () => {
+  it('reads calls per command, subcommands included, from INFO commandstats', () => {
+    const info = [
+      '# Commandstats',
+      'cmdstat_evalsha:calls=1500,usec=9000,usec_per_call=6.00,rejected_calls=0,failed_calls=0',
+      'cmdstat_ping:calls=61,usec=40,usec_per_call=0.66,rejected_calls=0,failed_calls=0',
+      'cmdstat_command|docs:calls=1,usec=900,usec_per_call=900.00,rejected_calls=0,failed_calls=0',
+      '',
+    ].join('\r\n');
+    expect(parseCommandStats(info)).toEqual({ evalsha: 1500, ping: 61, 'command|docs': 1 });
+  });
+
+  it('gives nothing for a Redis that has run no commands', () => {
+    expect(parseCommandStats('# Commandstats\r\n')).toEqual({});
+  });
+});
+
+describe('redisCallsBetween', () => {
+  it("counts each command's calls between two snapshots", () => {
+    expect(
+      redisCallsBetween({ evalsha: 10, script: 1 }, { evalsha: 1510, script: 1, eval: 2 }),
+    ).toEqual({ evalsha: 1500, eval: 2 });
+  });
+
+  it("leaves out the healthcheck's PING, the runner's INFO and redis-cli's COMMAND DOCS", () => {
+    expect(
+      redisCallsBetween(
+        { ping: 1, info: 1 },
+        { ping: 61, info: 2, 'command|docs': 1, command: 1, evalsha: 5 },
+      ),
+    ).toEqual({ evalsha: 5 });
   });
 });

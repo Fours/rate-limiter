@@ -37,6 +37,8 @@ export interface Run {
   readonly seconds?: readonly SecondTotals[];
   /** `docker stats` samples taken during the run, if any (the ramp). */
   readonly cpu?: readonly CpuSample[];
+  /** The limiter's Redis calls during the run, per command (bench/records.ts), if recorded. */
+  readonly redisCalls?: Readonly<Record<string, number>>;
 }
 
 /**
@@ -453,6 +455,84 @@ export function cpuTable(runsByAlgorithm: readonly (readonly [string, readonly R
         return values.length === 0 ? '–' : `${median(values).toFixed(0)}%`;
       });
       return `| ${algorithm} | ${cells.join(' | ')} |`;
+    }),
+    '',
+  ].join('\n');
+}
+
+/**
+ * Commands that are a round trip from the app. `INFO commandstats` also counts the commands a Lua
+ * script runs inside Redis (HGET, HSET, TIME…), which cost Redis CPU but no network trip.
+ */
+const ROUND_TRIP = /^(eval|evalsha|eval_ro|evalsha_ro|script\|.*)$/;
+
+export interface RedisOps {
+  /** Round trips from the app per HTTP request: 1 for every algorithm today, about 1/b with batches. */
+  readonly roundTripsPerRequest: number;
+  /** Round trips per second of traffic, from the first request to the last. */
+  readonly roundTripsPerSecond: number;
+  /** Every command Redis ran per HTTP request, those inside scripts included. */
+  readonly commandsPerRequest: number;
+}
+
+/**
+ * How hard the limiter worked Redis in one run, or undefined if the run didn't record it. The
+ * evidence for 0009: pre-fetching b tokens at a time would cut calls per request to about 1/b.
+ */
+export function redisOps(run: Run): RedisOps | undefined {
+  if (run.redisCalls === undefined) return undefined;
+  const entries = Object.entries(run.redisCalls);
+  const commands = entries.reduce((sum, [, n]) => sum + n, 0);
+  const trips = entries.reduce((sum, [c, n]) => sum + (ROUND_TRIP.test(c) ? n : 0), 0);
+  let requests: number;
+  let seconds: number;
+  if (run.seconds !== undefined && run.seconds.length > 0) {
+    requests = run.seconds.reduce((sum, s) => sum + s.count, 0);
+    seconds = run.seconds.length;
+  } else {
+    if (run.records.length === 0) return undefined;
+    // A loop, not Math.max(...times): a 15,000 req/s run overflows the call stack with spread.
+    let first = Infinity;
+    let last = -Infinity;
+    for (const r of run.records) {
+      first = Math.min(first, r.t);
+      last = Math.max(last, r.t);
+    }
+    requests = run.records.length;
+    seconds = (last - first) / 1000;
+  }
+  if (seconds <= 0) return undefined;
+  return {
+    roundTripsPerRequest: trips / requests,
+    roundTripsPerSecond: trips / seconds,
+    commandsPerRequest: commands / requests,
+  };
+}
+
+/** Median Redis round trips and commands, by algorithm, as a Markdown table. */
+export function redisTable(
+  runsByAlgorithm: readonly (readonly [string, readonly Run[]])[],
+): string {
+  const rows = [...runsByAlgorithm]
+    .sort(([a], [b]) => byAlgorithmOrder(a, b))
+    .map(([algorithm, runs]) => {
+      const ops = runs.map(redisOps).filter((o) => o !== undefined);
+      const commands = [...new Set(runs.flatMap((r) => Object.keys(r.redisCalls ?? {})))].sort();
+      return { algorithm, ops, commands };
+    })
+    .filter((r) => r.ops.length > 0);
+  if (rows.length === 0) return '';
+  return [
+    '### Redis operations',
+    '',
+    "From `INFO commandstats` before and after each run, leaving out the healthcheck's `PING` and the runner's own `INFO`. A round trip is an `EVAL` or `EVALSHA` from an app; commands per request also counts what the scripts run inside Redis. Median of runs.",
+    '',
+    '| Algorithm | Round trips per request | Round trips per second | Commands per request | Commands |',
+    '| --- | --- | --- | --- | --- |',
+    ...rows.map(({ algorithm, ops, commands }) => {
+      const mid = (f: (o: RedisOps) => number) => median(ops.map(f));
+      const list = commands.length === 0 ? '–' : commands.map((c) => `\`${c}\``).join(', ');
+      return `| ${algorithm} | ${mid((o) => o.roundTripsPerRequest).toFixed(3)} | ${Math.round(mid((o) => o.roundTripsPerSecond)).toLocaleString('en-US')} | ${mid((o) => o.commandsPerRequest).toFixed(2)} | ${list} |`;
     }),
     '',
   ].join('\n');

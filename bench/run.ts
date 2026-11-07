@@ -10,6 +10,9 @@
 //   --quick     short scenarios, written to bench/results/ (gitignored) instead of
 //               docs/decisions/data/
 //   --out       where results directories go
+//   --rate      steady's request rate (default 500); the results directory is named for it
+//   --decision  the decision record the data is evidence for, which prefixes the results
+//               directory (default 0008)
 //
 // For each run it recreates the whole stack, so every run starts with an empty Redis, then runs
 // k6 in Docker on the stack's network. See docs/milestone-3.md and decision 0017.
@@ -24,7 +27,13 @@ import { createGunzip, gzipSync } from 'node:zlib';
 import { parse as parseYaml } from 'yaml';
 import { analyseDir } from './analyse.ts';
 import type { RunMeta } from './analysis.ts';
-import { K6Seconds, parseConsoleLog, resultsDirName } from './records.ts';
+import {
+  K6Seconds,
+  parseCommandStats,
+  parseConsoleLog,
+  redisCallsBetween,
+  resultsDirName,
+} from './records.ts';
 import { baseSetup, ROOT, sh } from './setup.ts';
 
 const K6_IMAGE = 'grafana/k6:2.3.0';
@@ -57,6 +66,8 @@ const { values } = parseArgs({
     runs: { type: 'string' },
     quick: { type: 'boolean', default: false },
     out: { type: 'string' },
+    rate: { type: 'string' },
+    decision: { type: 'string', default: '0008' },
   },
 });
 
@@ -70,6 +81,14 @@ for (const name of scenarioNames) {
 }
 const runs = Number(values.runs ?? (values.quick ? 1 : 3));
 if (!Number.isInteger(runs) || runs < 1) throw new Error('--runs must be a positive integer');
+const rate = values.rate === undefined ? undefined : Number(values.rate);
+if (rate !== undefined && (!Number.isInteger(rate) || rate < 1)) {
+  throw new Error('--rate must be a positive integer');
+}
+if (rate !== undefined && scenarioNames.some((n) => n !== 'steady')) {
+  throw new Error('--rate applies to steady only: use --scenario steady');
+}
+if (!/^\d{4}$/.test(values.decision)) throw new Error('--decision must be four digits, e.g. 0009');
 const outRoot = resolve(
   values.out ?? (values.quick ? join(ROOT, 'bench/results') : join(ROOT, 'docs/decisions/data')),
 );
@@ -83,7 +102,11 @@ for (const name of scenarioNames) {
   const rule = await readRule(scenario.rules);
 
   await mkdir(outRoot, { recursive: true });
-  const dir = join(outRoot, resultsDirName(name, new Date(), await readdir(outRoot)));
+  const label = rate === undefined ? name : `${name}-${String(rate)}rps`;
+  const dir = join(
+    outRoot,
+    resultsDirName(label, new Date(), await readdir(outRoot), values.decision),
+  );
   await mkdir(dir);
   console.log(`\n== ${name} → ${relative(ROOT, dir)}`);
 
@@ -101,7 +124,10 @@ for (const name of scenarioNames) {
       await mkdir(runDir, { recursive: true });
       const meta: RunMeta = { algorithm, scenario: name, run, ...rule };
       await writeFile(join(runDir, 'meta.json'), `${JSON.stringify(meta)}\n`);
+      const before = commandStats();
       const count = await runK6(name, runDir, rule);
+      const calls = redisCallsBetween(before, commandStats());
+      await writeFile(join(runDir, 'redis-calls.json'), `${JSON.stringify(calls)}\n`);
       console.log(`${String(count)} requests`);
     }
   }
@@ -165,6 +191,7 @@ async function runK6(
       `LIMIT=${String(rule.limit)}`,
       '-e',
       `WINDOW_MS=${String(rule.windowMs)}`,
+      ...(rate === undefined ? [] : ['-e', `RATE=${String(rate)}`]),
       ...k6Args,
       '--summary-export=/out/k6-summary.json',
       `/scripts/${scenario}.ts`,
@@ -205,6 +232,13 @@ async function writeSeconds(runDir: string): Promise<number> {
     seconds.map((x) => JSON.stringify(x)).join('\n') + '\n',
   );
   return count;
+}
+
+/** Calls per command so far, from the stack's Redis. */
+function commandStats(): Record<string, number> {
+  return parseCommandStats(
+    sh('docker', ['compose', 'exec', '-T', 'redis', 'redis-cli', 'INFO', 'commandstats']),
+  );
 }
 
 /** One JSON line per container per second, so a run shows whether nginx's one worker saturated. */

@@ -16,6 +16,8 @@ import {
   peakPerWindow,
   percentile,
   RESOLUTION_MS,
+  redisOps,
+  redisTable,
   runMetrics,
   summariseRuns,
   throughput,
@@ -407,6 +409,80 @@ describe('compressed records', () => {
       expect(analyse(await loadResults(dir))).toEqual(analyse(await loadResults(FIXTURE)));
     } finally {
       await rm(dir, { recursive: true });
+    }
+  });
+});
+
+describe('Redis operations', () => {
+  const meta = { algorithm: 'token-bucket', scenario: 'steady', run: 1, ...rule };
+  // 4 requests over 2 s (t from 0 to 2,000 ms), and 8 calls between two commands.
+  const records = [rec(0, 200), rec(500, 200), rec(1_000, 429), rec(2_000, 200)];
+
+  it('gives round trips per request and per second, and all commands per request', () => {
+    expect(
+      redisOps({ meta, records, redisCalls: { evalsha: 6, eval: 2, hget: 4, 'script|load': 0 } }),
+    ).toEqual({ roundTripsPerRequest: 2, roundTripsPerSecond: 4, commandsPerRequest: 3 });
+  });
+
+  it("doesn't count the commands scripts run inside Redis as round trips", () => {
+    expect(
+      redisOps({ meta, records, redisCalls: { evalsha: 4, hset: 4, time: 4, pexpire: 4 } }),
+    ).toMatchObject({ roundTripsPerRequest: 1, commandsPerRequest: 4 });
+  });
+
+  it('copes with a 15,000 req/s run, too many records to spread into Math.max', () => {
+    const many = Array.from({ length: 200_000 }, (_, i) => rec(i * 5, 200));
+    expect(redisOps({ meta, records: many, redisCalls: { evalsha: 200_000 } })).toMatchObject({
+      roundTripsPerRequest: 1,
+    });
+  });
+
+  it('uses per-second totals when a run kept only those', () => {
+    const seconds = [
+      { second: 0, count: 300, healthy: true, p99: 1 },
+      { second: 1, count: 100, healthy: true, p99: 1 },
+    ];
+    expect(redisOps({ meta, records: [], seconds, redisCalls: { evalsha: 400 } })).toEqual({
+      roundTripsPerRequest: 1,
+      roundTripsPerSecond: 200,
+      commandsPerRequest: 1,
+    });
+  });
+
+  it("is undefined for a run that didn't record Redis calls", () => {
+    expect(redisOps({ meta, records })).toBeUndefined();
+  });
+
+  it('tabulates the median of runs, and nothing when no run recorded calls', () => {
+    const run = (evalsha: number) => ({ meta, records, redisCalls: { evalsha } });
+    const table = redisTable([
+      ['token-bucket', [run(4), run(8), run(400)]],
+      ['none', [{ meta: { ...meta, algorithm: 'none' }, records, redisCalls: {} }]],
+    ]);
+    expect(table).toContain('| none | 0.000 | 0 | 0.00 | – |');
+    expect(table).toContain('| token-bucket | 2.000 | 4 | 2.00 | `evalsha` |');
+    expect(table.indexOf('| none')).toBeLessThan(table.indexOf('| token-bucket'));
+    expect(redisTable([['token-bucket', [{ meta, records }]]])).toBe('');
+  });
+});
+
+describe('loading Redis calls', () => {
+  it("reads each run's redis-calls.json into a Redis table under the summary", async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'bench-'));
+    try {
+      await cp(FIXTURE, dir, { recursive: true });
+      for (const run of ['run-1', 'run-2', 'run-3']) {
+        await writeFile(join(dir, 'fixed-window', run, 'redis-calls.json'), '{"evalsha":7}\n');
+      }
+      const { summary } = analyse(await loadResults(dir));
+      const plain = analyse(await loadResults(FIXTURE)).summary;
+      expect(summary.startsWith(plain)).toBe(true);
+      expect(summary).toMatch(
+        /### Redis operations[\s\S]*\| fixed-window \| [\d.]+ \| [\d,]+ \| [\d.]+ \| `evalsha` \|/,
+      );
+      expect(plain).not.toContain('Redis operations');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
     }
   });
 });
