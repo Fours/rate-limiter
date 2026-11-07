@@ -16,7 +16,7 @@ This is a distributed rate limiter, shipped as a TypeScript middleware package f
 | 1 | Single-process core: interface, in-memory token bucket, Express middleware | Done — [spec](docs/milestone-1.md) |
 | 2 | Redis store and all five algorithms (Lua via `EVALSHA`), rules from YAML or JSON | Done — [spec](docs/milestone-2.md) |
 | 3 | Docker Compose (load balancer, 3 instances, Redis), k6 load tests, benchmarks | Done — [spec](docs/milestone-3.md) |
-| 4 | 50 ms timeout and in-memory fallback, hooks, `prometheusHooks()`, Grafana, chaos test | Not started |
+| 4 | 50 ms timeout and in-memory fallback, hooks, `prometheusHooks()`, Grafana, chaos test | In progress — [spec](docs/milestone-4.md) |
 | 5 | npm publish, demo page, design write-up | Not started |
 
 ## Stack
