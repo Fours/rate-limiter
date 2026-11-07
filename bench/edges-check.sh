@@ -15,8 +15,13 @@ trap 'rm -rf "$out"' EXIT
 failures=0
 fail() {
   printf 'FAIL %s\n' "$1" >&2
+  # In GitHub Actions, also as an annotation, which the API shows without admin rights.
+  if [[ -n "${GITHUB_ACTIONS:-}" ]]; then printf '::error title=edges-check::%s\n' "$1"; fi
   failures=$((failures + 1))
 }
+# A command that fails outside a check (the runner, say) stops the script under set -e.
+# Say where, rather than exiting with no message.
+trap 'fail "stopped at line $LINENO: $(sed -n "${LINENO}p" "$0" | sed "s/^ *//")"' ERR
 
 # Peak per window and the limit, from a results directory's chart.json.
 peak() {
