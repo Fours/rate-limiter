@@ -19,16 +19,34 @@ failures=0
 pass() { printf 'ok   %s\n' "$1"; }
 fail() {
   printf 'FAIL %s\n' "$1" >&2
+  # In GitHub Actions, also as an annotation: those show on the run's page and through the API.
+  if [[ -n "${GITHUB_ACTIONS:-}" ]]; then printf '::error title=observe-check::%s\n' "$1"; fi
   failures=$((failures + 1))
 }
 
-# One number from a Prometheus instant query: the first result's value, or 0 when there is none.
+# A command that fails outside a check stops the script under set -e. Say where, with the state
+# of the stack, rather than exiting with no message.
+on_error() {
+  local line="$1"
+  fail "stopped at line $line: $(sed -n "${line}p" "$0" | sed 's/^ *//')"
+  docker compose --profile observability ps -a --format '{{.Service}}: {{.Status}}' >&2 || true
+  docker compose --profile observability logs --tail 20 prometheus grafana >&2 || true
+  if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+    printf '::error title=observe-check::stack: %s\n' \
+      "$(docker compose --profile observability ps -a --format '{{.Service}}={{.Status}}' | tr '\n' ' ')"
+  fi
+}
+trap 'on_error $LINENO' ERR
+
+# One number from a Prometheus instant query: the first result's value, or 0 when there is none,
+# or when Prometheus isn't answering yet.
 query() {
-  curl -s --get "$prometheus/api/v1/query" --data-urlencode "query=$1" |
+  { curl -s --get "$prometheus/api/v1/query" --data-urlencode "query=$1" || true; } |
     node -e '
       let s = "";
       process.stdin.on("data", (d) => (s += d)).on("end", () => {
-        const [first] = JSON.parse(s).data.result;
+        let first;
+        try { [first] = JSON.parse(s).data.result; } catch { /* not ready: 0 */ }
         console.log(first === undefined ? 0 : Number(first.value[1]));
       });
     '
@@ -49,7 +67,12 @@ wait_above() {
 }
 
 echo "Starting the stack with Prometheus and Grafana"
-npm run --silent stack:observe >/dev/null 2>&1
+if ! out="$(npm run --silent stack:observe 2>&1)"; then
+  printf '%s\n' "$out" >&2
+  fail "npm run stack:observe failed: $(printf '%s' "$out" | grep -iE 'error|unhealthy' | head -3 | tr '\n' ' ')"
+  on_error "$LINENO"
+  exit 1
+fi
 
 # 1. Every instance is a target, and up. Scrapes go to each instance, not through nginx.
 up="$(wait_above 'count(up{job="rate-limiter"} == 1)' 30 2)"
@@ -58,11 +81,13 @@ if [[ "$up" == 3 ]]; then
 else
   fail "Prometheus sees $up instance(s) up, not 3"
 fi
-instances="$(curl -s "$prometheus/api/v1/targets" | node -e '
+instances="$({ curl -s "$prometheus/api/v1/targets" || true; } | node -e '
   let s = "";
   process.stdin.on("data", (d) => (s += d)).on("end", () => {
-    const names = JSON.parse(s).data.activeTargets.map((t) => t.labels.instance);
-    console.log([...new Set(names)].sort().join(","));
+    try {
+      const names = JSON.parse(s).data.activeTargets.map((t) => t.labels.instance);
+      console.log([...new Set(names)].sort().join(","));
+    } catch { console.log("none"); }
   });
 ')"
 if [[ "$instances" == app-1,app-2,app-3 ]]; then
@@ -100,7 +125,7 @@ fi
 
 # 3. Grafana: the provisioned dashboard opens with no credentials.
 status="$(curl -s -o /dev/null -w '%{http_code}' "$grafana/api/dashboards/uid/rate-limiter")"
-title="$(curl -s "$grafana/api/dashboards/uid/rate-limiter" | node -e '
+title="$({ curl -s "$grafana/api/dashboards/uid/rate-limiter" || true; } | node -e '
   let s = "";
   process.stdin.on("data", (d) => (s += d)).on("end", () => {
     try { console.log(JSON.parse(s).dashboard.title); } catch { console.log(""); }
