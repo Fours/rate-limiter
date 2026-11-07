@@ -1,6 +1,7 @@
-// Turns k6's console log into the RequestRecords the analysis reads, and names results
-// directories. Pure, so it has unit tests; bench/run.ts does the I/O.
-import type { RequestRecord } from './analysis.ts';
+// Turns k6's console log into the RequestRecords the analysis reads, and k6's JSON output into
+// per-second totals, and names results directories. Pure, so it has unit tests; bench/run.ts
+// does the I/O.
+import { percentile, type RequestRecord, type SecondTotals } from './analysis.ts';
 
 // k6 writes each console.log as a logfmt line: time="…" level=info msg="REC …" source=console.
 // The fields contain no quotes or spaces, so a plain pattern is enough.
@@ -39,6 +40,65 @@ export function parseConsoleLog(text: string): RequestRecord[] {
     const record = parseRecordLine(line);
     return record === undefined ? [] : [record];
   });
+}
+
+/**
+ * Per-second totals from k6's JSON output (`--out json`), one line at a time, so a ramp run's
+ * million-odd lines never sit in memory as text. The ramp uses this instead of REC lines,
+ * because logging every request capped k6 near 20,000 req/s (decision 0017).
+ *
+ * Each `http_req_duration` point is one request: its time is when the response arrived, its
+ * value the end-to-end ms, and its `status` tag the response's status (0 if none came).
+ * `dropped_iterations` points are requests k6 couldn't start. Every other line is ignored.
+ */
+export class K6Seconds {
+  private readonly durations = new Map<number, number[]>();
+  private readonly unhealthy = new Set<number>();
+  private readonly dropped = new Map<number, number>();
+
+  add(line: string): void {
+    // Cheap test first: most lines are points of metrics this doesn't read.
+    if (!line.includes('"http_req_duration"') && !line.includes('"dropped_iterations"')) return;
+    const point = JSON.parse(line) as {
+      type?: string;
+      metric?: string;
+      data?: { time?: string; value?: number; tags?: { status?: string } };
+    };
+    if (point.type !== 'Point') return;
+    const { time, value, tags } = point.data ?? {};
+    const at = time === undefined ? NaN : Date.parse(time);
+    if (Number.isNaN(at) || typeof value !== 'number') {
+      throw new Error(`bad k6 point (want data.time and data.value): ${line}`);
+    }
+    const second = Math.floor(at / 1000);
+    if (point.metric === 'dropped_iterations') {
+      this.dropped.set(second, (this.dropped.get(second) ?? 0) + value);
+    } else if (point.metric === 'http_req_duration') {
+      const bucket = this.durations.get(second);
+      if (bucket === undefined) this.durations.set(second, [value]);
+      else bucket.push(value);
+      const status = tags?.status;
+      if (status !== '200' && status !== '429') this.unhealthy.add(second);
+    }
+  }
+
+  /** Every second that had a response or a drop, in order. */
+  totals(): SecondTotals[] {
+    const seconds = [...new Set([...this.durations.keys(), ...this.dropped.keys()])];
+    return seconds
+      .sort((a, b) => a - b)
+      .map((second) => {
+        const durations = this.durations.get(second) ?? [];
+        return {
+          second,
+          count: durations.length,
+          healthy: !this.unhealthy.has(second),
+          // A second with only drops had no responses, so no latency to report.
+          p99: durations.length === 0 ? 0 : percentile(durations, 99),
+          dropped: this.dropped.get(second) ?? 0,
+        };
+      });
+  }
 }
 
 /**

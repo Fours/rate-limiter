@@ -309,6 +309,15 @@ describe('per-second totals (the ramp)', () => {
     ]);
   });
 
+  it("skip a second in which k6 dropped iterations: that's the load generator falling behind", () => {
+    const seconds = [
+      { second: 0, count: 30, healthy: true, p99: 5, dropped: 1 },
+      { second: 1, count: 20, healthy: true, p99: 5, dropped: 0 },
+      { second: 2, count: 25, healthy: true, p99: 5 },
+    ];
+    expect(peakSecond(seconds)?.second).toBe(2);
+  });
+
   it('give exactly the throughput the raw records give', () => {
     expect(peakSecond(secondsOf(records))?.count).toBe(throughput(records));
     expect(throughput(records)).toBe(3);

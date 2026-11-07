@@ -14,6 +14,11 @@ import http, { type RefinedResponse, type ResponseType } from 'k6/http';
 
 export const BASE_URL = __ENV.BASE_URL ?? 'http://lb';
 export const QUICK = __ENV.QUICK === '1';
+/**
+ * LOG=0 turns the REC lines off. The ramp needs that: k6 serialises console output, which capped
+ * it near 20,000 req/s, so the ramp reads k6's JSON output instead (bench/run.ts).
+ */
+const LOG = __ENV.LOG !== '0';
 
 // A 429 is the limiter working, so k6 shouldn't count it as a failed request.
 http.setResponseCallback(http.expectedStatuses(200, 429));
@@ -29,7 +34,7 @@ export function hit(client: string): number {
     tags: { name: 'work' },
     timeout: '10s',
   });
-  log(client, sentAt, res);
+  if (LOG) log(client, sentAt, res);
   return res.status;
 }
 

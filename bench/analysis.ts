@@ -39,15 +39,24 @@ export interface Run {
   readonly cpu?: readonly CpuSample[];
 }
 
-/** One second of traffic, by `t`: everything throughput needs, in a form small enough for git. */
+/**
+ * One second of traffic: everything throughput needs, in a form small enough for git. Seconds
+ * from records are by `t`. The ramp's come from k6's JSON output, by when each response arrived
+ * (bench/records.ts, `K6Seconds`).
+ */
 export interface SecondTotals {
-  /** floor(t / 1000) */
+  /** floor(t / 1000), or of the arrival time */
   readonly second: number;
   readonly count: number;
   /** Every response was a 200 or a 429. */
   readonly healthy: boolean;
   /** p99 end-to-end time in that second, ms */
   readonly p99: number;
+  /**
+   * Requests k6 should have started that second but couldn't (its `dropped_iterations`), because
+   * it was short of VUs or CPU. Absent means none were recorded.
+   */
+  readonly dropped?: number;
 }
 
 export interface CpuSample {
@@ -188,9 +197,13 @@ export function secondsOf(records: readonly RequestRecord[]): SecondTotals[] {
 }
 
 /**
- * The second the system sustained the most requests: the busiest whole second (by `t`) whose p99
- * end-to-end time was under SLO_MS and whose responses were all 200 or 429. A 429 is the limiter
- * working, not an error. Undefined if no second qualifies.
+ * The second the system sustained the most requests: the busiest whole second whose p99
+ * end-to-end time was under SLO_MS, whose responses were all 200 or 429, and in which k6 dropped
+ * nothing. A 429 is the limiter working, not an error. A second with drops is the load generator
+ * falling behind, so it can't show what the stack sustained. Undefined if no second qualifies.
+ *
+ * The drop rule was added in T5: the first full ramp logged every request to k6's console, which
+ * capped k6 near 20,000 req/s while the stack sat at half a core (decision 0017).
  */
 export function peakSecond(
   seconds: readonly SecondTotals[],
@@ -198,7 +211,9 @@ export function peakSecond(
 ): SecondTotals | undefined {
   let best: SecondTotals | undefined;
   for (const s of seconds) {
-    if (s.healthy && s.p99 < sloMs && s.count > (best?.count ?? 0)) best = s;
+    if (s.healthy && s.p99 < sloMs && (s.dropped ?? 0) === 0 && s.count > (best?.count ?? 0)) {
+      best = s;
+    }
   }
   return best;
 }

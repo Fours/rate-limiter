@@ -3,3 +3,6 @@ coverage
 package-lock.json
 # Hand-formatted docs: keep aligned tables and code-block comments as written.
 *.md
+# Benchmark output, kept exactly as the tools wrote it.
+docs/decisions/data/
+bench/results/

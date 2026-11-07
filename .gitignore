@@ -7,6 +7,6 @@ coverage/
 .VSCodeCounter
 # Quick benchmark runs (npm run bench -- --quick). Full runs go to docs/decisions/data/.
 bench/results/
-# Raw ramp records are about 720,000 requests a run, too big for git. Their per-second totals
+# The ramp's raw k6 output is a few hundred MB a run, too big for git. Its per-second totals
 # (seconds.jsonl) are committed instead, and give throughput exactly.
-docs/decisions/data/*-ramp-*/*/run-*/requests.jsonl.gz
+docs/decisions/data/*-ramp-*/*/run-*/k6.json.gz

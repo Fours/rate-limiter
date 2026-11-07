@@ -14,16 +14,17 @@
 // For each run it recreates the whole stack, so every run starts with an empty Redis, then runs
 // k6 in Docker on the stack's network. See docs/milestone-3.md and decision 0017.
 import { spawn } from 'node:child_process';
-import { createWriteStream } from 'node:fs';
+import { createReadStream, createWriteStream } from 'node:fs';
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import { join, relative, resolve } from 'node:path';
+import { createInterface } from 'node:readline';
 import { parseArgs } from 'node:util';
-import { gzipSync } from 'node:zlib';
+import { createGunzip, gzipSync } from 'node:zlib';
 import { parse as parseYaml } from 'yaml';
 import { analyseDir } from './analyse.ts';
-import { secondsOf, type RunMeta } from './analysis.ts';
-import { parseConsoleLog, resultsDirName } from './records.ts';
+import type { RunMeta } from './analysis.ts';
+import { K6Seconds, parseConsoleLog, resultsDirName } from './records.ts';
 import { baseSetup, ROOT, sh } from './setup.ts';
 
 const K6_IMAGE = 'grafana/k6:2.3.0';
@@ -126,14 +127,23 @@ function startStack(algorithm: string, rules: string): void {
   });
 }
 
-/** Runs one scenario, then turns k6's console log into requests.jsonl.gz. Returns the record count. */
+/**
+ * Runs one scenario, then turns k6's console log into requests.jsonl.gz, or for the ramp, k6's
+ * JSON output into seconds.jsonl. Returns the request count.
+ */
 async function runK6(
   scenario: string,
   runDir: string,
   rule: { limit: number; windowMs: number },
 ): Promise<number> {
-  const stats =
-    scenario === 'ramp' ? sampleDockerStats(join(runDir, 'docker-stats.jsonl')) : undefined;
+  const ramp = scenario === 'ramp';
+  const stats = ramp ? sampleDockerStats(join(runDir, 'docker-stats.jsonl')) : undefined;
+  // The ramp can't log every request: k6 serialises console output, which capped it near
+  // 20,000 req/s, below the stack's knee. Its JSON output kept up, and per-second totals are
+  // all the ramp needs. The other scenarios run at 1,000 req/s or less, where logging is free.
+  const k6Args = ramp
+    ? ['-e', 'LOG=0', K6_IMAGE, 'run', '--quiet', '--out', 'json=/out/k6.json.gz']
+    : [K6_IMAGE, 'run', '--quiet', '--console-output=/out/console.log'];
   try {
     const output = await shAsync('docker', [
       'run',
@@ -155,10 +165,7 @@ async function runK6(
       `LIMIT=${String(rule.limit)}`,
       '-e',
       `WINDOW_MS=${String(rule.windowMs)}`,
-      K6_IMAGE,
-      'run',
-      '--quiet',
-      '--console-output=/out/console.log',
+      ...k6Args,
       '--summary-export=/out/k6-summary.json',
       `/scripts/${scenario}.ts`,
     ]);
@@ -166,21 +173,38 @@ async function runK6(
   } finally {
     stats?.kill();
   }
+  if (ramp) return writeSeconds(runDir);
   const consoleLog = join(runDir, 'console.log');
   const records = parseConsoleLog(await readFile(consoleLog, 'utf8'));
   if (records.length === 0) throw new Error(`${runDir}: k6 logged no requests`);
   // Compressed: raw records run to about 108 bytes each, and gzip shrinks them several times.
   const lines = records.map((r) => JSON.stringify(r)).join('\n') + '\n';
   await writeFile(join(runDir, 'requests.jsonl.gz'), gzipSync(lines));
-  if (scenario === 'ramp') {
-    // A full ramp run is about 720,000 requests, too many for git even compressed. Git keeps
-    // these per-second totals, which give throughput exactly; .gitignore keeps the records local.
-    const seconds = secondsOf(records).map((s) => JSON.stringify(s));
-    await writeFile(join(runDir, 'seconds.jsonl'), seconds.join('\n') + '\n');
-  }
   // requests.jsonl.gz holds everything the console log did, in a stable form.
   await rm(consoleLog);
   return records.length;
+}
+
+/**
+ * Streams the ramp's k6.json.gz into seconds.jsonl. A full run's JSON is a few hundred MB
+ * compressed, far too big for git, so .gitignore keeps it local and git gets these totals,
+ * which give throughput exactly.
+ */
+async function writeSeconds(runDir: string): Promise<number> {
+  const totals = new K6Seconds();
+  const lines = createInterface({
+    input: createReadStream(join(runDir, 'k6.json.gz')).pipe(createGunzip()),
+    crlfDelay: Infinity,
+  });
+  for await (const line of lines) totals.add(line);
+  const seconds = totals.totals();
+  const count = seconds.reduce((sum, s) => sum + s.count, 0);
+  if (count === 0) throw new Error(`${runDir}: k6 recorded no requests`);
+  await writeFile(
+    join(runDir, 'seconds.jsonl'),
+    seconds.map((x) => JSON.stringify(x)).join('\n') + '\n',
+  );
+  return count;
 }
 
 /** One JSON line per container per second, so a run shows whether nginx's one worker saturated. */

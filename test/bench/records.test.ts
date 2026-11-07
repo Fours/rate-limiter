@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { parseConsoleLog, parseRecordLine, resultsDirName } from '../../bench/records.ts';
+import {
+  K6Seconds,
+  parseConsoleLog,
+  parseRecordLine,
+  resultsDirName,
+} from '../../bench/records.ts';
 
 const line = (msg: string) => `time="2026-11-06T22:47:42Z" level=info msg="${msg}" source=console`;
 
@@ -68,5 +73,77 @@ describe('resultsDirName', () => {
       '0008-edges-2026-11-06-3',
     );
     expect(resultsDirName('steady', day, ['0008-edges-2026-11-06'])).toBe('0008-steady-2026-11-06');
+  });
+});
+
+describe('K6Seconds', () => {
+  // Lines as k6 2.3.0 writes them with --out json (trimmed to the fields that matter).
+  const point = (metric: string, time: string, value: number, status?: string) =>
+    JSON.stringify({
+      metric,
+      type: 'Point',
+      data: { time, value, tags: status === undefined ? {} : { status, name: 'work' } },
+    });
+  const duration = (time: string, ms: number, status = '200') =>
+    point('http_req_duration', time, ms, status);
+
+  const totalsOf = (lines: readonly string[]) => {
+    const totals = new K6Seconds();
+    for (const line of lines) totals.add(line);
+    return totals.totals();
+  };
+
+  it('counts responses per second of arrival, with a nearest-rank p99', () => {
+    expect(
+      totalsOf([
+        duration('2026-11-07T01:02:13.100000000Z', 1),
+        duration('2026-11-07T01:02:13.999999999Z', 3, '429'),
+        duration('2026-11-07T01:02:14.000000001Z', 7),
+      ]),
+    ).toEqual([
+      { second: 1794013333, count: 2, healthy: true, p99: 3, dropped: 0 },
+      { second: 1794013334, count: 1, healthy: true, p99: 7, dropped: 0 },
+    ]);
+  });
+
+  it('marks a second unhealthy for any status but 200 or 429, including no response', () => {
+    const seconds = totalsOf([
+      duration('2026-11-07T01:02:13.1Z', 1, '503'),
+      duration('2026-11-07T01:02:14.1Z', 1, '0'),
+      duration('2026-11-07T01:02:15.1Z', 1, '429'),
+    ]);
+    expect(seconds.map((s) => s.healthy)).toEqual([false, false, true]);
+  });
+
+  it("sums k6's dropped iterations per second, even in a second with no responses", () => {
+    expect(
+      totalsOf([
+        duration('2026-11-07T01:02:13.1Z', 1),
+        point('dropped_iterations', '2026-11-07T01:02:13.2Z', 1),
+        point('dropped_iterations', '2026-11-07T01:02:13.3Z', 2),
+        point('dropped_iterations', '2026-11-07T01:02:14.3Z', 4),
+      ]),
+    ).toEqual([
+      { second: 1794013333, count: 1, healthy: true, p99: 1, dropped: 3 },
+      { second: 1794013334, count: 0, healthy: true, p99: 0, dropped: 4 },
+    ]);
+  });
+
+  it('ignores metric declarations and the points of other metrics', () => {
+    expect(
+      totalsOf([
+        JSON.stringify({ type: 'Metric', metric: 'http_req_duration', data: { name: 'x' } }),
+        point('http_reqs', '2026-11-07T01:02:13.1Z', 1, '200'),
+        point('http_req_waiting', '2026-11-07T01:02:13.1Z', 1, '503'),
+        '',
+      ]),
+    ).toEqual([]);
+  });
+
+  it("throws on a point it can't place, rather than drop a request", () => {
+    const totals = new K6Seconds();
+    expect(() => {
+      totals.add(point('http_req_duration', 'not a time', 1, '200'));
+    }).toThrow(/bad k6 point/);
   });
 });
