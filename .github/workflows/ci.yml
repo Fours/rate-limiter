@@ -54,12 +54,32 @@ jobs:
           REDIS_URL: redis://localhost:6390
         run: examples/basic/demo-check.sh
 
-  # Builds the benchmark app's image (milestone 3) and checks it answers /healthz. A job of its own
-  # so the build runs once, not once per Node version.
-  bench-image:
+  # Smoke-tests the milestone 3 stack: nginx, three app instances and Redis, from
+  # docker-compose.yml. A job of its own so the image builds once, not once per Node version.
+  # It checks behaviour only. CI runners are shared and noisy, so no latency or throughput number
+  # is compared here (decision 0017).
+  stack:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build and start the benchmark image
+      # The benchmark runner and analysis run on the host, and import yaml from devDependencies.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build the benchmark image and check it answers /healthz without Redis
         timeout-minutes: 5
         run: bench/app/image-check.sh
+      # One client gets exactly its limit across three instances, for every algorithm.
+      - name: Check the stack shares one limit, every algorithm
+        timeout-minutes: 5
+        run: bench/stack-check.sh token-bucket leaky-bucket fixed-window sliding-window-log sliding-window-counter
+      # Quick k6 edges runs: the fixed window bursts across a boundary, the log never goes over,
+      # and the analysis rebuilds the same summary from saved output.
+      - name: Check the edges scenario
+        timeout-minutes: 5
+        run: bench/edges-check.sh
+      - name: Stop the stack
+        if: always()
+        run: npm run stack:down

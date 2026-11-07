@@ -122,8 +122,8 @@ Do these in order. Each one ends with passing tests.
 | T3. k6 scenarios and runner | Done | eb16f6d |
 | T4. Memory per key | Done | 8d255fc |
 | T5. Run the benchmarks and decide 0008 | Done | 86fb45d |
-| T6. Token pre-fetching measurements | Done | |
-| T7. CI smoke test and README | Not started | |
+| T6. Token pre-fetching measurements | Done | d50189c |
+| T7. CI smoke test and README | Done | |
 
 ### T0. Benchmark app
 
@@ -260,9 +260,9 @@ As built: [0009](decisions/0009-latency-budget-prefetch.md) is Accepted: milesto
 
 **Done when:**
 
-- [ ] CI builds the image, starts the stack, runs `bench/stack-check.sh` and `bench/edges-check.sh`, and stops the stack. No numbers are compared in CI.
-- [ ] The README gains a Benchmarks section: the summary table, what each number means, the machine they came from, and how to rerun them.
-- [ ] The README's algorithm table links to the benchmark numbers.
+- [x] CI builds the image, starts the stack, runs `bench/stack-check.sh` and `bench/edges-check.sh`, and stops the stack. No numbers are compared in CI.
+- [x] The README gains a Benchmarks section: the summary table, what each number means, the machine they came from, and how to rerun them.
+- [x] The README's algorithm table links to the benchmark numbers.
 
 ## Definition of done
 

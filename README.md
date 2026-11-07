@@ -2,7 +2,7 @@
 
 Rate-limiting middleware for Express, with pluggable algorithms and standard `RateLimit-*` headers.
 
-> **Status: milestone 2 of 5.** Limits can be shared by many app instances through one Redis, with five algorithms and rules loaded from YAML or JSON. Timeouts and an in-memory fallback for when Redis is down come in milestone 4. The package is not on npm yet. See the [project plan](https://claude.ai/artifact/UKY1bPShdNmagt4Tgftk1C) and the [milestone 2 spec](docs/milestone-2.md).
+> **Status: milestone 3 of 5.** Limits can be shared by many app instances through one Redis, with five algorithms and rules loaded from YAML or JSON. All five are [benchmarked](#benchmarks) on a load-balanced stack of three instances. Timeouts and an in-memory fallback for when Redis is down come in milestone 4. The package is not on npm yet. See the [project plan](https://claude.ai/artifact/UKY1bPShdNmagt4Tgftk1C) and the [milestone 3 spec](docs/milestone-3.md).
 
 ## Install
 
@@ -109,13 +109,13 @@ If Redis is unreachable, the check fails once your client stops retrying, and th
 
 All five use the same rules and headers. They differ in how a client's requests are spread over time:
 
-| Algorithm | Create it with | A client can send | Good for |
-| --- | --- | --- | --- |
-| Token bucket | `createTokenBucket()` (memory, the default) or `createRedisTokenBucket()` | Up to `limit` at once, then refills steadily at `limit` per `windowMs` | Most APIs: short bursts are fine, the average rate is capped |
-| Leaky bucket | `createRedisLeakyBucket()` | One request every `windowMs / limit`, with no burst | Smoothing traffic to a steady rate, for example in front of a fragile backend ([0014](docs/decisions/0014-leaky-bucket-as-gcra.md)) |
-| Fixed window | `createRedisFixedWindow()` | `limit` per window, with windows starting on the clock (each minute, for a 60 s window) | The cheapest option, and easy to explain. A client can send up to 2× `limit` across a window boundary. |
-| Sliding window log | `createRedisSlidingWindowLog()` | Exactly `limit` in any `windowMs`, measured back from now | Exact limits. Stores one entry per allowed request, so it costs the most memory. |
-| Sliding window counter | `createRedisSlidingWindowCounter()` | About `limit` in any `windowMs`, estimated from two counts. It never allows more than `limit` by its estimate. | Close to exact at a fixed, small cost: a good default for Redis |
+| Algorithm | Create it with | A client can send | Good for | [Measured](#benchmarks) |
+| --- | --- | --- | --- | --- |
+| Token bucket | `createTokenBucket()` (memory, the default) or `createRedisTokenBucket()` | Up to `limit` at once, then refills steadily at `limit` per `windowMs` | Most APIs: short bursts are fine, the average rate is capped | [1.54× the limit at window edges; 160 B a key](#benchmarks) |
+| Leaky bucket | `createRedisLeakyBucket()` | One request every `windowMs / limit`, with no burst | Smoothing traffic to a steady rate, for example in front of a fragile backend ([0014](docs/decisions/0014-leaky-bucket-as-gcra.md)) | [Never over; denies 23% of steady traffic under the limit; 176 B a key](#benchmarks) |
+| Fixed window | `createRedisFixedWindow()` | `limit` per window, with windows starting on the clock (each minute, for a 60 s window) | The cheapest option, and easy to explain. A client can send up to 2× `limit` across a window boundary. | [2.00× the limit at window edges; 176 B a key](#benchmarks) |
+| Sliding window log | `createRedisSlidingWindowLog()` | Exactly `limit` in any `windowMs`, measured back from now | Exact limits. Stores one entry per allowed request, so it costs the most memory. | [Never over; 400 B a key at 10 a minute, 103 KB at 1,000](#benchmarks) |
+| Sliding window counter | `createRedisSlidingWindowCounter()` | About `limit` in any `windowMs`, estimated from two counts. It never allows more than `limit` by its estimate. | Close to exact at a fixed, small cost: a good default for Redis | [1.05× the limit at window edges (at most 1.43×); 192 B a key](#benchmarks) |
 
 The leaky bucket surprises people: with `limit: 10, windowMs: 60_000` it allows one request every 6 seconds, so a client that sends 10 at once gets 1 through and 9 `429`s. That's the point of it: no bursts. If you want bursts, use one of the others.
 
@@ -266,6 +266,110 @@ With Redis, the demo uses the sliding window counter. Set `ALGORITHM` to `token-
 
 `examples/basic/demo-check.sh` runs this check for all five algorithms, the way CI does.
 
+## Benchmarks
+
+Every algorithm was measured on the stack in [docker-compose.yml](docker-compose.yml): nginx, round robin, in front of three app instances that share one Redis. k6 drives the traffic. The full results, the method and the reasoning are in decisions [0008](docs/decisions/0008-sliding-window-accuracy-vs-cost.md) (which algorithm), [0009](docs/decisions/0009-latency-budget-prefetch.md) (whether to pre-fetch tokens) and [0017](docs/decisions/0017-how-the-benchmarks-measure.md) (how it's measured).
+
+**In short:** all five cost the same per request, about 0.7 ms at p99. They differ in accuracy and memory, so the sliding window counter is the default recommendation for Redis, and the sliding window log is the choice when a limit must be exact.
+
+### Latency at a steady 500 req/s
+
+1,000 clients, 100 requests a minute each, for 60 s, all well under their limits.
+
+| Algorithm | Limiter p50 (ms) | Limiter p99 (ms) | End-to-end p50 (ms) | End-to-end p99 (ms) | False denials |
+| --- | --- | --- | --- | --- | --- |
+| No limiter | – | – | 0.57 | 1.49 | – |
+| Token bucket | 0.18 | 0.73 | 0.56 | 1.87 | 0.0% |
+| Leaky bucket | 0.18 | 0.72 | 0.54 | 1.82 | 23.1% |
+| Fixed window | 0.17 | 0.69 | 0.53 | 1.83 | 0.0% |
+| Sliding window log | 0.19 | 0.75 | 0.57 | 1.92 | 0.0% |
+| Sliding window counter | 0.18 | 0.73 | 0.56 | 1.84 | 0.0% |
+
+### Accuracy at window edges
+
+10 clients on a limit of 100 per 10 s. Each sends its full limit just before and just after a window boundary, plus a trickle in between. This is the traffic that tells the algorithms apart.
+
+| Algorithm | Peak in any 10 s | Against the limit | False denials |
+| --- | --- | --- | --- |
+| Token bucket | 154 | 1.54× | 0.0% |
+| Leaky bucket | 54 | never over | 70.3% |
+| Fixed window | 200 | 2.00× | 0.0% |
+| Sliding window log | 100 | never over | 0.0% |
+| Sliding window counter | 105 (at most 143) | 1.05× | 14.6% |
+
+### Throughput
+
+The busiest second, on an arrival rate ramped from 100 to 60,000 req/s, while p99 stayed under 50 ms with no errors.
+
+| Algorithm | Throughput (req/s) |
+| --- | --- |
+| No limiter | 47,721 |
+| Token bucket | 39,260 |
+| Leaky bucket | 38,804 |
+| Fixed window | 40,432 |
+| Sliding window log | 39,977 |
+| Sliding window counter | 38,620 |
+
+The three Node apps ran out of CPU first. Redis stayed at 60 to 78% of a core, so it wasn't the limit.
+
+### Redis memory per key
+
+`MEMORY USAGE` on one client's key after it has used its limit, in bytes.
+
+| Algorithm | 10 a minute | 100 a minute | 1,000 a minute |
+| --- | --- | --- | --- |
+| Token bucket | 160 | 160 | 160 |
+| Leaky bucket | 176 | 176 | 176 |
+| Fixed window | 176 | 176 | 176 |
+| Sliding window log | 400 | 3,152 | 102,944 |
+| Sliding window counter | 192 | 192 | 192 |
+
+### What the numbers mean
+
+- **Limiter** latency is the time spent inside the middleware, from the app's `Server-Timing: rl;dur=…` header. It leaves out the network and nginx. **End-to-end** is k6's request duration through nginx. Compare it with the no-limiter row to see what the limiter adds: 0.3 to 0.4 ms at p99.
+- **Peak in any 10 s** is the most requests one client got through in any window-wide span, measured from k6's per-request records. Over the limit means the algorithm let a burst through.
+- **False denials** are `429`s sent while the client had fewer than `limit` allowed in the trailing window. The leaky bucket's are by design: it allows no burst, so two requests close together get the second denied.
+- **Throughput** is for comparing algorithms, not for capacity planning: k6, nginx, the apps and Redis all share one laptop.
+- Each latency, accuracy and throughput cell is the median of three runs. Memory doesn't depend on load, so it's one run.
+
+### The machine
+
+An Apple M5 Pro (18 cores, 24 GiB), with Docker 29.4.1 given 18 CPUs and 8 GiB. Node 22.23.4 in the app image, Redis 7.4.12, nginx 1.31.8 with one worker, and k6 2.3.0. Every results directory records its own setup in `setup.json`, with the git commit and the exact command.
+
+### Rerun them
+
+Docker is the only requirement. k6 runs from its image.
+
+```bash
+npm run stack:up       # build and start nginx, three instances and Redis on :8080
+```
+
+```bash
+npm run stack:check    # one client held to one limit across all three instances
+```
+
+```bash
+npm run bench          # every scenario and algorithm, three runs each
+```
+
+```bash
+npm run bench -- --scenario edges --algorithm fixed-window --quick   # one cell, short, to bench/results/
+```
+
+```bash
+npm run bench:analyse -- docs/decisions/data/0008-edges-2026-11-07   # rebuild a summary from saved data
+```
+
+```bash
+npm run bench:memory   # memory per key; needs the test Redis (npm run redis:up)
+```
+
+```bash
+npm run stack:down
+```
+
+Full runs write to `docs/decisions/data/`, quick runs to `bench/results/`. The raw data behind the tables above: [steady](docs/decisions/data/0008-steady-2026-11-06/), [edges](docs/decisions/data/0008-edges-2026-11-07/), [ramp](docs/decisions/data/0008-ramp-2026-11-07/), [memory](docs/decisions/data/0008-memory-2026-11-06/). CI starts the stack and checks its behaviour on every push, but it compares no numbers, because shared CI machines are too noisy to.
+
 ## Design
 
 Each design choice is recorded in [docs/decisions](docs/decisions/README.md), with the alternatives and the evidence: why every algorithm sits behind one async interface, why API keys are hashed, what the reset times mean, and more.
@@ -281,6 +385,8 @@ npm run test:integration
 npm run coverage          # unit and integration together
 npm run build
 examples/basic/demo-check.sh   # two instances on the test Redis, every algorithm
+bench/stack-check.sh token-bucket leaky-bucket fixed-window sliding-window-log sliding-window-counter
+bench/edges-check.sh           # quick k6 edges runs, as CI does
 ```
 
 ## License
