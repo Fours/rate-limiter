@@ -146,8 +146,8 @@ Do these in order. Each one ends with passing tests.
 | T2. `prometheusHooks()` | Done | 0756b6a |
 | T3. Prometheus and Grafana in the stack | Done | dc72cd6 |
 | T4. Chaos test and decide 0010 | Done | 0069e4c |
-| T5. IPv6 clients by /64 | Done | |
-| T6. CI and README | Not started | |
+| T5. IPv6 clients by /64 | Done | e85e303 |
+| T6. CI and README | Done | |
 
 ### T0. Timeout and fallback
 
@@ -240,12 +240,14 @@ Add the `chaos` scenario to the runner and the analysis. The new measures (error
 
 ### T6. CI and README
 
+*As built:* `bench/chaos-check.sh` runs in CI's stack job. With a `curl` loop from 5 clients, it kills Redis for 5 s, then pauses it for 5 s, on a fresh stack each time. It checks that no request fails, that the fallback answers at least 90% of requests during the outage, that the last 30 responses come from the primary within 15 s of Redis returning, and that every instance logs both switches. It covers pause as well as kill (agreed in T6's plan review), and like the other checks it compares no latency. `examples/basic` turns ioredis's offline queue off, caps its reconnect delay at 500 ms, and waits up to 2 s for Redis before listening, since with the queue off a check sent before the client connects falls back. `demo-check.sh` also starts it against a closed port and checks it answers from the fallback and logs that once. It takes `DEMO_PORT`, since ports 3001 and 3002 can be taken on a development machine.
+
 **Done when:**
 
-- [ ] CI runs a short chaos check against the stack (`bench/chaos-check.sh`): no failed requests while Redis is killed, fallbacks seen, and the primary back after Redis returns. As in milestone 3, it compares no latency numbers.
-- [ ] The README gains Failure handling and Metrics sections: the options, the fallback's maths, recommended Redis client settings, the hooks, `prometheusHooks()`, and the dashboard
-- [ ] The options table lists `timeoutMs`, `fallback` and `hooks`
-- [ ] `examples/basic` logs fallbacks through `onFallback`
+- [x] CI runs a short chaos check against the stack (`bench/chaos-check.sh`): no failed requests while Redis is killed, fallbacks seen, and the primary back after Redis returns. As in milestone 3, it compares no latency numbers.
+- [x] The README gains Failure handling and Metrics sections: the options, the fallback's maths, recommended Redis client settings, the hooks, `prometheusHooks()`, and the dashboard
+- [x] The options table lists `timeoutMs`, `fallback` and `hooks`
+- [x] `examples/basic` logs fallbacks through `onFallback`
 
 ## Definition of done
 

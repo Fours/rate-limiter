@@ -4,10 +4,14 @@
 #
 # Usage: demo-check.sh [algorithm ...]   (default: all five)
 # Needs a built dist/ (npm run build) and a Redis at REDIS_URL (default: the test Redis).
+# Uses ports 3001 to 3003, or DEMO_PORT to DEMO_PORT + 2.
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 export REDIS_URL="${REDIS_URL:-redis://localhost:6390}"
+p1="${DEMO_PORT:-3001}"
+p2=$((p1 + 1))
+p3=$((p1 + 2))
 algorithms=("$@")
 if ((${#algorithms[@]} == 0)); then
   algorithms=(token-bucket leaky-bucket fixed-window sliding-window-log sliding-window-counter)
@@ -35,12 +39,12 @@ wait_for() {
 status() { curl -s -o /dev/null -w '%{http_code}' -H "x-api-key: $2" "http://localhost:$1/"; }
 
 for algorithm in "${algorithms[@]}"; do
-  for port in 3001 3002; do
+  for port in $p1 $p2; do
     ALGORITHM="$algorithm" PORT="$port" node --experimental-strip-types examples/basic/server.ts >/dev/null &
     pids+=($!)
   done
-  wait_for 3001
-  wait_for 3002
+  wait_for $p1
+  wait_for $p2
 
   # Fixed windows end on the minute (the demo's window is 60 s), and a boundary mid-check would
   # reset the count. Wait until the check has at least 5 s of the window left.
@@ -51,18 +55,40 @@ for algorithm in "${algorithms[@]}"; do
   # A new client each run, so state left by an earlier algorithm or run can't decide this one.
   client="demo-check-$algorithm-$$-$RANDOM"
   allowed=0
-  until [[ "$(status 3001 "$client")" == 429 ]]; do
+  until [[ "$(status $p1 "$client")" == 429 ]]; do
     allowed=$((allowed + 1))
     if ((allowed > 20)); then
-      echo "FAIL $algorithm: port 3001 never limited the client" >&2
+      echo "FAIL $algorithm: port $p1 never limited the client" >&2
       exit 1
     fi
   done
-  other="$(status 3002 "$client")"
+  other="$(status $p2 "$client")"
   if [[ "$other" != 429 ]]; then
-    echo "FAIL $algorithm: 3001 limited the client after $allowed, but 3002 answered $other" >&2
+    echo "FAIL $algorithm: $p1 limited the client after $allowed, but $p2 answered $other" >&2
     exit 1
   fi
-  echo "ok   $algorithm: 3001 allowed $allowed then limited; 3002 limited the same client"
+  echo "ok   $algorithm: $p1 allowed $allowed then limited; $p2 limited the same client"
   stop_servers
 done
+
+# Milestone 4: with Redis unreachable, the example still answers, from its in-memory fallback,
+# and logs the switch through onFallback.
+out="$(mktemp)"
+REDIS_URL=redis://localhost:1 PORT=$p3 node --experimental-strip-types examples/basic/server.ts >"$out" 2>&1 &
+pids+=($!)
+wait_for $p3
+code="$(status $p3 "demo-check-fallback-$$")"
+sleep 0.2
+if [[ "$code" == 200 ]] && grep -q 'Answering from the in-memory fallback' "$out"; then
+  echo "ok   Redis unreachable: answered $code from the fallback, and logged it once"
+else
+  echo "FAIL Redis unreachable: answered $code; log was:" >&2
+  cat "$out" >&2
+  exit 1
+fi
+if (($(grep -c 'in-memory fallback' "$out") != 1)); then
+  echo "FAIL Redis unreachable: the fallback was logged more than once" >&2
+  exit 1
+fi
+stop_servers
+rm -f "$out"

@@ -9,6 +9,7 @@
 //   REDIS_URL   share limits through Redis, e.g. redis://localhost:6390 (the test Redis)
 //   ALGORITHM   with Redis: token-bucket, leaky-bucket, fixed-window, sliding-window-log
 //               or sliding-window-counter (the default). Without Redis: token-bucket only.
+import { setTimeout as delay } from 'node:timers/promises';
 import express, { type Request } from 'express';
 import { Redis } from 'ioredis';
 import {
@@ -21,6 +22,7 @@ import {
   loadRules,
   rateLimit,
   type Algorithm,
+  type RateLimitHooks,
   type RedisAlgorithmOptions,
 } from '@kylewillett/rate-limiter';
 
@@ -51,7 +53,18 @@ if (!redisUrl && algorithmName !== 'token-bucket') {
 }
 
 // With Redis, every copy of this server shares limits. Without it, each process counts alone.
-const redis = redisUrl ? new Redis(redisUrl) : undefined;
+// The offline queue is off, so while Redis is unreachable each check fails at once and the
+// in-memory fallback answers, instead of every request waiting out the 50 ms timeout. The retry
+// cap brings the primary back within about half a second of Redis returning (decision 0010).
+const redis = redisUrl
+  ? new Redis(redisUrl, {
+      enableOfflineQueue: false,
+      retryStrategy: (times) => Math.min(times * 50, 500),
+    })
+  : undefined;
+// ioredis reports every failed reconnect as an 'error' event, and prints any it isn't given a
+// listener for. onFallback below already says when Redis is out, so keep the log to that.
+redis?.on('error', () => undefined);
 const algorithm = redis ? createAlgorithm({ client: fromIoredis(redis) }) : undefined;
 
 // A stand-in for a real account lookup. Derive the tier from the client's credentials,
@@ -62,7 +75,25 @@ function tier(req: Request): string {
   return key !== undefined && proKeys.has(key) ? 'pro' : 'free';
 }
 
-const limiter = rateLimit({ rules, tier, ...(algorithm && { algorithm }) });
+// If Redis fails, the limiter answers from memory and calls onFallback. Logging every fallback
+// would be a line per request during an outage, so this logs only the switches each way.
+let onFallback = false;
+const hooks: RateLimitHooks = {
+  onFallback: (event) => {
+    if (onFallback) return;
+    onFallback = true;
+    const why = event.reason === 'timeout' ? 'timed out' : `failed: ${String(event.error)}`;
+    console.warn(`Redis check ${why}. Answering from the in-memory fallback.`);
+  },
+  onDecision: (event) => {
+    if (onFallback && event.source === 'primary') {
+      onFallback = false;
+      console.warn('Redis is answering again.');
+    }
+  },
+};
+
+const limiter = rateLimit({ rules, tier, hooks, ...(algorithm && { algorithm }) });
 
 const app = express();
 // Behind a load balancer or proxy, uncomment this so req.ip is the client, not the proxy.
@@ -77,6 +108,13 @@ app.get('/', (_req, res) => {
 app.post('/orders', (_req, res) => {
   res.status(201).json({ ordered: true });
 });
+
+// With the offline queue off, a check sent before the client connects falls back. Wait for the
+// connection before taking requests, but not forever: if Redis is down, start anyway and let the
+// fallback answer.
+if (redis) {
+  await Promise.race([new Promise((resolve) => redis.once('ready', resolve)), delay(2000)]);
+}
 
 const port = Number(process.env.PORT ?? 3000);
 const server = app.listen(port, () => {

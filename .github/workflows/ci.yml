@@ -99,6 +99,11 @@ jobs:
       - name: Check the observability profile
         timeout-minutes: 5
         run: bench/observe-check.sh
+      # Milestone 4: Redis killed, then paused, under traffic. No request fails, the fallback
+      # answers, and every instance is back on the primary after. No latency numbers (0017).
+      - name: Check failure handling (chaos)
+        timeout-minutes: 5
+        run: bench/chaos-check.sh
       - name: Stop the stack
         if: always()
         run: npm run stack:down

@@ -2,7 +2,7 @@
 
 Rate-limiting middleware for Express, with pluggable algorithms and standard `RateLimit-*` headers.
 
-> **Status: milestone 3 of 5.** Limits can be shared by many app instances through one Redis, with five algorithms and rules loaded from YAML or JSON. All five are [benchmarked](#benchmarks) on a load-balanced stack of three instances. Timeouts and an in-memory fallback for when Redis is down come in milestone 4. The package is not on npm yet. See the [project plan](https://claude.ai/artifact/UKY1bPShdNmagt4Tgftk1C) and the [milestone 3 spec](docs/milestone-3.md).
+> **Status: milestone 4 of 5.** Limits can be shared by many app instances through one Redis, with five algorithms and rules loaded from YAML or JSON. All five are [benchmarked](#benchmarks) on a load-balanced stack of three instances. If Redis fails, requests are answered from memory instead ([failure handling](#failure-handling)), and hooks report every decision, with a Prometheus adapter and a Grafana dashboard ([metrics](#metrics)). The package is not on npm yet. See the [project plan](https://claude.ai/artifact/UKY1bPShdNmagt4Tgftk1C) and the [milestone 4 spec](docs/milestone-4.md).
 
 ## Install
 
@@ -50,8 +50,11 @@ Each client gets 100 requests a minute, except `POST /login`, which gets 5. A cl
 | `algorithm` | `Algorithm` | in-memory token bucket | How limits are counted. Anything with `check(key, rule): Promise<Decision>` works. |
 | `identify` | `(req) => string` | API key, then user, then IP | Who the client is. See [Identifying clients](#identifying-clients). |
 | `tier` | `(req) => string \| undefined` | no tier | The client's tier, for rules that set `tier`. |
+| `timeoutMs` | positive integer | `50` | How long a check gets before the fallback answers instead. See [Failure handling](#failure-handling). |
+| `fallback` | `{ instances?: number } \| false` | `{ instances: 1 }` | The in-memory fallback for when a check fails or times out. Set `instances` to how many app instances share each limit. `false` turns it off. |
+| `hooks` | `{ onDecision?, onFallback? }` | none | Called for every decision and every fallback, for metrics and logs. See [Metrics](#metrics). |
 
-`close()` stops the default token bucket's cleanup timer, so your process can exit cleanly. If you passed in your own `algorithm`, `close()` leaves it alone, because you may share it between limiters.
+`close()` stops the default token bucket's cleanup timer, and the fallback's, so your process can exit cleanly. If you passed in your own `algorithm`, `close()` leaves it alone, because you may share it between limiters.
 
 Invalid options throw when you call `rateLimit`, never during a request. Bad rules throw an `InvalidRuleError` that names the rule.
 
@@ -103,9 +106,121 @@ How it stays correct with many instances:
 - **One clock.** Scripts use Redis's own time, so instances whose clocks disagree still agree on the limit ([0007](docs/decisions/0007-redis-server-time.md)).
 - **One key per client and rule,** `rl:{rule.id}:{clientId}`, with a TTL, so idle clients cost nothing. Switching algorithms on a live Redis starts each client fresh instead of misreading the old algorithm's state ([0016](docs/decisions/0016-switching-algorithms-starts-fresh.md)).
 
-If Redis fails or takes longer than `timeoutMs` (default 50 ms), the request is answered from an in-memory token bucket instead, so a Redis outage isn't an API outage. Set `fallback: { instances: N }` to the number of instances sharing the limit, so each allows `limit / N` while Redis is down. `fallback: false` sends the error, or a `RateLimitTimeoutError`, to Express's error handler instead ([0018](docs/decisions/0018-timeout-and-fallback-in-the-middleware.md)).
+If Redis goes down, requests are still answered. See [Failure handling](#failure-handling), including the client settings to use.
 
-Turn off your client's offline queue, so checks fail at once while Redis is unreachable instead of each waiting out the timeout: `new Redis(url, { enableOfflineQueue: false })` for ioredis, `createClient({ url, disableOfflineQueue: true })` for node-redis.
+## Failure handling
+
+A Redis outage shouldn't become an API outage, so the limiter fails open, with a limit still in place ([0010](docs/decisions/0010-fail-open-with-local-fallback.md)):
+
+- **Each check gets `timeoutMs`** (default 50 ms). If it fails, or hasn't answered by then, an in-memory token bucket answers instead, and `onFallback` is called. This works around any algorithm, including your own ([0018](docs/decisions/0018-timeout-and-fallback-in-the-middleware.md)).
+- **The fallback splits the limit between instances.** With `fallback: { instances: N }`, each instance allows `max(1, ceil(limit / N))` per window while Redis is down, so a client spread over all N by a load balancer gets about `limit` in total. The `RateLimit-*` headers report that share. Set `instances` to your instance count: the default, 1, lets N instances allow N times the limit during an outage.
+- **A check that times out is dropped, not cancelled.** It may still use up a request in Redis when Redis answers, which only makes the limit a little stricter.
+- **`fallback: false` fails closed:** the error, or a `RateLimitTimeoutError`, goes to Express's error handler, as for any other middleware error.
+- Errors in your own `identify` or `tier`, or in rule matching, are bugs rather than outages, so they always go to the error handler.
+
+### Redis client settings
+
+The library can't set these, because you bring the client ([0013](docs/decisions/0013-bring-your-own-redis-client.md)), but they decide how an outage feels:
+
+```ts
+// ioredis
+const redis = new Redis(url, {
+  enableOfflineQueue: false, // fail at once while Redis is unreachable
+  retryStrategy: (times) => Math.min(times * 50, 500), // reconnect within ~0.5 s of Redis returning
+});
+
+// node-redis
+const redis = await createClient({
+  url,
+  disableOfflineQueue: true,
+  socket: { reconnectStrategy: (retries) => Math.min(retries * 50, 500) },
+}).connect();
+```
+
+- **Turn off the offline queue.** Both clients queue commands while disconnected by default, so every check would wait out the full timeout, and the queue would grow with traffic. With it off, a check against a dead Redis fails in well under a millisecond and the fallback answers at once.
+- **Cap the reconnect delay.** The client's backoff decides how long the fallback keeps answering after Redis is back. ioredis 6 backs off to 5 s by default and node-redis to 2 s.
+- With the offline queue off, ioredis refuses commands until its first connection is ready, so wait for its `ready` event before taking traffic, or the first requests fall back.
+- Nothing on the client helps with a Redis that hangs rather than refusing connections. Only the timeout bounds that.
+
+### What an outage looks like
+
+From the chaos test: three instances, 500 req/s, Redis killed or paused for 20 s, every algorithm, three runs each. The full results are in [0010](docs/decisions/0010-fail-open-with-local-fallback.md).
+
+| | Redis killed | Redis paused (hung) |
+| --- | --- | --- |
+| Failed requests | 0 in 15 runs | 0 in 15 runs |
+| End-to-end p99 during the outage | about 1.6 ms, slightly *faster* than normal | about 53 ms: normal plus the 50 ms timeout |
+| Back on Redis after it returns | about 2 s, with ioredis's default backoff | under 50 ms |
+| Most one client got in a window around a change | about 2× the limit | about 2× going away, 1.1× coming back |
+
+The overshoot comes from the switches: the fallback's buckets start full when Redis goes away, and a restarted Redis with no persistence starts every client fresh. The leaky bucket allows no burst, so it stays near 1× when Redis comes back.
+
+There's no circuit breaker. A hung Redis costs every request the 50 ms timeout until it answers again. The test measured exactly that, and a breaker would add state and another setting to save it. A lower `timeoutMs` is the simpler lever.
+
+## Metrics
+
+The limiter has no metrics dependency. It calls two optional hooks, and a separate entry point turns them into Prometheus metrics ([0005](docs/decisions/0005-metrics-through-hooks.md)).
+
+### Hooks
+
+```ts
+rateLimit({
+  rules,
+  hooks: {
+    onDecision: ({ rule, decision, source, durationMs }) => {
+      /* every limited request */
+    },
+    onFallback: ({ rule, reason, error }) => {
+      /* a check timed out or failed; called just before onDecision */
+    },
+  },
+});
+```
+
+| Event | Fields |
+| --- | --- |
+| `onDecision` | `req`, `rule` (as configured), `limit` (what the decision counted against: `rule.limit`, or the fallback's share), `key`, `decision` (`allowed`, `remaining`, `resetMs`), `source` (`'primary'` or `'fallback'`), `durationMs` (time in the limiter, fractional ms) |
+| `onFallback` | `req`, `rule`, `key`, `reason` (`'timeout'` or `'error'`), and `error` when the reason is `'error'` |
+
+- Requests that match no rule call neither hook.
+- **Hooks can't break a request.** They're called synchronously, and anything they throw, or a promise they return that rejects, is ignored. The limiter never fails a request for its own bookkeeping, so test your hooks ([0019](docs/decisions/0019-hook-events.md)).
+- **Don't use `key` or `req` data as metric labels.** `key` can hold a client's IP, and every client would become its own series. `req` is the request as it arrived, so its headers can hold a raw API key: never log them whole. Rule IDs and the fixed values above are safe labels.
+
+### Prometheus
+
+Install `prom-client`, an optional peer dependency, and import the adapter from its own entry point:
+
+```bash
+npm install prom-client
+```
+
+```ts
+import { prometheusHooks } from '@kylewillett/rate-limiter/prometheus';
+
+rateLimit({ rules, algorithm, hooks: prometheusHooks() });
+```
+
+| Metric | Type | Labels |
+| --- | --- | --- |
+| `ratelimit_decisions_total` | Counter | `rule`, `outcome` (`allowed` or `denied`), `source` |
+| `ratelimit_fallback_total` | Counter | `rule`, `reason` |
+| `ratelimit_check_seconds` | Histogram | `rule`, `source` |
+
+Options: `registry` (default: prom-client's global registry), `prefix` (default `ratelimit_`), and `buckets` for the histogram (default 0.1 ms to 100 ms, in seconds). Call it once per registry and share the hooks it returns: a second call on the same registry throws. The main entry point never loads `prom-client`.
+
+To use your own hooks too, call both from one function, for example `onDecision: (e) => { metrics.onDecision?.(e); mine(e); }`.
+
+**What it costs:** nothing measurable. At 500 and 15,000 req/s, the limiter's p50 was the same with the hooks as without, and its p99 moved by less than the variation between runs ([0005](docs/decisions/0005-metrics-through-hooks.md)).
+
+### The dashboard
+
+The benchmark stack can run with Prometheus and a provisioned Grafana dashboard:
+
+```bash
+npm run stack:observe   # nginx, 3 instances, Redis, Prometheus on :9090, Grafana on :3001
+```
+
+Open [localhost:3001](http://localhost:3001): no login needed. The dashboard shows decisions per second by outcome, the denial ratio, fallbacks per second by reason, and the limiter's p50 and p99, for each instance. Send traffic through [localhost:8080/work](http://localhost:8080/work), then try `docker compose kill redis` and `docker compose start redis`: requests keep succeeding, and the fallback panel rises and then drops back to zero. `npm run stack:down` stops it all.
 
 ## Choosing an algorithm
 
@@ -274,7 +389,9 @@ The second copy answers `429` too, because both count the same client in the sam
 
 With Redis, the demo uses the sliding window counter. Set `ALGORITHM` to `token-bucket`, `leaky-bucket`, `fixed-window`, `sliding-window-log` or `sliding-window-counter` on both copies to try another. With `leaky-bucket`, `hammer.sh 11` lets only the first request through, because the leaky bucket allows no burst (see [Choosing an algorithm](#choosing-an-algorithm)).
 
-`examples/basic/demo-check.sh` runs this check for all five algorithms, the way CI does.
+Now stop Redis with `docker compose -f docker-compose.test.yml stop`. Requests still get answers, from each copy's in-memory fallback, and each server logs `Answering from the in-memory fallback` once. Start Redis again with `docker compose -f docker-compose.test.yml start`, and each logs `Redis is answering again` within about half a second, thanks to the client settings in [Failure handling](#redis-client-settings).
+
+`examples/basic/demo-check.sh` runs these checks for all five algorithms, the way CI does. It uses ports 3001 to 3003, or `DEMO_PORT` and the two after it.
 
 ## Benchmarks
 
@@ -397,7 +514,11 @@ npm run build
 examples/basic/demo-check.sh   # two instances on the test Redis, every algorithm
 bench/stack-check.sh token-bucket leaky-bucket fixed-window sliding-window-log sliding-window-counter
 bench/edges-check.sh           # quick k6 edges runs, as CI does
+bench/observe-check.sh         # Prometheus and Grafana: scraping, counters, the dashboard
+bench/chaos-check.sh           # Redis killed, then paused, under traffic: nothing fails
 ```
+
+The benchmarks themselves are `npm run bench`, and `npm run bench -- --scenario chaos` for the 45-minute failure test. See [Rerun them](#rerun-them).
 
 ## License
 
