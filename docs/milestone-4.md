@@ -147,7 +147,7 @@ Do these in order. Each one ends with passing tests.
 | T3. Prometheus and Grafana in the stack | Done | dc72cd6 |
 | T4. Chaos test and decide 0010 | Done | 0069e4c |
 | T5. IPv6 clients by /64 | Done | e85e303 |
-| T6. CI and README | Done | |
+| T6. CI and README | Done | e68b3e9 |
 
 ### T0. Timeout and fallback
 
@@ -251,12 +251,12 @@ Add the `chaos` scenario to the runner and the analysis. The new measures (error
 
 ## Definition of done
 
-- [ ] T0 to T6 are complete.
-- [ ] `npm run lint`, `typecheck`, `test`, `test:integration` and `build` all pass, locally and in CI, and the CI stack and chaos checks pass.
-- [ ] Line coverage is still at least 90% for `src/`.
-- [ ] Still no runtime dependencies other than the Express peer dependency. `prom-client` is an optional peer dependency.
-- [ ] [0010](decisions/0010-fail-open-with-local-fallback.md) is Accepted with chaos evidence, and [0005](decisions/0005-metrics-through-hooks.md) has its evidence.
-- [ ] Every results directory in `docs/decisions/data/` has a `setup.json`.
+- [x] T0 to T6 are complete.
+- [x] `npm run lint`, `typecheck`, `test`, `test:integration` and `build` all pass, locally and in CI, and the CI stack and chaos checks pass.
+- [x] Line coverage is still at least 90% for `src/`.
+- [x] Still no runtime dependencies other than the Express peer dependency. `prom-client` is an optional peer dependency.
+- [x] [0010](decisions/0010-fail-open-with-local-fallback.md) is Accepted with chaos evidence, and [0005](decisions/0005-metrics-through-hooks.md) has its evidence.
+- [x] Every results directory in `docs/decisions/data/` has a `setup.json`.
 
 ## Decision records
 

@@ -1,0 +1,22 @@
+{
+  "date": "2026-11-06",
+  "note": "Written at milestone 4's close-out, not when the probe ran: the probe predates the rule that every results directory has a setup.json. Versions and host are from results.md. The probe ran during T0, on top of the commit below, before T0 was committed as 1329011.",
+  "command": "node docs/decisions/data/0018-client-probe-2026-11-06/probe.mjs",
+  "git": {
+    "commit": "419f149",
+    "uncommittedChanges": true
+  },
+  "host": {
+    "os": "Darwin 25.4.0 arm64",
+    "cpu": "Apple M5 Pro"
+  },
+  "docker": {
+    "version": "29.4.1"
+  },
+  "versions": {
+    "node": "v25.8.2",
+    "redis": "7.4.12 (redis:7.4.12-alpine)",
+    "ioredis": "6.0.0",
+    "redis (node-redis)": "6.3.1"
+  }
+}
