@@ -3,6 +3,7 @@ import type { Server } from 'node:http';
 import express, { type ErrorRequestHandler, type Express } from 'express';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { DecisionEvent } from '../../src/hooks.js';
 import { rateLimit, type RateLimitOptions } from '../../src/middleware.js';
 import type { Algorithm, Decision, Rule } from '../../src/types.js';
 import type { AlgorithmTraits, AlgorithmUnderTest } from './algorithm-contract.js';
@@ -208,6 +209,23 @@ export function describeMiddleware(
       expect(res.headers['ratelimit-limit']).toBe('4');
       expect(h.errors).toStrictEqual([]);
       expect(h.handled()).toBe(1);
+    });
+
+    it('reports each decision through onDecision, as the algorithm returned it', async () => {
+      const rule = freshRule({ limit: 2 });
+      const events: DecisionEvent[] = [];
+      const h = harness({
+        rules: [rule],
+        hooks: {
+          onDecision: (event) => {
+            events.push(event);
+          },
+        },
+      });
+      for (let i = 0; i < 3; i++) await request(h.app).get('/');
+      expect(events.map((e) => e.decision)).toStrictEqual(h.decisions);
+      expect(events.map((e) => e.source)).toStrictEqual(['primary', 'primary', 'primary']);
+      expect(events.every((e) => e.rule === rule && e.limit === rule.limit)).toBe(true);
     });
 
     it('allows exactly its burst of 50 concurrent requests against limit: 10', async () => {

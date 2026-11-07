@@ -8,6 +8,7 @@ export type { IdentifiableRequest } from './identify.js';
 export { rateLimit } from './middleware.js';
 export type { FallbackOptions, RateLimitMiddleware, RateLimitOptions } from './middleware.js';
 export { RateLimitTimeoutError } from './timeout.js';
+export type { DecisionEvent, FallbackEvent, RateLimitHooks } from './hooks.js';
 export { InvalidRuleError } from './rules.js';
 export { loadRules, parseRules } from './rules-file.js';
 export type { RulesFormat } from './rules-file.js';

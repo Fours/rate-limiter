@@ -65,6 +65,7 @@ rateLimit({
 interface DecisionEvent {
   readonly req: Request;
   readonly rule: Rule; // as configured, not scaled
+  readonly limit: number; // what the decision counted against: rule.limit, or the fallback's share
   readonly key: string; // rl:{rule.id}:{clientId}, with API keys already hashed
   readonly decision: Decision;
   readonly source: 'primary' | 'fallback';
@@ -83,6 +84,7 @@ interface FallbackEvent {
 
 - `onDecision` runs once per limited request, after the decision and before the response, for primary and fallback decisions alike. `onFallback` runs before it, when a check falls back. Requests that match no rule call neither.
 - **Hooks are synchronous and can't break a request.** A hook that throws is caught, and the request carries on. Anything a hook returns, including a promise, is ignored (open question 4).
+- **`req` is the request as it arrived** (T1 review): it can hold a raw API key in its headers, but none of the limiter's own fields does. `durationMs` runs from entering the middleware, so it includes `identify`. Details in [0019](decisions/0019-hook-events.md).
 - **`durationMs` is fractional milliseconds,** an exception to "integer milliseconds internally". It's a measurement, not a limit, and the limiter's p50 is about 0.2 ms (0008), which whole milliseconds would round to zero. It's measured the same way as the benchmark app's `Server-Timing`.
 - **No raw API keys:** `key` is the storage key, so API keys are already hashed (0002). It can hold an IP, so the README warns against using it as a metric label, which is also a cardinality problem.
 
@@ -139,8 +141,8 @@ Do these in order. Each one ends with passing tests.
 
 | Task | Status | Commit |
 | --- | --- | --- |
-| T0. Timeout and fallback | Done | |
-| T1. Hooks | Not started | |
+| T0. Timeout and fallback | Done | 1329011 |
+| T1. Hooks | Done | |
 | T2. `prometheusHooks()` | Not started | |
 | T3. Prometheus and Grafana in the stack | Not started | |
 | T4. Chaos test and decide 0010 | Not started | |
@@ -170,13 +172,13 @@ Add `hooks: { onDecision, onFallback }`, with the event types exported from `src
 
 **Done when:**
 
-- [ ] `onDecision` gets the event above for allowed and denied requests, from the primary and the fallback
-- [ ] `onFallback` gets `reason: 'timeout'` or `'error'`, with the error, and runs before `onDecision`
-- [ ] Neither runs for a request that matches no rule
-- [ ] A hook that throws, or returns a rejected promise, doesn't change the response and causes no `unhandledRejection`
-- [ ] No event holds a raw API key, tested with a request that sends one
-- [ ] `durationMs` is a non-negative number. Tests don't depend on its value.
-- [ ] Non-function hooks throw at startup
+- [x] `onDecision` gets the event above for allowed and denied requests, from the primary and the fallback
+- [x] `onFallback` gets `reason: 'timeout'` or `'error'`, with the error, and runs before `onDecision`
+- [x] Neither runs for a request that matches no rule
+- [x] A hook that throws, or returns a rejected promise, doesn't change the response and causes no `unhandledRejection`
+- [x] No event holds a raw API key, tested with a request that sends one
+- [x] `durationMs` is a non-negative number. Tests don't depend on its value.
+- [x] Non-function hooks throw at startup
 
 ### T2. `prometheusHooks()`
 

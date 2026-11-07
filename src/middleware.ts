@@ -2,6 +2,7 @@ import type { Request, RequestHandler } from 'express';
 import { createTokenBucket } from './algorithms/token-bucket.js';
 import { createFallback, type Fallback } from './fallback.js';
 import { rateLimitHeaders, retryAfter } from './headers.js';
+import { resolveHooks, type RateLimitHooks } from './hooks.js';
 import { buildKey, defaultIdentify } from './identify.js';
 import { createMatcher } from './rules.js';
 import { RateLimitTimeoutError, withTimeout } from './timeout.js';
@@ -33,6 +34,8 @@ export interface RateLimitOptions {
    * handler instead. Default `{ instances: 1 }`.
    */
   readonly fallback?: FallbackOptions | false;
+  /** Called for each decision and each fallback, for metrics and logs (decision 0019). */
+  readonly hooks?: RateLimitHooks;
 }
 
 export type RateLimitMiddleware = RequestHandler & {
@@ -51,11 +54,14 @@ export function rateLimit(opts: RateLimitOptions): RateLimitMiddleware {
   assertOptionalFunction(opts.tier, 'tier');
   const timeoutMs = resolveTimeout(opts.timeoutMs);
   const fallback = resolveFallback(opts.fallback);
+  const hooks = resolveHooks(opts.hooks);
   const { algorithm, close } = resolveAlgorithm(opts.algorithm);
   const identify = opts.identify ?? defaultIdentify;
   const tierOf = opts.tier;
 
   const handler: RequestHandler = async (req, res, next) => {
+    // Like the benchmark app's Server-Timing: from entering the middleware, identify included.
+    const start = performance.now();
     // The rule the decision was made against: the fallback's is scaled down, and the headers
     // report its limit, since RateLimit-Remaining counts against it.
     let applied: Rule;
@@ -70,6 +76,7 @@ export function rateLimit(opts: RateLimitOptions): RateLimitMiddleware {
       // Only the check is bounded and falls back. An error in identify, tier or matching is a
       // bug in the caller's code, not an outage, so it reaches the catch below.
       const result = await withTimeout(() => algorithm.check(key, rule), timeoutMs);
+      let source: 'primary' | 'fallback' = 'primary';
       if (result.ok) {
         applied = rule;
         decision = result.value;
@@ -77,8 +84,16 @@ export function rateLimit(opts: RateLimitOptions): RateLimitMiddleware {
         next(result.reason === 'timeout' ? new RateLimitTimeoutError(timeoutMs) : result.error);
         return;
       } else {
+        hooks.onFallback(
+          result.reason === 'timeout'
+            ? { req, rule, key, reason: 'timeout' }
+            : { req, rule, key, reason: 'error', error: result.error },
+        );
         ({ rule: applied, decision } = await fallback.check(key, rule));
+        source = 'fallback';
       }
+      const durationMs = performance.now() - start;
+      hooks.onDecision({ req, rule, limit: applied.limit, key, decision, source, durationMs });
     } catch (err) {
       next(err);
       return;
