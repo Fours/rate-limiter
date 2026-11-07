@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { Redis } from 'ioredis';
 import request from 'supertest';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { ALGORITHMS, createApp, type BenchApp } from '../../../bench/app/app.ts';
+import { ALGORITHMS, createApp, parseMetrics, type BenchApp } from '../../../bench/app/app.ts';
 import { buildKey, defaultIdentify } from '../../../src/identify.js';
 import type { Rule } from '../../../src/types.js';
 import { connectIoredis, redisUrl, uniqueRuleId } from '../helpers/redis.js';
@@ -26,8 +26,8 @@ function workRule(): Rule {
   return { id: uniqueRuleId('bench'), limit: LIMIT, windowMs: 60_000, path: '/work' };
 }
 
-function start(algorithm: string, rule = workRule(), instance = 'test-1') {
-  const bench = createApp({ algorithm, rules: [rule], instance, redisUrl });
+function start(algorithm: string, rule = workRule(), instance = 'test-1', metrics = false) {
+  const bench = createApp({ algorithm, rules: [rule], instance, redisUrl, metrics });
   apps.push(bench);
   return { app: bench.app, rule };
 }
@@ -118,6 +118,66 @@ describe('/healthz', () => {
       statuses.push((await request(app).get('/work').set('x-api-key', client)).status);
     }
     expect(statuses).toEqual([200, 200, 200, 429]);
+  });
+});
+
+describe('/metrics (METRICS=1)', () => {
+  /** One sample's value from the text format, or 0 when the series isn't there yet. */
+  function sample(body: string, series: string): number {
+    const line = body.split('\n').find((l) => l.startsWith(`${series} `));
+    return line === undefined ? 0 : Number(line.slice(series.length + 1));
+  }
+
+  it('counts allowed and denied decisions, and times them, as requests arrive', async () => {
+    const { app, rule } = start('sliding-window-counter', workRule(), 'test-1', true);
+    const client = newClient();
+    const allowed = `ratelimit_decisions_total{rule="${rule.id}",outcome="allowed",source="primary"}`;
+    const denied = `ratelimit_decisions_total{rule="${rule.id}",outcome="denied",source="primary"}`;
+    const timed = `ratelimit_check_seconds_count{rule="${rule.id}",source="primary"}`;
+
+    const before = (await request(app).get('/metrics')).text;
+    expect(sample(before, allowed)).toBe(0);
+    for (let i = 0; i <= LIMIT; i++) await request(app).get('/work').set('x-api-key', client);
+    const res = await request(app).get('/metrics');
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/^text\/plain/);
+    expect(sample(res.text, allowed)).toBe(LIMIT);
+    expect(sample(res.text, denied)).toBe(1);
+    expect(sample(res.text, timed)).toBe(LIMIT + 1);
+  });
+
+  it('is never limited, and scrapes are not counted as decisions, even under a catch-all rule', async () => {
+    const everyRoute: Rule = { id: uniqueRuleId('bench'), limit: LIMIT, windowMs: 60_000 };
+    const { app } = start('token-bucket', everyRoute, 'test-1', true);
+    for (let i = 0; i < LIMIT * 3; i++) {
+      const res = await request(app).get('/metrics');
+      expect(res.status).toBe(200);
+      expect(res.headers['ratelimit-limit']).toBeUndefined();
+      expect(res.text).not.toContain(`rule="${everyRoute.id}"`);
+    }
+  });
+
+  it('is absent, and nothing is recorded, without METRICS', async () => {
+    const { app } = start('sliding-window-counter');
+    await request(app).get('/work').set('x-api-key', newClient());
+    expect((await request(app).get('/metrics')).status).toBe(404);
+  });
+
+  it('gives each app its own registry, so two can run in one process', async () => {
+    const one = start('token-bucket', workRule(), 'test-1', true);
+    const two = start('token-bucket', workRule(), 'test-2', true);
+    await request(one.app).get('/work').set('x-api-key', newClient());
+    expect((await request(one.app).get('/metrics')).text).toContain(`rule="${one.rule.id}"`);
+    expect((await request(two.app).get('/metrics')).text).not.toContain(`rule="${one.rule.id}"`);
+  });
+
+  it('reads METRICS as 1 or 0, and rejects anything else at startup', () => {
+    expect(parseMetrics('1')).toBe(true);
+    expect(parseMetrics('0')).toBe(false);
+    expect(parseMetrics('')).toBe(false);
+    expect(parseMetrics(undefined)).toBe(false);
+    expect(() => parseMetrics('true')).toThrow('METRICS must be 1 or 0, not "true"');
   });
 });
 

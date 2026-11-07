@@ -1,0 +1,16 @@
+# Prometheus for the stack's observability profile (docker-compose.yml). Each app instance is
+# scraped directly, not through nginx, so every instance is seen on every scrape.
+global:
+  # Short, so the demo's panels move within seconds of a change, such as Redis going away.
+  scrape_interval: 2s
+  evaluation_interval: 2s
+
+scrape_configs:
+  - job_name: rate-limiter
+    static_configs:
+      - targets: ['app-1:3000', 'app-2:3000', 'app-3:3000']
+    # The instance label as the service name (app-1), not app-1:3000, for shorter legends.
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '([^:]+):\d+'
+        target_label: instance

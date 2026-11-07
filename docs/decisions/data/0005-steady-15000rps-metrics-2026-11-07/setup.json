@@ -1,0 +1,30 @@
+{
+  "date": "2026-11-07T14:38:30.385Z",
+  "command": "npm run bench -- --scenario steady --algorithm sliding-window-counter --rate 15000 --decision 0005 --metrics",
+  "git": {
+    "commit": "0756b6a3b4e1b5b6b69cab1fb53a442679ff6aa4",
+    "uncommittedChanges": true
+  },
+  "host": {
+    "os": "Darwin 25.4.0 arm64",
+    "cpu": "Apple M5 Pro",
+    "cores": 18,
+    "memoryGiB": 24
+  },
+  "docker": {
+    "version": "29.4.1",
+    "cpus": 18,
+    "memoryGiB": 8
+  },
+  "versions": {
+    "node": "v22.23.4",
+    "redis": "Redis server v=7.4.12 sha=00000000:0 malloc=jemalloc-5.3.0 bits=64 build=f852dc16704a5509",
+    "nginx": "nginx version: nginx/1.31.8",
+    "k6": "k6 v2.3.0 (commit/e088784614, go1.27.1, linux/arm64)"
+  },
+  "stack": {
+    "instances": 3,
+    "nginxWorkers": 1,
+    "metrics": true
+  }
+}

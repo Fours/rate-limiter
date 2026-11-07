@@ -143,8 +143,8 @@ Do these in order. Each one ends with passing tests.
 | --- | --- | --- |
 | T0. Timeout and fallback | Done | 1329011 |
 | T1. Hooks | Done | 547e7e7 |
-| T2. `prometheusHooks()` | Done | |
-| T3. Prometheus and Grafana in the stack | Not started | |
+| T2. `prometheusHooks()` | Done | 0756b6a |
+| T3. Prometheus and Grafana in the stack | Done | |
 | T4. Chaos test and decide 0010 | Not started | |
 | T5. IPv6 clients by /64 | Not started | |
 | T6. CI and README | Not started | |
@@ -200,13 +200,15 @@ Probe the installed `prom-client` first: how it registers metrics on the global 
 
 ### T3. Prometheus and Grafana in the stack
 
+*As built:* `createApp` takes `metrics`, which `server.ts` reads from `METRICS` (`1`, or `0` or unset; anything else fails at startup). Each app gets its own `Registry`, so tests can run several in one process, and mounts `GET /metrics` after `/healthz` and before the limiter. Under Vitest, the integration project aliases `@kylewillett/rate-limiter/prometheus` to `src/prometheus.ts` before the bare name, which would otherwise match it as a prefix. Prometheus v3.16.0 scrapes `app-1` to `app-3` every 2 s, and Grafana 13.3.0 runs on port 3001 (3000 is the example's) with anonymous Viewer access, no login form, and the dashboard as its home page. A probe on Compose 5.1.3 found a plain `docker compose down` leaves profile services running, so `stack:down` names the profile. `bench/observe-check.sh` runs in CI's stack job. `npm run bench -- --metrics` runs the apps with `METRICS=1` and nothing scraping them, so the benchmark measures the hooks rather than Prometheus.
+
 **Done when:**
 
-- [ ] With `METRICS=1`, the benchmark app serves `/metrics` before the limiter, and its tests show the counters move
-- [ ] `npm run stack:observe` starts the stack with Prometheus and Grafana, and `npm run stack:up` still starts it without them
-- [ ] A check script shows Prometheus scraping all three instances and `ratelimit_decisions_total` rising under traffic
-- [ ] The dashboard is provisioned from files in `bench/grafana/` and opens without a login
-- [ ] A steady benchmark with `METRICS=1` and without it shows what the hooks cost, recorded in 0005 with its data
+- [x] With `METRICS=1`, the benchmark app serves `/metrics` before the limiter, and its tests show the counters move
+- [x] `npm run stack:observe` starts the stack with Prometheus and Grafana, and `npm run stack:up` still starts it without them
+- [x] A check script shows Prometheus scraping all three instances and `ratelimit_decisions_total` rising under traffic
+- [x] The dashboard is provisioned from files in `bench/grafana/` and opens without a login
+- [x] A steady benchmark with `METRICS=1` and without it shows what the hooks cost, recorded in 0005 with its data
 
 ### T4. Chaos test and decide 0010
 

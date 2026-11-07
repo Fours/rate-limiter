@@ -8,19 +8,24 @@
 //   REDIS_URL   required unless ALGORITHM is none
 //   INSTANCE    sent back as X-Instance, default "local"
 //   PORT        default 3000
+//   METRICS     1 to record decisions with prometheusHooks() and serve GET /metrics; 0 or unset
+//               for none
 import { loadRules } from '@kylewillett/rate-limiter';
-import { createApp } from './app.ts';
+import { createApp, parseMetrics } from './app.ts';
 
 const rules = await loadRules(
   process.env.RULES ?? new URL('../rules/default.yaml', import.meta.url).pathname,
 );
 const algorithm = process.env.ALGORITHM ?? 'sliding-window-counter';
 const instance = process.env.INSTANCE ?? 'local';
-const bench = createApp({ algorithm, rules, instance, redisUrl: process.env.REDIS_URL });
+const metrics = parseMetrics(process.env.METRICS);
+const bench = createApp({ algorithm, rules, instance, redisUrl: process.env.REDIS_URL, metrics });
 
 const port = Number(process.env.PORT ?? 3000);
 const server = bench.app.listen(port, () => {
-  console.log(`bench app ${instance} on :${String(port)}, ${algorithm}`);
+  console.log(
+    `bench app ${instance} on :${String(port)}, ${algorithm}${metrics ? ', with /metrics' : ''}`,
+  );
 });
 
 function shutdown() {

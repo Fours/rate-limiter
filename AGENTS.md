@@ -40,6 +40,9 @@ npm run redis:down
 npm run build       # tsc → dist/
 npm run test:package   # builds, then tests the built package's entry points
 npm run example     # examples/basic
+npm run stack:up       # the benchmark stack: nginx, 3 app instances, Redis (docker-compose.yml)
+npm run stack:observe  # the same, plus Prometheus (:9090) and Grafana (:3001), with METRICS=1
+npm run stack:down     # stops either, observability included
 ```
 
 Before you say a task is done, run lint, typecheck and test, and make sure all three pass. If the task touches Redis code, run `test:integration` and `coverage` too.

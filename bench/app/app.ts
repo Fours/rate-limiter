@@ -5,6 +5,7 @@
 // in tests, vitest.config.ts points the name at src/.
 import express, { type Express, type RequestHandler } from 'express';
 import { Redis } from 'ioredis';
+import { Registry } from 'prom-client';
 import {
   createRedisFixedWindow,
   createRedisLeakyBucket,
@@ -17,6 +18,7 @@ import {
   type RedisAlgorithmOptions,
   type Rule,
 } from '@kylewillett/rate-limiter';
+import { prometheusHooks } from '@kylewillett/rate-limiter/prometheus';
 
 const factories: Readonly<Record<string, (opts: RedisAlgorithmOptions) => Algorithm>> = {
   'token-bucket': createRedisTokenBucket,
@@ -36,6 +38,11 @@ export interface BenchAppOptions {
   readonly instance: string;
   /** Required unless algorithm is `none`. */
   readonly redisUrl?: string | undefined;
+  /**
+   * Records decisions through prometheusHooks() and serves them at GET /metrics. Off by default,
+   * so benchmarks without it measure the limiter alone, as in milestone 3.
+   */
+  readonly metrics?: boolean;
 }
 
 export interface BenchApp {
@@ -52,12 +59,18 @@ export function createApp(opts: BenchAppOptions): BenchApp {
   const factory = factories[opts.algorithm];
   let redis: Redis | undefined;
   let limiter: RequestHandler | undefined;
+  // One registry per app, not prom-client's global one, so tests can run several apps at once.
+  const registry = opts.metrics === true ? new Registry() : undefined;
   if (factory !== undefined) {
     if (opts.redisUrl === undefined || opts.redisUrl === '') {
       throw new Error(`ALGORITHM=${opts.algorithm} needs REDIS_URL`);
     }
     redis = new Redis(opts.redisUrl);
-    limiter = rateLimit({ rules: opts.rules, algorithm: factory({ client: fromIoredis(redis) }) });
+    limiter = rateLimit({
+      rules: opts.rules,
+      algorithm: factory({ client: fromIoredis(redis) }),
+      ...(registry === undefined ? {} : { hooks: prometheusHooks({ registry }) }),
+    });
   }
 
   const app = express();
@@ -78,6 +91,13 @@ export function createApp(opts: BenchAppOptions): BenchApp {
   app.get('/healthz', (_req, res) => {
     res.json({ ok: true });
   });
+  // Also before the limiter: Prometheus scrapes each instance every few seconds, and a scrape
+  // must neither use up a limit nor show up as a decision.
+  if (registry !== undefined) {
+    app.get('/metrics', async (_req, res) => {
+      res.type(registry.contentType).send(await registry.metrics());
+    });
+  }
   if (limiter !== undefined) app.use(timed(limiter));
   // Does no work, so the numbers measure the limiter rather than a handler.
   app.get('/work', (_req, res) => {
@@ -113,4 +133,11 @@ function timed(middleware: RequestHandler): RequestHandler {
       next(err);
     });
   };
+}
+
+/** Anything but 1, 0 or unset fails at startup, so a typo can't quietly turn metrics off. */
+export function parseMetrics(value: string | undefined): boolean {
+  if (value === undefined || value === '' || value === '0') return false;
+  if (value === '1') return true;
+  throw new Error(`METRICS must be 1 or 0, not "${value}"`);
 }

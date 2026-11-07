@@ -94,6 +94,11 @@ jobs:
       - name: Check the edges scenario
         timeout-minutes: 5
         run: bench/edges-check.sh
+      # Milestone 4: Prometheus scrapes all three instances, the counters move under traffic, and
+      # Grafana serves the dashboard without a login. Also checks stack:up leaves both out.
+      - name: Check the observability profile
+        timeout-minutes: 5
+        run: bench/observe-check.sh
       - name: Stop the stack
         if: always()
         run: npm run stack:down

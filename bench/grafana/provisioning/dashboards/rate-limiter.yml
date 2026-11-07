@@ -1,0 +1,9 @@
+# Loads every dashboard in /var/lib/grafana/dashboards (bench/grafana/dashboards).
+apiVersion: 1
+providers:
+  - name: rate-limiter
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards

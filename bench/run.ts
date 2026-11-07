@@ -13,6 +13,9 @@
 //   --rate      steady's request rate (default 500); the results directory is named for it
 //   --decision  the decision record the data is evidence for, which prefixes the results
 //               directory (default 0008)
+//   --metrics   run the apps with METRICS=1, so every decision goes through prometheusHooks().
+//               Nothing scrapes them: this measures the hooks, not Prometheus. Adds -metrics to
+//               the results directory's name.
 //
 // For each run it recreates the whole stack, so every run starts with an empty Redis, then runs
 // k6 in Docker on the stack's network. See docs/milestone-3.md and decision 0017.
@@ -68,6 +71,7 @@ const { values } = parseArgs({
     out: { type: 'string' },
     rate: { type: 'string' },
     decision: { type: 'string', default: '0008' },
+    metrics: { type: 'boolean', default: false },
   },
 });
 
@@ -102,7 +106,8 @@ for (const name of scenarioNames) {
   const rule = await readRule(scenario.rules);
 
   await mkdir(outRoot, { recursive: true });
-  const label = rate === undefined ? name : `${name}-${String(rate)}rps`;
+  const label =
+    (rate === undefined ? name : `${name}-${String(rate)}rps`) + (values.metrics ? '-metrics' : '');
   const dir = join(
     outRoot,
     resultsDirName(label, new Date(), await readdir(outRoot), values.decision),
@@ -150,6 +155,7 @@ function startStack(algorithm: string, rules: string): void {
   sh('docker', ['compose', '--progress', 'quiet', 'up', '-d', '--wait', '--force-recreate'], {
     ALGORITHM: algorithm,
     RULES: rules,
+    METRICS: values.metrics ? '1' : '0',
   });
 }
 
@@ -310,6 +316,6 @@ function setup(): Record<string, unknown> {
       nginx: sh('docker', ['compose', 'exec', '-T', 'lb', 'sh', '-c', 'nginx -v 2>&1']).trim(),
       k6: sh('docker', ['run', '--rm', K6_IMAGE, 'version']).trim(),
     },
-    stack: { instances: 3, nginxWorkers: 1 },
+    stack: { instances: 3, nginxWorkers: 1, metrics: values.metrics },
   };
 }

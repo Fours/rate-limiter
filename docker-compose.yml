@@ -1,8 +1,14 @@
 # The milestone 3 stack: nginx in front of three app instances sharing one Redis.
 #   npm run stack:up      build and start, waiting until every service is healthy
 #   npm run stack:check   check it (bench/stack-check.sh)
-#   npm run stack:down    stop and remove it
-# ALGORITHM, RULES and STACK_PORT can be set in the environment. See docs/milestone-3.md.
+#   npm run stack:observe the same, plus Prometheus and Grafana (the observability profile),
+#                         with METRICS=1 so the apps record decisions and serve /metrics
+#   npm run stack:down    stop and remove it, observability included
+# ALGORITHM, RULES, METRICS, STACK_PORT, PROMETHEUS_PORT and GRAFANA_PORT can be set in the
+# environment. See docs/milestone-3.md and docs/milestone-4.md.
+#
+# A plain `docker compose down` leaves profile services running (Compose 5.1.3), so stack:down
+# names the profile.
 #
 # A project name of its own, so `stack:down` can't touch the test Redis from
 # docker-compose.test.yml, which would otherwise share this folder's project.
@@ -17,6 +23,7 @@ x-app: &app
     ALGORITHM: ${ALGORITHM:-sliding-window-counter}
     RULES: /app/bench/rules/${RULES:-default.yaml}
     REDIS_URL: redis://redis:6379
+    METRICS: ${METRICS:-0}
   depends_on:
     redis:
       condition: service_healthy
@@ -72,3 +79,53 @@ services:
       interval: 1s
       timeout: 3s
       retries: 30
+
+  # Only with --profile observability (npm run stack:observe), so stack:up and the benchmarks run
+  # without them. Prometheus scrapes each instance directly: through nginx, round robin would
+  # give one instance's numbers per scrape.
+  prometheus:
+    image: prom/prometheus:v3.16.0
+    profiles: [observability]
+    volumes:
+      - ./bench/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - '${PROMETHEUS_PORT:-9090}:9090'
+    depends_on:
+      app-1:
+        condition: service_healthy
+      app-2:
+        condition: service_healthy
+      app-3:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:9090/-/ready']
+      interval: 1s
+      timeout: 3s
+      retries: 30
+
+  # Anonymous read-only access with no login form: it's a local demo, and the dashboard is the
+  # home page. Port 3001, since the example app uses 3000.
+  grafana:
+    image: grafana/grafana:13.3.0
+    profiles: [observability]
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: 'true'
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_AUTH_DISABLE_LOGIN_FORM: 'true'
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/rate-limiter.json
+      GF_ANALYTICS_REPORTING_ENABLED: 'false'
+      GF_ANALYTICS_CHECK_FOR_UPDATES: 'false'
+      GF_NEWS_NEWS_FEED_ENABLED: 'false'
+    volumes:
+      - ./bench/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./bench/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - '${GRAFANA_PORT:-3001}:3000'
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:3000/api/health']
+      interval: 1s
+      timeout: 3s
+      retries: 60

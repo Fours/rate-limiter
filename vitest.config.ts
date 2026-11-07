@@ -27,9 +27,18 @@ export default defineConfig({
         // bench/ imports the package by name, as an app would. Point that at src/ so its tests
         // run against the code under test, not whatever dist/ was last built.
         resolve: {
-          alias: {
-            '@kylewillett/rate-limiter': fileURLToPath(new URL('src/index.ts', import.meta.url)),
-          },
+          // An array, so the subpath is tried first: the bare name alone would also match it,
+          // as a prefix, and point at src/index.ts/prometheus.
+          alias: [
+            {
+              find: '@kylewillett/rate-limiter/prometheus',
+              replacement: fileURLToPath(new URL('src/prometheus.ts', import.meta.url)),
+            },
+            {
+              find: '@kylewillett/rate-limiter',
+              replacement: fileURLToPath(new URL('src/index.ts', import.meta.url)),
+            },
+          ],
         },
         test: {
           name: 'integration',
