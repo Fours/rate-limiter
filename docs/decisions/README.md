@@ -25,7 +25,7 @@ When you change a decision, update its record in the same commit as the code.
 | [0005](0005-metrics-through-hooks.md) | Metrics through hooks, not a `prom-client` dependency | Accepted | 1, 4 |
 | [0006](0006-atomic-lua-checks.md) | Each check is one Lua script via `EVALSHA` | Accepted | 2 |
 | [0007](0007-redis-server-time.md) | Use Redis `TIME` inside scripts, not app time | Accepted | 2 |
-| [0008](0008-sliding-window-accuracy-vs-cost.md) | Sliding window log vs counter: accuracy vs cost | Proposed | 3 |
+| [0008](0008-sliding-window-accuracy-vs-cost.md) | Sliding window log vs counter: accuracy vs cost | Accepted | 3 |
 | [0009](0009-latency-budget-prefetch.md) | Local token pre-fetching to cut Redis round trips | Proposed | 3, 4 |
 | [0010](0010-fail-open-with-local-fallback.md) | Fail open with a local fallback when Redis is down | Proposed | 4 |
 | [0011](0011-match-paths-like-express.md) | Match paths and methods the way Express routes them | Accepted | 1 |
@@ -34,4 +34,4 @@ When you change a decision, update its record in the same commit as the code.
 | [0014](0014-leaky-bucket-as-gcra.md) | The leaky bucket is a burst-free GCRA | Accepted | 2 |
 | [0015](0015-rules-files.md) | Rules files: one shape, strict fields, optional YAML | Accepted | 2 |
 | [0016](0016-switching-algorithms-starts-fresh.md) | Switching algorithms starts each client fresh | Accepted | 2 |
-| [0017](0017-how-the-benchmarks-measure.md) | How the benchmarks measure: the limiter's own cost via `Server-Timing`, three runs, no numbers in CI | Proposed | 3 |
+| [0017](0017-how-the-benchmarks-measure.md) | How the benchmarks measure: the limiter's own cost via `Server-Timing`, three runs, no numbers in CI | Accepted | 3 |

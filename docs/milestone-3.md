@@ -120,8 +120,8 @@ Do these in order. Each one ends with passing tests.
 | T1. Compose stack | Done | 2c3f7e4 |
 | T2. Analysis script | Done | 5d62967 |
 | T3. k6 scenarios and runner | Done | eb16f6d |
-| T4. Memory per key | Done | |
-| T5. Run the benchmarks and decide 0008 | Not started | |
+| T4. Memory per key | Done | 8d255fc |
+| T5. Run the benchmarks and decide 0008 | Done | |
 | T6. Token pre-fetching measurements | Not started | |
 | T7. CI smoke test and README | Not started | |
 
@@ -223,10 +223,19 @@ The full run on one machine, with nothing else heavy running.
 
 **Done when:**
 
-- [ ] All five algorithms and `none` have three runs of each scenario in `docs/decisions/data/`, with setup recorded.
-- [ ] The summary table is in [0008](decisions/0008-sliding-window-accuracy-vs-cost.md)'s Evidence section, with a link to the data. 0008 records a decision and moves to Accepted.
-- [ ] Any result that contradicts the behaviour suite's `maxPerWindow` (for example, the log overshooting) is treated as a bug: find it, fix it with a test, and rerun.
-- [ ] The milestone 2 open questions that waited for these numbers each get an answer, written into this spec under "Open questions": a separate burst size, and choosing the algorithm per rule.
+- [x] All five algorithms and `none` have three runs of each scenario in `docs/decisions/data/`, with setup recorded.
+- [x] The summary table is in [0008](decisions/0008-sliding-window-accuracy-vs-cost.md)'s Evidence section, with a link to the data. 0008 records a decision and moves to Accepted.
+- [x] Any result that contradicts the behaviour suite's `maxPerWindow` (for example, the log overshooting) is treated as a bug: find it, fix it with a test, and rerun.
+- [x] The milestone 2 open questions that waited for these numbers each get an answer, written into this spec under "Open questions": a separate burst size, and choosing the algorithm per rule.
+
+As built: three commits. Part 1 (`274d5f5`) compressed the raw records and added `spread.md` and the CPU table. Part 2 (`3b7874e`) fixed the ramp. Part 3 holds the data and the records. The data is in [data/0008-steady-2026-11-06](decisions/data/0008-steady-2026-11-06/), [data/0008-edges-2026-11-07](decisions/data/0008-edges-2026-11-07/) and [data/0008-ramp-2026-11-07](decisions/data/0008-ramp-2026-11-07/). [0008](decisions/0008-sliding-window-accuracy-vs-cost.md) is Accepted: the counter is the recommended Redis algorithm, and the log is for rules that must never overshoot. [0017](decisions/0017-how-the-benchmarks-measure.md) is Accepted, with the spread across runs as evidence.
+
+- **No result contradicted `maxPerWindow`.** At the edges, with a limit of 100: the log 100, the leaky bucket 54, the counter 104 to 143, the token bucket 154 to 155, the fixed window 200.
+- **The first full ramp measured k6, not the stack.** Every algorithm topped out at 18,700 to 21,300 req/s, with no second over the SLO and each container at half a core. k6's per-request `console.log` was the ceiling. The ramp now reads k6's JSON output (`K6Seconds` in `bench/records.ts`), targets 60,000 req/s, and doesn't count a second in which k6 dropped iterations. The rerun found the real knee: 47,700 req/s with no limiter and 38,600 to 40,400 with any of the five, with the Node apps at a full core. The capped run isn't committed. Steady and edges dropped nothing, so they stand.
+- **Speed doesn't separate the algorithms.** The spread between runs of one algorithm was as wide as the gaps between them, for limiter latency and for throughput. They differ in memory, accuracy and Redis CPU, where the log used 78% of a core at the peak against about 61%.
+- **`uncommittedChanges` counted the results' own untracked files**, so two `setup.json` files say `true` on a clean checkout. `hasUncommittedChanges` now leaves the results directories out, and 0008 notes the two files.
+- **Benchmark data is excluded from Prettier**, so it stays as the tools wrote it.
+- **Breaking it on purpose**, each failing a test: ignoring drops in `peakSecond`, treating a 429 as unhealthy, rounding arrival times instead of flooring them, overwriting a second's drops instead of summing them, skipping a malformed point silently, and in `hasUncommittedChanges`, counting the results directories or ignoring all untracked files.
 
 ### T6. Token pre-fetching measurements
 
@@ -279,5 +288,9 @@ Updated:
 Carried over from milestone 2, to answer in T5:
 
 - **A separate burst size for rules.** The benchmarks show what each algorithm's burst costs in overshoot.
+
+  *Answer (T5): yes, as an optional `burst` on rules for the token bucket and the leaky bucket, defaulting to today's behaviour.* The two buckets sit at the extremes. A burst equal to the limit let the token bucket through at 1.54× the limit at window edges. No burst at all made the leaky bucket deny 23% of requests at a steady 500 req/s, and 70% at the edges, from clients well under their limit. Most real APIs want something in between, such as 100 per minute with bursts of 10. It's a rule field, its validation, and one more argument to each bucket's Lua script (today the burst is fixed by `limit`), not a new algorithm. It's out of scope for milestone 3, so it goes into a later milestone's spec with its own decision record.
 - **Choosing the algorithm per rule.** Decide whether the differences are big enough to justify an `algorithm` field in rules.
+
+  *Answer (T5): yes, as an optional `algorithm` field in rules, defaulting to the middleware's algorithm.* The algorithms cost the same per request, so mixing them costs nothing at request time. They differ in memory and accuracy, and those depend on the rule. A strict low limit, such as 5 login attempts a minute, wants the exact log, at 400 bytes a key. A high-volume rule at 1,000 a minute wants the counter, at 192 bytes rather than 103 KB. Like the burst size, it's out of scope here and goes into a later milestone with its own decision record.
 - **IPv6 per /64:** still milestone 4.

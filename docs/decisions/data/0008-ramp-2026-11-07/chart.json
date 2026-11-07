@@ -1,0 +1,5 @@
+{
+  "limit": 100,
+  "windowMs": 60000,
+  "algorithms": []
+}

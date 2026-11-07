@@ -1,6 +1,6 @@
 # 0017. How the benchmarks measure
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-06
 - **Milestone:** 3
 
@@ -65,7 +65,15 @@ From T5:
 - Steady (500 req/s) and edges (about 1,000 req/s) dropped no iterations in any run, so their console-logged records stand.
 - Like T3's changes, this one came after seeing data. It's kept because it removes a ceiling every algorithm hit equally, and the throughput rule only gets stricter.
 
-Still to gather: in T5, the numbers this method produces, and whether three runs are enough to keep the medians stable. If the spread between runs is close to the differences between algorithms, that changes this record.
+**Are three runs enough?** Each results directory has a `spread.md` with every metric's lowest and highest value across the three runs. The numbers themselves are in [0008](0008-sliding-window-accuracy-vs-cost.md).
+
+- **Accuracy is stable.** The peak per window was the same in all three runs for the log (100) and the fixed window (200), and within one request for the token and leaky buckets. False denials varied by at most 2 points. The counter's peak ranged from 104 to 143: its estimate depends on how the previous window's requests fell, so one run in three caught a worse alignment. The median hides that, so 0008 reports the range too.
+- **Latency is stable but can't rank the algorithms.** The limiter's p99 at 500 req/s ranged 0.66 to 0.76 ms across all runs of all algorithms, and one algorithm's three runs spread as wide as the gaps between algorithms. The medians are steady to about 0.05 ms. The honest reading is that the algorithms cost the same, not that one is faster, and 0008 says so. More runs would narrow the medians but not change that reading, since every algorithm makes one Redis round trip.
+- **Throughput separates a limiter from none, not one limiter from another.** The limiters' ranges (38,000 to 42,000 req/s) overlap; none's (42,000 to 48,000) sits above them. Its widest spread, 6,000 req/s, comes from a ragged knee: some runs went over the SLO briefly and then came back under it at a higher rate.
+
+So three runs are enough for what the benchmarks decide. Where the spread is as wide as the differences, the records say the result is a tie rather than ranking algorithms on noise.
+
+One fix to the setup records: the runner's `uncommittedChanges` counted untracked files, including the results of the scenarios it had just run, so the edges and ramp `setup.json` files say `true` on a clean checkout. `hasUncommittedChanges` in `bench/setup.ts` now leaves the results directories out, with a test that breaks if they're counted again or if untracked code stops counting.
 
 ## Consequences
 
