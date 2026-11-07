@@ -38,6 +38,7 @@ npm run test:integration   # needs the test Redis
 npm run coverage    # unit + integration, so it needs the test Redis too
 npm run redis:down
 npm run build       # tsc → dist/
+npm run test:package   # builds, then tests the built package's entry points
 npm run example     # examples/basic
 ```
 
@@ -47,7 +48,8 @@ Before you say a task is done, run lint, typecheck and test, and make sure all t
 
 ```
 src/
-  index.ts              public API: export only from here
+  index.ts              public API: export only from here (and prometheus.ts)
+  prometheus.ts         second entry point, /prometheus: the only module that imports prom-client
   types.ts              Rule, Decision, Algorithm, Clock
   clock.ts
   algorithms/           one file per algorithm
@@ -57,7 +59,7 @@ src/
   identify.ts           client ID and storage key
   headers.ts
   middleware.ts
-test/                   mirrors src/; helpers/ holds FakeClock
+test/                   mirrors src/; helpers/ holds FakeClock; package/ runs against dist/
 examples/basic/         runnable demo app
 docs/                   milestone specs and design notes
 ```

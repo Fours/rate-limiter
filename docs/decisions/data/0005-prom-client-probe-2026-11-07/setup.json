@@ -1,0 +1,16 @@
+{
+  "date": "2026-11-07T14:01:01.000Z",
+  "command": "node docs/decisions/data/0005-prom-client-probe-2026-11-07/probe.mjs",
+  "git": {
+    "commit": "3184927d2dde3a9d936a662708d990b0dda7e6f4",
+    "uncommittedChanges": true
+  },
+  "host": {
+    "os": "Darwin 25.4.0 arm64",
+    "cpu": "Apple M5 Pro"
+  },
+  "versions": {
+    "node": "v25.8.2",
+    "prom-client": "15.1.3"
+  }
+}

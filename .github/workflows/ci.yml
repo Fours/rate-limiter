@@ -40,6 +40,18 @@ jobs:
       # tsc doesn't copy Lua; check the build step put the scripts where the modules read them.
       - name: Check the package ships its Lua scripts
         run: npm pack --dry-run 2>&1 | grep -q 'dist/algorithms/redis/token-bucket.lua'
+      # The prometheus entry point resolves from dist/, and the main one never loads prom-client.
+      - run: npx vitest run --project package
+      - name: Check the package ships the Prometheus adapter, without prom-client as a dependency
+        run: |
+          npm pack --dry-run 2>&1 | grep -q 'dist/prometheus.js'
+          npm pack --dry-run 2>&1 | grep -q 'dist/prometheus.d.ts'
+          node -e '
+            const pkg = require("./package.json");
+            if (pkg.dependencies?.["prom-client"]) throw new Error("prom-client is in dependencies");
+            if (!pkg.peerDependenciesMeta?.["prom-client"]?.optional)
+              throw new Error("prom-client must be an optional peer dependency");
+          '
       # Runs the demo for real on each Node version, not just typechecks it.
       - name: Run the example
         timeout-minutes: 1

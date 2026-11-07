@@ -4,14 +4,23 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     passWithNoTests: true,
-    // Two projects: `npm test` runs unit only and needs no Redis; `npm run test:integration`
-    // needs one (npm run redis:up). Coverage runs both, since Redis code is only exercised there.
+    // `npm test` runs unit only and needs no Redis; `npm run test:integration` needs one
+    // (npm run redis:up). Coverage runs both, since Redis code is only exercised there.
+    // `npm run test:package` checks the built package.
     projects: [
       {
         test: {
           name: 'unit',
           include: ['test/**/*.test.ts'],
-          exclude: ['test/integration/**'],
+          exclude: ['test/integration/**', 'test/package/**'],
+        },
+      },
+      {
+        // Runs against the built dist/, so `npm run test:package` builds first. Not part of
+        // coverage, which measures src/.
+        test: {
+          name: 'package',
+          include: ['test/package/**/*.test.ts'],
         },
       },
       {

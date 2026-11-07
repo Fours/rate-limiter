@@ -142,8 +142,8 @@ Do these in order. Each one ends with passing tests.
 | Task | Status | Commit |
 | --- | --- | --- |
 | T0. Timeout and fallback | Done | 1329011 |
-| T1. Hooks | Done | |
-| T2. `prometheusHooks()` | Not started | |
+| T1. Hooks | Done | 547e7e7 |
+| T2. `prometheusHooks()` | Done | |
 | T3. Prometheus and Grafana in the stack | Not started | |
 | T4. Chaos test and decide 0010 | Not started | |
 | T5. IPv6 clients by /64 | Not started | |
@@ -184,15 +184,19 @@ Add `hooks: { onDecision, onFallback }`, with the event types exported from `src
 
 Probe the installed `prom-client` first: how it registers metrics on the global registry and on a new one, and what it does when a metric name is registered twice.
 
+*Probe (T2), prom-client 15.1.3:* a metric goes on the global `register` unless `registers: [registry]` is passed. A duplicate name throws `A metric with the name X has already been registered.`, and any metric created before it stays registered, so `prometheusHooks()` checks all three names before creating any. prom-client accepts empty, unsorted, duplicate and NaN buckets, and unsorted ones count wrongly, so the adapter validates them. It's CommonJS, and named ESM imports from it work. Data: [0005's probe](decisions/data/0005-prom-client-probe-2026-11-07/results.md).
+
+*As built:* `src/prometheus.ts` is the second entry point and the only module that imports `prom-client`. Default buckets are 0.1 ms to 100 ms (`DEFAULT_BUCKETS`), an empty `prefix` is allowed, and `registry` is checked by shape, not `instanceof`, so a registry from a second copy of prom-client still works. Tests against `dist/` are a third vitest project, `package`, run by `npm run test:package` (which builds first) and in CI after the build. `coverage` now names the unit and integration projects, since the package project needs `dist/`.
+
 **Done when:**
 
-- [ ] Each metric in the table is recorded with the right labels, tested against a fresh `Registry`
-- [ ] `prefix`, `registry` and `buckets` work, and bad values throw
-- [ ] Calling `prometheusHooks()` twice on one registry throws a clear error, not `prom-client`'s
-- [ ] `@kylewillett/rate-limiter/prometheus` resolves from the built package, tested against `dist/`
-- [ ] Importing the main entry point doesn't load `prom-client`
-- [ ] CI checks that `npm pack` ships the adapter and that `prom-client` isn't in `dependencies`
-- [ ] [0005](decisions/0005-metrics-through-hooks.md)'s Evidence section is filled in
+- [x] Each metric in the table is recorded with the right labels, tested against a fresh `Registry`
+- [x] `prefix`, `registry` and `buckets` work, and bad values throw
+- [x] Calling `prometheusHooks()` twice on one registry throws a clear error, not `prom-client`'s
+- [x] `@kylewillett/rate-limiter/prometheus` resolves from the built package, tested against `dist/`
+- [x] Importing the main entry point doesn't load `prom-client`
+- [x] CI checks that `npm pack` ships the adapter and that `prom-client` isn't in `dependencies`
+- [x] [0005](decisions/0005-metrics-through-hooks.md)'s Evidence section is filled in
 
 ### T3. Prometheus and Grafana in the stack
 
