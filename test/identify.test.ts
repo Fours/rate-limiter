@@ -64,8 +64,55 @@ describe('defaultIdentify', () => {
     expect(defaultIdentify(req({ user: { id: 42 } }))).toBe('user_42');
   });
 
-  it('keeps IPv6 addresses as they are', () => {
-    expect(defaultIdentify(req({ ip: '::1' }))).toBe('ip_::1');
+  describe('IPs (decision 0020)', () => {
+    const id = (ip: string) => defaultIdentify(req({ ip }));
+
+    it('groups IPv6 clients by /64: one ID inside a /64, different IDs across them', () => {
+      expect(id('2001:db8:1:2:aaaa::1')).toBe('ip_2001:db8:1:2::/64');
+      expect(id('2001:db8:1:2:ffff:ffff:ffff:ffff')).toBe('ip_2001:db8:1:2::/64');
+      expect(id('2001:db8:1:3::1')).toBe('ip_2001:db8:1:3::/64');
+      // The /64 boundary: bit 64 is in the fourth group, so these differ.
+      expect(id('2001:db8:1:2:ffff::1')).not.toBe(id('2001:db8:1:3::1'));
+      expect(id('2001:db8::1')).not.toBe(id('2001:db9::1'));
+    });
+
+    it('gives one ID for every way of writing an address', () => {
+      const forms = [
+        '2001:db8:0:1::5',
+        '2001:0db8:0000:0001:0000:0000:0000:0005',
+        '2001:DB8:0:1:0:0:0:5',
+        '2001:db8::1:0:0:0:5',
+        '[2001:db8:0:1::5]',
+        '2001:db8:0:1::5%eth0',
+        '[2001:db8:0:1::5%eth0]',
+      ];
+      for (const form of forms) expect(id(form)).toBe('ip_2001:db8:0:1::/64');
+    });
+
+    it('writes the /64 in RFC 5952 form', () => {
+      expect(id('::1')).toBe('ip_::/64');
+      expect(id('fe80::1%en0')).toBe('ip_fe80::/64');
+      expect(id('2001:db8:0:0:1::')).toBe('ip_2001:db8::/64');
+      expect(id('1:0:2:0::')).toBe('ip_1:0:2::/64');
+      // An IPv4 tail on a non-mapped address is just more IPv6 bits.
+      expect(id('64:ff9b::198.51.100.7')).toBe('ip_64:ff9b::/64');
+    });
+
+    it('keeps IPv4 as today, and gives IPv4-mapped addresses the same ID', () => {
+      expect(id('203.0.113.7')).toBe('ip_203.0.113.7');
+      expect(id('::ffff:203.0.113.7')).toBe('ip_203.0.113.7');
+      expect(id('::FFFF:203.0.113.7')).toBe('ip_203.0.113.7');
+      expect(id('::ffff:cb00:7107')).toBe('ip_203.0.113.7');
+      expect(id('0:0:0:0:0:ffff:cb00:7107')).toBe('ip_203.0.113.7');
+      // A zone touches only the last group, which is outside any /64, except in a mapped address.
+      expect(id('::ffff:203.0.113.7%eth0')).toBe('ip_203.0.113.7');
+    });
+
+    it('keeps a value that is not an IP as it is', () => {
+      expect(id('unknown')).toBe('ip_unknown');
+      expect(id('01.2.3.4')).toBe('ip_01.2.3.4');
+      expect(id('2001:db8::1::2')).toBe('ip_2001:db8::1::2');
+    });
   });
 
   describe('API key hashing', () => {

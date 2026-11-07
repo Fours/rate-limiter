@@ -1,0 +1,16 @@
+{
+  "date": "2026-11-07T17:09:55.000Z",
+  "command": "node docs/decisions/data/0020-req-ip-probe-2026-11-07/probe.mjs",
+  "git": {
+    "commit": "0069e4c9ef58655e9e7d9e0964e3c7405d107851",
+    "uncommittedChanges": true
+  },
+  "host": {
+    "os": "Darwin 25.4.0 arm64",
+    "cpu": "Apple M5 Pro"
+  },
+  "versions": {
+    "node": "v25.8.2",
+    "express": "5.3.0"
+  }
+}

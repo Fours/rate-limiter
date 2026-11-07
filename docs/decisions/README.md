@@ -37,3 +37,4 @@ When you change a decision, update its record in the same commit as the code.
 | [0017](0017-how-the-benchmarks-measure.md) | How the benchmarks measure: the limiter's own cost via `Server-Timing`, three runs, no numbers in CI | Accepted | 3 |
 | [0018](0018-timeout-and-fallback-in-the-middleware.md) | The timeout and fallback live in the middleware, around any algorithm | Accepted | 4 |
 | [0019](0019-hook-events.md) | Hooks get plain events, synchronously, and can't break a request | Accepted | 4 |
+| [0020](0020-ipv6-by-64.md) | IPv6 clients are grouped by /64, and IPv4-mapped addresses count as IPv4 | Accepted | 4 |

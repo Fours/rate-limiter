@@ -145,8 +145,8 @@ Do these in order. Each one ends with passing tests.
 | T1. Hooks | Done | 547e7e7 |
 | T2. `prometheusHooks()` | Done | 0756b6a |
 | T3. Prometheus and Grafana in the stack | Done | dc72cd6 |
-| T4. Chaos test and decide 0010 | Done | |
-| T5. IPv6 clients by /64 | Not started | |
+| T4. Chaos test and decide 0010 | Done | 0069e4c |
+| T5. IPv6 clients by /64 | Done | |
 | T6. CI and README | Not started | |
 
 ### T0. Timeout and fallback
@@ -228,13 +228,15 @@ Add the `chaos` scenario to the runner and the analysis. The new measures (error
 
 `defaultIdentify` groups an IPv6 address by its /64, since one host usually gets a whole /64 and could otherwise use a new address for every request. IPv4-mapped addresses (`::ffff:1.2.3.4`) count as IPv4. Probe first: what `req.ip` looks like in Express 5 for IPv4, IPv6 and IPv4-mapped clients, directly and through `trust proxy`. Write [0020](decisions/0020-ipv6-by-64.md).
 
+*Probe (T5), Express 5.3.0:* on a server listening on `::`, Node's default, an IPv4 client's `req.ip` is `::ffff:127.0.0.1`; on an IPv4 listener it's `127.0.0.1`. With `trust proxy`, `X-Forwarded-For` reaches `req.ip` exactly as sent: uppercase, leading zeros, `[brackets]`, zones and both mapped forms. So "the same ID as today" means today's plain IPv4 ID: IPv4 clients of a dual-stack server, stored until now as `ip_::ffff:…`, also start fresh once (agreed in T5's plan review). Data: [0020's probe](decisions/data/0020-req-ip-probe-2026-11-07/results.md).
+
 **Done when:**
 
-- [ ] Two addresses in one /64 get the same client ID, and addresses in different /64s get different ones
-- [ ] Compressed, expanded and zone-suffixed forms of one address give the same ID
-- [ ] IPv4 and IPv4-mapped addresses give the same ID as today, so their stored buckets carry over
-- [ ] A test through supertest and a real Express app shows `req.ip` reaching `defaultIdentify` in the form the probe found
-- [ ] The README says IPv6 clients start fresh once, on upgrade, because their storage keys change
+- [x] Two addresses in one /64 get the same client ID, and addresses in different /64s get different ones
+- [x] Compressed, expanded and zone-suffixed forms of one address give the same ID
+- [x] IPv4 and IPv4-mapped addresses give the same ID as today, so their stored buckets carry over
+- [x] A test through supertest and a real Express app shows `req.ip` reaching `defaultIdentify` in the form the probe found
+- [x] The README says IPv6 clients start fresh once, on upgrade, because their storage keys change
 
 ### T6. CI and README
 

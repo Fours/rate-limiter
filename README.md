@@ -161,10 +161,18 @@ By default, a client is the first of these that the request has:
 
 1. An `x-api-key` header, stored as `key_` plus a sha256 hash of the key, so raw keys never reach storage or logs
 2. `req.user.id`, set by your auth middleware, as `user_<id>`
-3. `req.ip`, as `ip_<ip>`
+3. `req.ip`, as `ip_<ip>`, grouped as below
 4. Otherwise `anon`
 
 Empty values are skipped, so a blank header doesn't put every client in one bucket.
+
+IPs are grouped so one client can't escape its limit by changing address ([0020](docs/decisions/0020-ipv6-by-64.md)):
+
+- **IPv6 clients by /64:** `2001:db8:1:2::7` and `2001:db8:1:2:abcd::1` are both `ip_2001:db8:1:2::/64`. One home or server usually gets a whole /64, so it could otherwise use a new address for every request. Everyone in that /64 shares the limit, as everyone behind one IPv4 NAT does.
+- **IPv4-mapped addresses as IPv4:** a server listening on `::`, Node's default, sees IPv4 clients as `::ffff:203.0.113.7`. That's `ip_203.0.113.7`, the same as on an IPv4-only server.
+- Brackets, zones (`%eth0`), case and the way an address is abbreviated don't matter.
+
+**Upgrading from an earlier version:** IPv6 clients, and IPv4 clients of a server listening on `::`, get new storage keys, so they start once with a full limit. Their old keys expire on their own.
 
 ### Behind a proxy or load balancer: set `trust proxy`
 
