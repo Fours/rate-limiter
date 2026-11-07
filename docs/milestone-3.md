@@ -123,7 +123,7 @@ Do these in order. Each one ends with passing tests.
 | T4. Memory per key | Done | 8d255fc |
 | T5. Run the benchmarks and decide 0008 | Done | 86fb45d |
 | T6. Token pre-fetching measurements | Done | d50189c |
-| T7. CI smoke test and README | Done | |
+| T7. CI smoke test and README | Done | 92b82f1 |
 
 ### T0. Benchmark app
 
@@ -266,12 +266,12 @@ As built: [0009](decisions/0009-latency-budget-prefetch.md) is Accepted: milesto
 
 ## Definition of done
 
-- [ ] T0 to T7 are complete.
-- [ ] `npm run lint`, `typecheck`, `test`, `test:integration` and `build` all pass, locally and in CI, and the CI stack smoke test passes.
-- [ ] Line coverage is still at least 90% for `src/`.
-- [ ] Still no runtime dependencies other than the Express peer dependency. k6 runs from its Docker image, so it isn't an npm dependency.
-- [ ] [0008](decisions/0008-sliding-window-accuracy-vs-cost.md) and [0009](decisions/0009-latency-budget-prefetch.md) are Accepted, with evidence and linked data.
-- [ ] Every results directory in `docs/decisions/data/` has a `setup.json`, and the summary in the README can be rebuilt from the data with `bench/analyse.ts`.
+- [x] T0 to T7 are complete.
+- [x] `npm run lint`, `typecheck`, `test`, `test:integration` and `build` all pass, locally and in CI, and the CI stack smoke test passes.
+- [x] Line coverage is still at least 90% for `src/`.
+- [x] Still no runtime dependencies other than the Express peer dependency. k6 runs from its Docker image, so it isn't an npm dependency.
+- [x] [0008](decisions/0008-sliding-window-accuracy-vs-cost.md) and [0009](decisions/0009-latency-budget-prefetch.md) are Accepted, with evidence and linked data.
+- [x] Every results directory in `docs/decisions/data/` has a `setup.json`, and the summary in the README can be rebuilt from the data with `bench/analyse.ts`.
 
 ## Decision records
 
