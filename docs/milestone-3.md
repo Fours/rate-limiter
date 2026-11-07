@@ -27,7 +27,7 @@ Out of scope (later milestones):
 | --- | --- |
 | 50 ms timeout, in-memory fallback, chaos test ([0010](decisions/0010-fail-open-with-local-fallback.md)) | 4 |
 | Hooks, `prometheusHooks()`, Prometheus and Grafana in the stack | 4 |
-| Shipping token pre-fetching as a feature ([0009](decisions/0009-latency-budget-prefetch.md)), if the numbers justify it | 4 |
+| Shipping token pre-fetching as a feature: decided against in T6 ([0009](decisions/0009-latency-budget-prefetch.md)) | Not planned |
 | The public demo page and the design write-up | 5 |
 | Running the full benchmarks in CI (shared runners are too noisy to compare numbers) | Not planned |
 | Redis Cluster or Sentinel | Not planned |
@@ -121,8 +121,8 @@ Do these in order. Each one ends with passing tests.
 | T2. Analysis script | Done | 5d62967 |
 | T3. k6 scenarios and runner | Done | eb16f6d |
 | T4. Memory per key | Done | 8d255fc |
-| T5. Run the benchmarks and decide 0008 | Done | |
-| T6. Token pre-fetching measurements | Not started | |
+| T5. Run the benchmarks and decide 0008 | Done | 86fb45d |
+| T6. Token pre-fetching measurements | Done | |
 | T7. CI smoke test and README | Not started | |
 
 ### T0. Benchmark app
@@ -243,8 +243,18 @@ The evidence half of [0009](decisions/0009-latency-budget-prefetch.md). See open
 
 **Done when:**
 
-- [ ] For batch sizes 1, 5 and 20 with 3 instances: added latency (p50 and p99), Redis operations per second (from `INFO commandstats`), and worst-case overshoot
-- [ ] 0009's Evidence section has the numbers. Its Decision says whether milestone 4 ships pre-fetching, and its status moves to Accepted.
+- [x] For batch size 1 with 3 instances, measured: added latency (p50 and p99), Redis operations per second (from `INFO commandstats`), and worst-case overshoot. For batch sizes 5 and 20, the overshoot and round trips worked out from the baseline. *Changed in T6*, per open question 1: the baseline round trip was well under 1 ms, so no prototype.
+- [x] 0009's Evidence section has the numbers. Its Decision says whether milestone 4 ships pre-fetching, and its status moves to Accepted.
+
+As built: [0009](decisions/0009-latency-budget-prefetch.md) is Accepted: milestone 4 doesn't ship pre-fetching. The data is in [data/0009-steady-500rps-2026-11-07](decisions/data/0009-steady-500rps-2026-11-07/) and [data/0009-steady-15000rps-2026-11-07](decisions/data/0009-steady-15000rps-2026-11-07/): the token bucket and `none`, three runs each at 500 and 15,000 req/s.
+
+- **The round trip is cheap.** The limiter's p99 was 0.72 ms at 500 req/s and 0.85 ms at 15,000, and it added 0.4 to 0.9 ms at p99 end to end. Every request was exactly one `EVALSHA`.
+- **Batches weren't prototyped**, as open question 1 recommended. With 3 instances, batches of b would let up to 3 × (b − 1) extra requests through a window: 12 for 5 and 57 for 20 at a limit of 100.
+- **Every run now records Redis calls.** The runner diffs `INFO commandstats` around each run into `redis-calls.json`, and summaries add a Redis table when it's there. `INFO commandstats` counts the commands a Lua script runs inside Redis too (about 7 per token bucket check), so the table separates round trips (`EVAL`/`EVALSHA`) from commands. The healthcheck's `PING` and the runner's own `INFO` are left out.
+- **`--rate` and `--decision`** let `npm run bench` run steady at any rate, into `<decision>-steady-<rate>rps-<date>`. Steady now pre-allocates VUs in proportion to the rate. At 15,000 req/s k6 still dropped about 0.1%, almost all in its first second.
+- **The 15,000 req/s raw records aren't in git.** They're 44 MB, so `.gitignore` keeps them local, as with the ramp. That directory's `summary.md` can't be rebuilt from git alone; the 500 req/s one can.
+- **A crash at 15,000 req/s:** `Math.max(...times)` overflowed the call stack. It's a loop now, with a test at 200,000 records.
+- **Breaking it on purpose**, each failing a test: counting `PING`, using the after count instead of the difference, missing subcommands such as `command|docs`, dividing by seconds instead of requests, counting one second too many, never loading `redis-calls.json`, ignoring the decision prefix, counting in-script commands as round trips, and spreading records into `Math.max`.
 
 ### T7. CI smoke test and README
 
@@ -282,6 +292,8 @@ Updated:
    - Measure only the baseline (batch size 1) in T6: how much a Redis round trip costs. If that's already small next to 50 ms, record 0009 as "not worth it" and skip the prototype.
 
    Recommendation: the second. It's cheaper, and the answer is probably clear from the baseline. Build the prototype only if the baseline p99 is more than a few ms.
+
+   *Answer (T6): the second.* The baseline p99 was under 1 ms, so there's no prototype; see [0009](decisions/0009-latency-budget-prefetch.md).
 2. **nginx or HAProxy.** nginx is assumed. HAProxy has better built-in stats, but milestone 4 brings Prometheus anyway.
 3. **The edge-burst window.** 10 seconds keeps runs short, but production limits are usually per minute. Is 10 s representative enough, or should one run per algorithm use 60 s?
 

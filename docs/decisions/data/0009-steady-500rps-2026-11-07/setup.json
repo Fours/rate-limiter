@@ -1,0 +1,29 @@
+{
+  "date": "2026-11-07T02:18:12.145Z",
+  "command": "npm run bench -- --scenario steady --algorithm none,token-bucket --rate 500 --decision 0009",
+  "git": {
+    "commit": "14c013ec8355d431917c75f14601ab6dd142dd59",
+    "uncommittedChanges": false
+  },
+  "host": {
+    "os": "Darwin 25.4.0 arm64",
+    "cpu": "Apple M5 Pro",
+    "cores": 18,
+    "memoryGiB": 24
+  },
+  "docker": {
+    "version": "29.4.1",
+    "cpus": 18,
+    "memoryGiB": 8
+  },
+  "versions": {
+    "node": "v22.23.4",
+    "redis": "Redis server v=7.4.12 sha=00000000:0 malloc=jemalloc-5.3.0 bits=64 build=f852dc16704a5509",
+    "nginx": "nginx version: nginx/1.31.8",
+    "k6": "k6 v2.3.0 (commit/e088784614, go1.27.1, linux/arm64)"
+  },
+  "stack": {
+    "instances": 3,
+    "nginxWorkers": 1
+  }
+}

@@ -1,0 +1,1 @@
+{"algorithm":"token-bucket","scenario":"steady","run":2,"limit":100,"windowMs":60000}
