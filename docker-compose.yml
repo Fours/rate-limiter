@@ -69,13 +69,19 @@ services:
       - ./bench/nginx.conf:/etc/nginx/nginx.conf:ro
     ports:
       - '${STACK_PORT:-8080}:80'
+    # restart: when an `up` recreates an app (npm run stack:observe after stack:up changes
+    # METRICS), nginx restarts too, so it never holds addresses or connections from the old
+    # containers. Without it, CI saw one instance get no traffic (milestone 4's close-out).
     depends_on:
       app-1:
         condition: service_healthy
+        restart: true
       app-2:
         condition: service_healthy
+        restart: true
       app-3:
         condition: service_healthy
+        restart: true
     healthcheck:
       test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1/healthz']
       interval: 1s
