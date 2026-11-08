@@ -34,12 +34,15 @@ redis.call('ZREMRANGEBYSCORE', key, 0, int(cutoff))
 local lower = '(' .. int(math.max(cutoff, 0))
 local count = redis.call('ZCOUNT', key, lower, '+inf')
 
--- Only allowed requests are recorded. The member must be unique: requests in the same
--- millisecond get different counts, and an older entry from this millisecond is still live, so
--- the count has moved on since it was added.
+-- Only allowed requests are recorded, as <now>-<entries already at now>. The member must be
+-- unique, or ZADD overwrites an entry and the request goes uncounted. Time never moves back,
+-- and trimming drops a millisecond's entries all together, so one millisecond's entries are
+-- always numbered 0, 1, 2 and so on, whatever windowMs is. The live count isn't unique: after
+-- windowMs shrinks, it can fall back to a number already used in this millisecond.
 local allowed = 0
 if count < limit then
-  redis.call('ZADD', key, int(now), int(now) .. '-' .. int(count))
+  local same = redis.call('ZCOUNT', key, int(now), int(now))
+  redis.call('ZADD', key, int(now), int(now) .. '-' .. int(same))
   count = count + 1
   allowed = 1
 end

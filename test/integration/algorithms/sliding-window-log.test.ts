@@ -121,6 +121,26 @@ describe('Redis sliding window log', () => {
     expect(await r.redis.zcard(key)).toBe(4);
   });
 
+  it('records every allowed request when windowMs shrinks within one millisecond', async () => {
+    // Found by the 1.0 correctness review: named by the live count, the entry for the first
+    // request under the shorter window reused the name of one already there, so ZADD
+    // overwrote it and every request in that millisecond was allowed.
+    const { algorithm, clock } = redisLog();
+    const long = freshRule({ limit: 5, windowMs: 60_000 });
+    const short: Rule = { ...long, windowMs: 10_000 };
+    const key = buildKey(long, 'c');
+    const t0 = clock.now();
+    clock.set(t0 - 30_000);
+    await algorithm.check(key, long);
+    await algorithm.check(key, long);
+    clock.set(t0);
+    await algorithm.check(key, long);
+    let allowed = 0;
+    for (let i = 0; i < 20; i++) if ((await algorithm.check(key, short)).allowed) allowed++;
+    expect(allowed).toBe(4);
+    expect(await r.redis.zcount(key, '(0', '+inf')).toBe(5);
+  });
+
   it('after the limit shrinks, waits for the entry that brings the count below the new limit', async () => {
     const { algorithm, clock } = redisLog();
     const rule = freshRule({ limit: 5 });
