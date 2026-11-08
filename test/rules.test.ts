@@ -260,6 +260,18 @@ describe('createMatcher', () => {
       expect(pick(wild, req('GET', '/t/%zz/../%61cme/x'))).toBe('acme');
     });
 
+    it.each(['/*', '/./*', '//*', '/x/../*', '/%2E/*'])(
+      'matches every path with %s, like /*',
+      (path) => {
+        // Found by the 1.0 correctness review: all but /* compiled to the prefix "/", which
+        // matched only the root.
+        const all: Rule[] = [{ id: 'all', ...base, path }];
+        for (const request of ['/', '/orders', '/a/b/c']) {
+          expect(pick(all, req('GET', request))).toBe('all');
+        }
+      },
+    );
+
     it('applies the same normalisation to wildcard prefixes', () => {
       const wild: Rule[] = [{ id: 'wild', ...base, path: '/downloads/*' }];
       expect(pick(wild, req('GET', '/%64ownloads/big.zip'))).toBe('wild');

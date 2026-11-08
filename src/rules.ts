@@ -152,10 +152,18 @@ function compileRule(rule: Rule, index: number): CompiledRule {
     rule,
     index,
     exactPath: rule.path !== undefined && !wildcard ? normalisePath(rule.path) : undefined,
-    // "/orders/*" → "/orders"; "/*" → "", which prefixes every path.
-    prefix: rule.path !== undefined && wildcard ? normalisePath(rule.path.slice(0, -2)) : undefined,
+    prefix: rule.path !== undefined && wildcard ? wildcardPrefix(rule.path) : undefined,
     method: rule.method?.toUpperCase(),
   };
+}
+
+/**
+ * "/orders/*" → "/orders". A prefix that normalises to the root, as "/*" and also "/./*", "//*"
+ * or "/x/../*" do, is "", which prefixes every path. As "/" it would match only the root.
+ */
+function wildcardPrefix(path: string): string {
+  const prefix = normalisePath(path.slice(0, -2));
+  return prefix === '/' ? '' : prefix;
 }
 
 /**
@@ -163,8 +171,6 @@ function compileRule(rule: Rule, index: number): CompiledRule {
  * `/downloads/./*` and `/downloads/*` are the same rule.
  */
 function normalisePath(path: string): string {
-  // "/*" compiles to the empty prefix, which matches every path.
-  if (path === '') return '';
   return join(resolveDots(pathSegments(path)));
 }
 
