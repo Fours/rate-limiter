@@ -242,6 +242,14 @@ describe('options', () => {
     },
   );
 
+  it('rejects a timeoutMs too long for a Node timer, and accepts the longest that fits', () => {
+    expect(() => rateLimit({ rules: [rule], timeoutMs: 2_147_483_648 })).toThrow(
+      'rateLimit: timeoutMs must be at most 2147483647, got 2147483648',
+    );
+    expect(() => rateLimit({ rules: [rule], timeoutMs: 3_000_000_000 })).toThrow(RangeError);
+    rateLimit({ rules: [rule], timeoutMs: 2_147_483_647 }).close();
+  });
+
   it.each([null, true, 3, 'yes'])('rejects fallback: %s at startup', (fallback) => {
     expect(() => rateLimit({ rules: [rule], fallback: fallback as false })).toThrow(
       'rateLimit: fallback must be { instances } or false',

@@ -1,4 +1,4 @@
-import { systemClock } from '../clock.js';
+import { MAX_TIMER_MS, systemClock } from '../clock.js';
 import type { Algorithm, Clock, Decision, Rule } from '../types.js';
 
 const DEFAULT_SWEEP_INTERVAL_MS = 60_000;
@@ -7,7 +7,7 @@ const DEFAULT_SWEEP_INTERVAL_MS = 60_000;
 export interface TokenBucketOptions {
   /** Where time comes from. Default {@link systemClock}. Inject one to test against fake time. */
   clock?: Clock;
-  /** How often full buckets are dropped from memory. Positive integer ms; default 60 000. */
+  /** How often full buckets are dropped from memory. Positive integer ms, at most 2^31 - 1; default 60 000. */
   sweepIntervalMs?: number;
 }
 
@@ -76,6 +76,12 @@ export function createTokenBucketForTest(opts: TokenBucketOptions = {}): Inspect
   if (!Number.isSafeInteger(sweepIntervalMs) || sweepIntervalMs <= 0) {
     throw new RangeError(
       `sweepIntervalMs must be a positive integer, got ${String(sweepIntervalMs)}`,
+    );
+  }
+  // Longer would run as 1 ms: a sweep over every bucket, a thousand times a second.
+  if (sweepIntervalMs > MAX_TIMER_MS) {
+    throw new RangeError(
+      `sweepIntervalMs must be at most ${String(MAX_TIMER_MS)}, got ${String(sweepIntervalMs)}`,
     );
   }
 

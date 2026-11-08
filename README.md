@@ -51,7 +51,7 @@ Each client gets 100 requests a minute, except `POST /login`, which gets 5. A cl
 | `algorithms` | `Record<string, Algorithm>` | none | Algorithms by a name you choose, for rules that set `algorithm`. See [Choosing an algorithm](#choosing-an-algorithm). |
 | `identify` | `(req) => string` | `req.user.id`, then IP | Who the client is. See [Identifying clients](#identifying-clients). |
 | `tier` | `(req) => string \| undefined` | no tier | The client's tier, for rules that set `tier`. |
-| `timeoutMs` | positive integer | `50` | How long a check gets before the fallback answers instead. See [Failure handling](#failure-handling). |
+| `timeoutMs` | positive integer, at most 2³¹ − 1 | `50` | How long a check gets before the fallback answers instead. See [Failure handling](#failure-handling). |
 | `fallback` | `{ instances?: number } \| false` | `{ instances: 1 }` | The in-memory fallback for when a check fails or times out. Set `instances` to how many app instances share each limit. `false` turns it off. |
 | `hooks` | `{ onDecision?, onFallback? }` | none | Called for every decision and every fallback, for metrics and logs. See [Metrics](#metrics). |
 | `prefix` | letters, digits, `_` and `-` | `rl` | Starts every storage key. Give each limiter that shares a Redis with another its own. See [Using Redis](#using-redis). |

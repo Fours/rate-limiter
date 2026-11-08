@@ -266,8 +266,17 @@ describe('createTokenBucket', () => {
     });
   });
 
-  it.each([0, -1, 1.5, Number.NaN])('rejects sweepIntervalMs %s at construction', (ms) => {
-    expect(() => createTokenBucket({ sweepIntervalMs: ms })).toThrow(RangeError);
+  it.each([0, -1, 1.5, Number.NaN, 2_147_483_648, 3_000_000_000])(
+    'rejects sweepIntervalMs %s at construction',
+    (ms) => {
+      expect(() => createTokenBucket({ sweepIntervalMs: ms })).toThrow(RangeError);
+    },
+  );
+
+  it('accepts the longest sweepIntervalMs a Node timer holds', () => {
+    const bucket = createTokenBucket({ sweepIntervalMs: 2_147_483_647 });
+    open.push(bucket);
+    expect(bucket.supportsBurst).toBe(true);
   });
 
   it('exposes only check, close and supportsBurst, not the test-only sweep and size', () => {

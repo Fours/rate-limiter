@@ -3,6 +3,7 @@ import { createTokenBucket } from './algorithms/token-bucket.js';
 import { createFallback, type Fallback } from './fallback.js';
 import { rateLimitHeaders, retryAfter } from './headers.js';
 import { resolveHooks, type RateLimitHooks } from './hooks.js';
+import { MAX_TIMER_MS } from './clock.js';
 import { buildKey, defaultIdentify } from './identify.js';
 import { createMatcher, InvalidRuleError } from './rules.js';
 import { RateLimitTimeoutError, withTimeout } from './timeout.js';
@@ -35,7 +36,7 @@ export interface RateLimitOptions {
   readonly identify?: (req: Request) => string;
   /** The request's tier, for rules that set `tier`. Default: none. */
   readonly tier?: (req: Request) => string | undefined;
-  /** How long a check gets before the fallback answers instead. Positive integer ms; default 50. */
+  /** How long a check gets before the fallback answers instead. Positive integer ms, at most 2^31 - 1; default 50. */
   readonly timeoutMs?: number;
   /**
    * Answers from memory when a check fails or times out, so a Redis outage isn't an API outage
@@ -148,6 +149,12 @@ function resolveTimeout(value: unknown): number {
   if (value === undefined) return DEFAULT_TIMEOUT_MS;
   if (!isPositiveInteger(value)) {
     throw new RangeError(`rateLimit: timeoutMs must be a positive integer, got ${show(value)}`);
+  }
+  // Longer would run as 1 ms, so every check would time out and the fallback answer them all.
+  if (value > MAX_TIMER_MS) {
+    throw new RangeError(
+      `rateLimit: timeoutMs must be at most ${String(MAX_TIMER_MS)}, got ${String(value)}`,
+    );
   }
   return value;
 }
