@@ -9,9 +9,10 @@ import { createRedisSlidingWindowLogForTest } from '../../../src/algorithms/redi
 import { createRedisTokenBucketForTest } from '../../../src/algorithms/redis/token-bucket.js';
 import { buildKey } from '../../../src/identify.js';
 import type { RedisScriptClient } from '../../../src/redis/client.js';
-import type { Algorithm, Decision, Rule } from '../../../src/types.js';
+import type { Algorithm, Rule } from '../../../src/types.js';
 import { describeAlgorithm } from '../../contract/algorithm-contract.js';
 import { FakeClock } from '../../helpers/fake-clock.js';
+import { leakyBucketModel } from '../../helpers/models.js';
 import {
   burstSteps,
   comparisonSteps,
@@ -34,45 +35,6 @@ describeAlgorithm('Redis leaky bucket', redisLeaky, {
   maxPerWindow: (rule) => rule.limit,
 });
 
-/**
- * The same rules as leaky-bucket.lua, but with the TAT as one exact fraction (a BigInt count of
- * 1/limit ms) instead of whole ms plus a remainder, so the script's carrying is checked
- * independently. A burst b lets a slot be taken (b - 1) * windowMs of those units early.
- */
-function referenceModel(clock: FakeClock): Algorithm {
-  const state = new Map<string, { n: bigint; limit: bigint; window: bigint; last: number }>();
-  const floorDiv = (a: bigint, b: bigint) => a / b; // a, b >= 0 here
-  const ceilDiv = (a: bigint, b: bigint) => (a + b - 1n) / b;
-  return {
-    check(key: string, rule: Rule): Promise<Decision> {
-      const limit = BigInt(rule.limit);
-      const window = BigInt(rule.windowMs);
-      const stored = state.get(key);
-      const now = Math.max(clock.now(), stored?.last ?? Number.NEGATIVE_INFINITY);
-      const nowN = BigInt(now) * limit;
-      let n = nowN;
-      if (stored !== undefined) {
-        n = stored.n;
-        if (stored.limit !== limit || stored.window !== window) {
-          n = ceilDiv(n, stored.limit) * limit; // round up to a whole ms
-        }
-      }
-      if (floorDiv(n, limit) < BigInt(now)) n = nowN;
-
-      const tolerance = BigInt((rule.burst ?? 1) - 1) * window;
-      const allowed = n - tolerance < BigInt(now + 1) * limit;
-      if (allowed) n += window;
-      state.set(key, { n, limit, window, last: now });
-
-      const room = BigInt(now + 1) * limit - n + tolerance;
-      const remaining = room > 0n ? Number(ceilDiv(room, window)) : 0;
-      // Denied: n - tolerance >= (now + 1) * limit > 0, so floorDiv's operands are positive.
-      const resetMs = Number(allowed ? ceilDiv(n, limit) : floorDiv(n - tolerance, limit)) - now;
-      return Promise.resolve({ allowed, remaining, resetMs });
-    },
-  };
-}
-
 function freshRule(overrides: Partial<Omit<Rule, 'id'>> = {}): Rule {
   return { id: uniqueRuleId('leaky'), limit: 4, windowMs: 60_000, ...overrides };
 }
@@ -94,7 +56,7 @@ describe('Redis leaky bucket', () => {
   it('returns exactly the same decisions as the reference model, step for step', async () => {
     const steps = comparisonSteps();
     const modelClock = new FakeClock();
-    const expected = await runSteps(referenceModel(modelClock), modelClock, steps);
+    const expected = await runSteps(leakyBucketModel(modelClock), modelClock, steps);
     const { algorithm, clock } = redisLeaky();
     expect(await runSteps(algorithm, clock, steps)).toStrictEqual(expected);
     expect(expected.some((d) => !d.allowed)).toBe(true);
@@ -103,7 +65,7 @@ describe('Redis leaky bucket', () => {
   it('returns exactly the same decisions as the reference model, with bursts', async () => {
     const steps = burstSteps();
     const modelClock = new FakeClock();
-    const expected = await runSteps(referenceModel(modelClock), modelClock, steps);
+    const expected = await runSteps(leakyBucketModel(modelClock), modelClock, steps);
     const { algorithm, clock } = redisLeaky();
     expect(await runSteps(algorithm, clock, steps)).toStrictEqual(expected);
     expect(expected.some((d) => !d.allowed)).toBe(true);
@@ -287,7 +249,7 @@ describe('Redis leaky bucket', () => {
       // Without expiry, like the model: see withoutExpiry.
       const { algorithm, clock } = leakyWithoutExpiry();
       const modelClock = new FakeClock(clock.now());
-      const model = referenceModel(modelClock);
+      const model = leakyBucketModel(modelClock);
       for (let i = 0; i < 120; i++) {
         const step = pick(4) === 0 ? pick(3 * windowMs) : pick(2);
         clock.advance(step);

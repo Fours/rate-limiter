@@ -76,10 +76,20 @@ export function withoutExpiry(
   const lua = defineScript(`${read('prelude.lua')}\n${stripped}`);
   return () => {
     const clock = new FakeClock();
-    return {
-      algorithm: createRedisAlgorithm(lua, name, { client: handle.client, clock }, supportsBurst),
-      clock,
+    const inner = createRedisAlgorithm(lua, name, { client: handle.client, clock }, supportsBurst);
+    // Nothing expires these keys, so close() deletes them: the property tests make thousands.
+    const keys = new Set<string>();
+    const algorithm: Algorithm = {
+      ...(inner.supportsBurst === true ? { supportsBurst: true } : {}),
+      check: (key, rule) => {
+        keys.add(key);
+        return inner.check(key, rule);
+      },
     };
+    const close = async () => {
+      if (keys.size > 0) await handle.redis.del(...keys);
+    };
+    return { algorithm, clock, close };
   };
 }
 

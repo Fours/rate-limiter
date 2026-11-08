@@ -6,9 +6,10 @@ import {
 } from '../../../src/algorithms/redis/sliding-window-log.js';
 import { createRedisTokenBucketForTest } from '../../../src/algorithms/redis/token-bucket.js';
 import { buildKey } from '../../../src/identify.js';
-import type { Algorithm, Decision, Rule } from '../../../src/types.js';
+import type { Algorithm, Rule } from '../../../src/types.js';
 import { describeAlgorithm } from '../../contract/algorithm-contract.js';
 import { FakeClock } from '../../helpers/fake-clock.js';
+import { slidingWindowLogModel } from '../../helpers/models.js';
 import {
   comparisonSteps,
   expectTtlNear,
@@ -28,27 +29,6 @@ describeAlgorithm('Redis sliding window log', redisLog, {
   maxPerWindow: (rule) => rule.limit,
 });
 
-/** The same rules as sliding-window-log.lua, written again in TypeScript as a list of times. */
-function referenceModel(clock: FakeClock): Algorithm {
-  const state = new Map<string, { times: number[]; last: number }>();
-  return {
-    check(key: string, rule: Rule): Promise<Decision> {
-      const stored = state.get(key) ?? { times: [], last: Number.NEGATIVE_INFINITY };
-      const now = Math.max(clock.now(), stored.last);
-      const times = stored.times.filter((t) => t > now - rule.windowMs);
-      const allowed = times.length < rule.limit;
-      if (allowed) times.push(now);
-      state.set(key, { times, last: now });
-      const oldestToFree = times[times.length - rule.limit] ?? 0;
-      return Promise.resolve({
-        allowed,
-        remaining: Math.max(0, rule.limit - times.length),
-        resetMs: allowed ? rule.windowMs : oldestToFree + rule.windowMs - now,
-      });
-    },
-  };
-}
-
 function freshRule(overrides: Partial<Omit<Rule, 'id'>> = {}): Rule {
   return { id: uniqueRuleId('log'), limit: 3, windowMs: 60_000, ...overrides };
 }
@@ -57,7 +37,7 @@ describe('Redis sliding window log', () => {
   it('returns exactly the same decisions as the reference model, step for step', async () => {
     const steps = comparisonSteps();
     const modelClock = new FakeClock();
-    const expected = await runSteps(referenceModel(modelClock), modelClock, steps);
+    const expected = await runSteps(slidingWindowLogModel(modelClock), modelClock, steps);
     const { algorithm, clock } = redisLog();
     expect(await runSteps(algorithm, clock, steps)).toStrictEqual(expected);
     expect(expected.some((d) => !d.allowed)).toBe(true);

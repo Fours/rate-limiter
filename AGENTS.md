@@ -91,6 +91,7 @@ docs/                   milestone specs and design notes
 - Keep line coverage on `src/` at 90% or higher.
 - Prove that the important tests can fail. After a task's tests pass, temporarily break each key behaviour, such as a fix to the spec or a guard against bypassing a limit. Check that a test fails, then restore the code, and say in the commit message what you broke. Coverage shows that code ran, not that a test would notice it being wrong.
 - Mutation testing automates the break checks ([0033](docs/decisions/0033-mutation-testing.md)). After changing an algorithm, its Lua or other logic in `src/`, run `npm run mutate -- --mutate src/<file>.ts` or `npm run mutate:lua -- <script>` for what you changed. Kill each new survivor with a test, or list it in 0033 with the reason it can't change behaviour.
+- Every algorithm runs the property tests in `test/contract/algorithm-properties.ts` ([0034](docs/decisions/0034-property-tests.md)), and every script is compared with a reference on generated histories. A new algorithm adds its traits there. A failure prints a seed: replay it with `FC_SEED=<seed>`. Search longer with `FC_RUNS=<multiplier>`.
 - Check library behaviour instead of assuming it. Before you design around how Express, Redis or Node behaves, run a quick probe against the installed version, for example a throwaway Express app that logs `req.baseUrl` and `req.path`. Then turn what you find into a test against the real library. Decision 0011 came from a probe like this.
 
 ## Style

@@ -49,3 +49,4 @@ When you change a decision, update its record in the same commit as the code.
 | [0031](0031-two-rules-on-one-key.md) | A rule change keeps a client's progress, even when two rules share a key | Accepted | 5 |
 | [0032](0032-unknown-fields-throw-in-code-too.md) | Unknown rule fields and options throw in code too, not only in files | Accepted | 5 |
 | [0033](0033-mutation-testing.md) | Mutation testing, with Stryker for the TypeScript and a mutator of our own for the Lua | Accepted | 5 |
+| [0034](0034-property-tests.md) | Property tests for every algorithm, with fast-check | Accepted | 5 |

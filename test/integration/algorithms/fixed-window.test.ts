@@ -5,9 +5,10 @@ import {
 } from '../../../src/algorithms/redis/fixed-window.js';
 import { createRedisTokenBucketForTest } from '../../../src/algorithms/redis/token-bucket.js';
 import { buildKey } from '../../../src/identify.js';
-import type { Algorithm, Decision, Rule } from '../../../src/types.js';
+import type { Rule } from '../../../src/types.js';
 import { describeAlgorithm } from '../../contract/algorithm-contract.js';
 import { FakeClock } from '../../helpers/fake-clock.js';
+import { fixedWindowModel } from '../../helpers/models.js';
 import {
   comparisonSteps,
   expectTtlNear,
@@ -26,37 +27,6 @@ describeAlgorithm('Redis fixed window', redisWindow, {
   maxPerWindow: (rule) => 2 * rule.limit,
 });
 
-/**
- * The same rules as fixed-window.lua, written again in TypeScript, so the script is checked
- * against an independent version step for step. FakeClock's default start is a whole minute and
- * a whole day, which keeps the expected values in the tests below easy to read.
- */
-function referenceModel(clock: FakeClock): Algorithm {
-  const state = new Map<string, { end: number; count: number; last: number }>();
-  return {
-    check(key: string, rule: Rule): Promise<Decision> {
-      const stored = state.get(key);
-      const now = Math.max(clock.now(), stored?.last ?? Number.NEGATIVE_INFINITY);
-      let end: number;
-      let count: number;
-      if (stored === undefined || now >= stored.end) {
-        end = Math.floor(now / rule.windowMs) * rule.windowMs + rule.windowMs;
-        count = 0;
-      } else {
-        ({ end, count } = stored);
-      }
-      const allowed = count < rule.limit;
-      if (allowed) count++;
-      state.set(key, { end, count, last: now });
-      return Promise.resolve({
-        allowed,
-        remaining: Math.max(0, rule.limit - count),
-        resetMs: end - now,
-      });
-    },
-  };
-}
-
 function freshRule(overrides: Partial<Omit<Rule, 'id'>> = {}): Rule {
   return { id: uniqueRuleId('fixed'), limit: 3, windowMs: 60_000, ...overrides };
 }
@@ -65,7 +35,7 @@ describe('Redis fixed window', () => {
   it('returns exactly the same decisions as the reference model, step for step', async () => {
     const steps = comparisonSteps();
     const modelClock = new FakeClock();
-    const expected = await runSteps(referenceModel(modelClock), modelClock, steps);
+    const expected = await runSteps(fixedWindowModel(modelClock), modelClock, steps);
     const { algorithm, clock } = redisWindow();
     expect(await runSteps(algorithm, clock, steps)).toStrictEqual(expected);
     expect(expected.some((d) => !d.allowed)).toBe(true);

@@ -10,6 +10,7 @@ import { buildKey } from '../../../src/identify.js';
 import type { Algorithm, Decision, Rule } from '../../../src/types.js';
 import { describeAlgorithm } from '../../contract/algorithm-contract.js';
 import { FakeClock } from '../../helpers/fake-clock.js';
+import { slidingWindowCounterModel } from '../../helpers/models.js';
 import {
   comparisonSteps,
   expectTtlNear,
@@ -35,52 +36,6 @@ describeAlgorithm('Redis sliding window counter', redisCounter, {
   // evenly, so a sliding windowMs span can see up to nearly twice the limit.
   maxPerWindow: (rule) => 2 * rule.limit,
 });
-
-/**
- * The same rules as sliding-window-counter.lua, written again in TypeScript. The denied wait is
- * found by stepping forward a millisecond at a time instead of by the script's formula, so the
- * formula is checked against a brute-force answer.
- */
-function referenceModel(clock: FakeClock): Algorithm {
-  type State = { start: number; window: number; curr: number; prev: number; last: number };
-  const state = new Map<string, State>();
-  return {
-    check(key: string, rule: Rule): Promise<Decision> {
-      const w = rule.windowMs;
-      const stored = state.get(key);
-      const now = Math.max(clock.now(), stored?.last ?? Number.NEGATIVE_INFINITY);
-      let start = Math.floor(now / w) * w;
-      let curr = 0;
-      let prev = 0;
-      if (stored !== undefined) {
-        // Windows go on from the stored one's start, whatever its length (0031).
-        const k = Math.floor((now - stored.start) / w);
-        start = stored.start + k * w;
-        if (k === 0) ({ curr, prev } = stored);
-        else if (k === 1) prev = stored.curr;
-      }
-      const fits = (p: number, c: number, e: number) => p * (w - e) + (c + 1) * w <= rule.limit * w;
-      const e = now - start;
-      const allowed = fits(prev, curr, e);
-      if (allowed) curr++;
-      state.set(key, { start, window: w, curr, prev, last: now });
-
-      let resetMs = 2 * w - e;
-      if (!allowed) {
-        resetMs = 1;
-        for (;;) {
-          const at = e + resetMs;
-          const ok = at < w ? fits(prev, curr, at) : at < 2 * w ? fits(curr, 0, at - w) : true;
-          if (ok) break;
-          resetMs++;
-        }
-      }
-      const estimate = prev * (w - e) + curr * w;
-      const remaining = Math.max(0, Math.floor((rule.limit * w - estimate) / w));
-      return Promise.resolve({ allowed, remaining, resetMs });
-    },
-  };
-}
 
 function freshRule(overrides: Partial<Omit<Rule, 'id'>> = {}): Rule {
   return { id: uniqueRuleId('counter'), limit: 4, windowMs: W, ...overrides };
@@ -112,7 +67,7 @@ describe('Redis sliding window counter', () => {
   it('returns exactly the same decisions as the reference model, step for step', async () => {
     const steps = comparisonSteps();
     const modelClock = new FakeClock();
-    const expected = await runSteps(referenceModel(modelClock), modelClock, steps);
+    const expected = await runSteps(slidingWindowCounterModel(modelClock), modelClock, steps);
     const { algorithm, clock } = redisCounter();
     expect(await runSteps(algorithm, clock, steps)).toStrictEqual(expected);
     expect(expected.some((d) => !d.allowed)).toBe(true);
@@ -245,7 +200,7 @@ describe('Redis sliding window counter', () => {
         // Without expiry, like the model: see withoutExpiry.
         const { algorithm, clock } = counterWithoutExpiry();
         const modelClock = new FakeClock(clock.now());
-        const model = referenceModel(modelClock);
+        const model = slidingWindowCounterModel(modelClock);
         for (let i = 0; i < 120; i++) {
           const step = pick(4) === 0 ? pick(2 * w) : pick(3);
           clock.advance(step);
