@@ -31,7 +31,7 @@ export interface RateLimitOptions {
    * (decision 0023).
    */
   readonly algorithms?: Readonly<Record<string, Algorithm>>;
-  /** Default: API key, then user ID, then IP, then "anon". */
+  /** Default: `req.user.id`, then the IP, then "anon". Never an unverified API key (decision 0026). */
   readonly identify?: (req: Request) => string;
   /** The request's tier, for rules that set `tier`. Default: none. */
   readonly tier?: (req: Request) => string | undefined;

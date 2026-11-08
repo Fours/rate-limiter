@@ -4,13 +4,14 @@ import request from 'supertest';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
   ALGORITHMS,
+  benchClientId,
   benchHooks,
   createApp,
   parseInstances,
   parseMetrics,
   type BenchApp,
 } from '../../../bench/app/app.ts';
-import { buildKey, defaultIdentify } from '../../../src/identify.js';
+import { buildKey } from '../../../src/identify.js';
 import type { DecisionEvent, FallbackEvent } from '../../../src/hooks.js';
 import type { Rule } from '../../../src/types.js';
 import { connectIoredis, redisUrl, uniqueRuleId } from '../helpers/redis.js';
@@ -46,7 +47,7 @@ async function start(algorithm: string, rule = workRule(), instance = 'test-1', 
 const newClient = () => `client-${randomUUID()}`;
 
 function keyFor(rule: Rule, apiKey: string): string {
-  return buildKey(rule, defaultIdentify({ headers: { 'x-api-key': apiKey } }));
+  return buildKey(rule, benchClientId(apiKey));
 }
 
 /** Which script wrote a key: every script tags its state with its own name (decision 0016). */
@@ -344,5 +345,16 @@ describe('X-RateLimit-Source and the fallback (milestone 4, T4)', () => {
       'decision:primary',
       'decision:primary',
     ]);
+  });
+});
+
+describe('benchIdentify (decision 0026)', () => {
+  it("reads the simulated client's x-api-key, as key_ and 16 hex chars of its sha256", async () => {
+    const { app, rule } = await start('token-bucket');
+    const client = newClient();
+    await request(app).get('/work').set('x-api-key', client);
+    // Computed outside Node: printf '%s' 'sk_test_4f9c2e7a1b' | shasum -a 256 | cut -c1-16
+    expect(benchClientId('sk_test_4f9c2e7a1b')).toBe('key_91f77e657ceb317b');
+    expect(await redis.exists(keyFor(rule, client))).toBe(1);
   });
 });

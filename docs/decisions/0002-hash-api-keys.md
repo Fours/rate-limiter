@@ -1,6 +1,6 @@
 # 0002. Hash API keys before they reach storage keys
 
-- **Status:** Accepted
+- **Status:** Superseded by [0026](0026-no-unverified-api-keys.md): the default no longer reads API keys at all. Its rule, that a raw key never reaches storage, logs or metrics, still holds.
 - **Date:** 2026-11-06
 - **Milestone:** 1
 

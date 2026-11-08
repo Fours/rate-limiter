@@ -19,7 +19,7 @@ When you change a decision, update its record in the same commit as the code.
 | # | Decision | Status | Milestone |
 | --- | --- | --- | --- |
 | [0001](0001-async-algorithm-interface.md) | One async `Algorithm.check` for every algorithm and store | Accepted | 1 |
-| [0002](0002-hash-api-keys.md) | Hash API keys before they reach storage keys | Accepted | 1 |
+| [0002](0002-hash-api-keys.md) | Hash API keys before they reach storage keys | Superseded by 0026 | 1 |
 | [0003](0003-reset-semantics.md) | What `resetMs` means when allowed vs denied | Accepted | 1 |
 | [0004](0004-limit-in-app-middleware.md) | Limit in app middleware, not at the load balancer | Accepted | 1 |
 | [0005](0005-metrics-through-hooks.md) | Metrics through hooks, not a `prom-client` dependency | Accepted | 1, 4 |
@@ -41,3 +41,4 @@ When you change a decision, update its record in the same commit as the code.
 | [0021](0021-per-request-timing-tolerance.md) | The benchmarks give each request its own timing tolerance, from its limiter time | Accepted | 5 |
 | [0022](0022-burst.md) | An optional `burst` on rules, for the token and leaky buckets only | Accepted | 5 |
 | [0023](0023-algorithm-per-rule.md) | Rules can name their algorithm, from names the caller chooses | Accepted | 5 |
+| [0026](0026-no-unverified-api-keys.md) | The default identity never trusts an unverified API key | Accepted | 5 |

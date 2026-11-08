@@ -1,6 +1,6 @@
 # Rules for the demo, loaded with loadRules(). Unknown fields are rejected, so a typo fails at startup.
 rules:
-  # Every request: 10 per minute per client. With no API key or user, a client is its IP.
+  # Every request: 10 per minute per client: an account for a verified API key, or else its IP.
   - id: global
     limit: 10
     windowMs: 60000

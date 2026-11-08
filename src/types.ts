@@ -47,7 +47,7 @@ export interface Decision {
 export interface Algorithm {
   /**
    * Counts one request for `key` against `rule` and says whether it's allowed. `key` is the
-   * storage key, `rl:{rule.id}:{clientId}`, already built and with API keys hashed.
+   * storage key, `rl:{rule.id}:{clientId}`, already built from `identify`.
    */
   check(key: string, rule: Rule): Promise<Decision>;
   /**

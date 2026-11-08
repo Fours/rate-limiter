@@ -9,8 +9,9 @@
 //   REDIS_URL   share limits through Redis, e.g. redis://localhost:6390 (the test Redis)
 //   ALGORITHM   with Redis: token-bucket, leaky-bucket, fixed-window, sliding-window-log
 //               or sliding-window-counter (the default). Without Redis: token-bucket only.
+import { createHash } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
-import express, { type Request } from 'express';
+import express, { type Request, type RequestHandler } from 'express';
 import { Redis } from 'ioredis';
 import {
   createRedisFixedWindow,
@@ -67,12 +68,36 @@ const redis = redisUrl
 redis?.on('error', () => undefined);
 const algorithm = redis ? createAlgorithm({ client: fromIoredis(redis) }) : undefined;
 
-// A stand-in for a real account lookup. Derive the tier from the client's credentials,
-// never from a header that names the tier, or any client could claim to be "pro".
+// A stand-in for your auth middleware. A real app looks the API key up and rejects unknown ones;
+// here any key starting with "demo-" is accepted. It sets req.user, which the limiter's default
+// identify reads, so only keys your auth has verified get a limit of their own. The limiter never
+// reads x-api-key itself: a client could send a new made-up key with every request (decision
+// 0026). The account ID is a hash, so the raw key never reaches Redis.
+interface Account {
+  readonly id: string;
+  readonly tier: 'free' | 'pro';
+}
 const proKeys = new Set(['demo-pro-key']);
-function tier(req: Request): string {
+const authenticate: RequestHandler = (req, res, next) => {
   const key = req.get('x-api-key');
-  return key !== undefined && proKeys.has(key) ? 'pro' : 'free';
+  if (key === undefined) {
+    next(); // No key: anonymous, so limited by IP.
+    return;
+  }
+  if (!key.startsWith('demo-')) {
+    res.status(401).json({ error: 'unknown_api_key' });
+    return;
+  }
+  const id = `acct_${createHash('sha256').update(key).digest('hex').slice(0, 16)}`;
+  const account: Account = { id, tier: proKeys.has(key) ? 'pro' : 'free' };
+  Object.assign(req, { user: account });
+  next();
+};
+
+// The tier comes from the verified account, never from a header that names the tier, or any
+// client could claim to be "pro".
+function tier(req: Request): string {
+  return (req as Request & { user?: Account }).user?.tier ?? 'free';
 }
 
 // If Redis fails, the limiter answers from memory and calls onFallback. Logging every fallback
@@ -100,6 +125,7 @@ const app = express();
 // Only trust the hops you actually run: with `true`, a client that can reach the server
 // directly can forge X-Forwarded-For and pick its own identity.
 // app.set('trust proxy', 1);
+app.use(authenticate);
 app.use(limiter);
 
 app.get('/', (_req, res) => {

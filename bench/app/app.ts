@@ -3,7 +3,8 @@
 //
 // It imports the package by name, as an app would. In the Docker image that's the built dist/;
 // in tests, vitest.config.ts points the name at src/.
-import express, { type Express, type RequestHandler } from 'express';
+import { createHash } from 'node:crypto';
+import express, { type Express, type Request, type RequestHandler } from 'express';
 import { Redis } from 'ioredis';
 import { Registry } from 'prom-client';
 import {
@@ -12,6 +13,7 @@ import {
   createRedisSlidingWindowCounter,
   createRedisSlidingWindowLog,
   createRedisTokenBucket,
+  defaultIdentify,
   fromIoredis,
   rateLimit,
   type Algorithm,
@@ -64,6 +66,22 @@ export interface BenchApp {
   close(): void;
 }
 
+/**
+ * k6 simulates many clients from one machine, each sending its own `x-api-key`. The library never
+ * trusts that header (decision 0026), so the harness reads it here, where every client is made up
+ * anyway. A real app must check a key before limiting by it. The ID keeps the `key_` plus 16 hex
+ * form the library used before 0026, so 0008's memory per key stays comparable.
+ */
+export function benchIdentify(req: Request): string {
+  const key = req.get('x-api-key');
+  return key === undefined || key === '' ? defaultIdentify(req) : benchClientId(key);
+}
+
+/** The client ID for a simulated client's `x-api-key`. */
+export function benchClientId(apiKey: string): string {
+  return `key_${createHash('sha256').update(apiKey).digest('hex').slice(0, 16)}`;
+}
+
 /** Throws on a bad option, so a misconfigured instance fails at startup, not under load. */
 export function createApp(opts: BenchAppOptions): BenchApp {
   if (!ALGORITHMS.includes(opts.algorithm)) {
@@ -84,6 +102,7 @@ export function createApp(opts: BenchAppOptions): BenchApp {
     limiter = rateLimit({
       rules: opts.rules,
       algorithm: factory({ client: fromIoredis(redis) }),
+      identify: benchIdentify,
       fallback: { instances: opts.fallbackInstances ?? 1 },
       hooks: benchHooks(
         opts.instance,

@@ -49,7 +49,7 @@ Each client gets 100 requests a minute, except `POST /login`, which gets 5. A cl
 | `rules` | `Rule[]` | required | The limits. A request uses the most specific rule that matches it. |
 | `algorithm` | `Algorithm` | in-memory token bucket | How limits are counted, for rules that name no algorithm. Anything with `check(key, rule): Promise<Decision>` works. |
 | `algorithms` | `Record<string, Algorithm>` | none | Algorithms by a name you choose, for rules that set `algorithm`. See [Choosing an algorithm](#choosing-an-algorithm). |
-| `identify` | `(req) => string` | API key, then user, then IP | Who the client is. See [Identifying clients](#identifying-clients). |
+| `identify` | `(req) => string` | `req.user.id`, then IP | Who the client is. See [Identifying clients](#identifying-clients). |
 | `tier` | `(req) => string \| undefined` | no tier | The client's tier, for rules that set `tier`. |
 | `timeoutMs` | positive integer | `50` | How long a check gets before the fallback answers instead. See [Failure handling](#failure-handling). |
 | `fallback` | `{ instances?: number } \| false` | `{ instances: 1 }` | The in-memory fallback for when a check fails or times out. Set `instances` to how many app instances share each limit. `false` turns it off. |
@@ -294,12 +294,24 @@ The design is in [0015](docs/decisions/0015-rules-files.md).
 
 By default, a client is the first of these that the request has:
 
-1. An `x-api-key` header, stored as `key_` plus a sha256 hash of the key, so raw keys never reach storage or logs
-2. `req.user.id`, set by your auth middleware, as `user_<id>`
-3. `req.ip`, as `ip_<ip>`, grouped as below
-4. Otherwise `anon`
+1. `req.user.id`, set by your auth middleware, as `user_<id>`
+2. `req.ip`, as `ip_<ip>`, grouped as below
+3. Otherwise `anon`
 
-Empty values are skipped, so a blank header doesn't put every client in one bucket.
+Empty values are skipped, so a blank value doesn't put every client in one bucket.
+
+### Limiting by API key: verify it first
+
+The limiter never reads an API key header itself. It can't tell a real key from a made-up one, so a client that sent a new key with every request would get a new limit every time and never be limited ([0026](docs/decisions/0026-no-unverified-api-keys.md)). Check the key in your auth middleware, set `req.user`, and mount the limiter after it:
+
+```ts
+app.use(authenticate); // looks the key up, rejects unknown ones, sets req.user = { id: account.id }
+app.use(rateLimit({ rules }));
+```
+
+Each account then gets its own limit, and requests without a key are limited by IP. Use an account ID, not the key, as `req.user.id`: the ID goes into storage keys, and a raw key must never reach Redis or your logs. [The example](examples/basic/server.ts) does this with a stand-in for real auth.
+
+To limit unauthenticated traffic before auth runs too, mount a second limiter in front of it, which counts by IP.
 
 IPs are grouped so one client can't escape its limit by changing address ([0020](docs/decisions/0020-ipv6-by-64.md)):
 
@@ -424,7 +436,7 @@ examples/basic/hammer.sh 12
 examples/basic/hammer.sh 5 POST /orders
 ```
 
-The 4th order gets a `429`. With the demo's pro key, only the global limit applies:
+The 4th order gets a `429`. With the demo's pro key, only the global limit applies. The demo's stand-in auth accepts any key that starts with `demo-` as an account of its own, and answers `401` to any other:
 
 ```bash
 examples/basic/hammer.sh 5 POST /orders demo-pro-key
@@ -576,7 +588,7 @@ Full runs write to `docs/decisions/data/`, quick runs to `bench/results/`. The r
 
 ## Design
 
-Each design choice is recorded in [docs/decisions](docs/decisions/README.md), with the alternatives and the evidence: why every algorithm sits behind one async interface, why API keys are hashed, what the reset times mean, and more.
+Each design choice is recorded in [docs/decisions](docs/decisions/README.md), with the alternatives and the evidence: why every algorithm sits behind one async interface, why the limiter never trusts an API key it can't verify, what the reset times mean, and more.
 
 ## Development
 

@@ -217,7 +217,7 @@ describe('raw API keys', () => {
       if ('error' in fields) expect(String(fields.error)).not.toContain(apiKey);
       expect(req.headers['x-api-key']).toBe(apiKey);
     }
-    expect(r.decisions[0]?.key).toMatch(/^rl:api:key_[0-9a-f]{16}$/);
+    expect(r.decisions[0]?.key).toMatch(/^rl:api:ip_/);
   });
 });
 

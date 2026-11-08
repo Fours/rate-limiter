@@ -362,11 +362,11 @@ describe('algorithm per rule', () => {
       algorithm: recording('default', seen),
       algorithms: { exact: recording('exact', seen), smooth: recording('smooth', seen) },
     });
-    await request(a).get('/login').set('x-api-key', 'k1');
-    await request(a).get('/other').set('x-api-key', 'k1');
+    await request(a).get('/login');
+    await request(a).get('/other');
     expect(seen).toHaveLength(2);
-    expect(seen[0]).toMatch(/^exact login rl:login:key_/);
-    expect(seen[1]).toMatch(/^default plain rl:plain:key_/);
+    expect(seen[0]).toMatch(/^exact login rl:login:ip_/);
+    expect(seen[1]).toMatch(/^default plain rl:plain:ip_/);
   });
 
   it('uses the in-memory default for rules that name none, when only algorithms is given', async () => {
@@ -466,5 +466,23 @@ describe('algorithm per rule', () => {
         algorithms: { window },
       }),
     ).toThrow(/rule "smooth" has a burst, but its algorithm doesn't take one/);
+  });
+});
+
+describe('made-up API keys (decision 0026)', () => {
+  it("don't bypass the limit: a client sending a new x-api-key each time is still one client", async () => {
+    const { app, handled } = harness();
+    const statuses: number[] = [];
+    for (let i = 0; i < 10; i++) {
+      statuses.push(
+        (
+          await request(app)
+            .get('/')
+            .set('x-api-key', `made-up-${String(i)}`)
+        ).status,
+      );
+    }
+    expect(statuses).toStrictEqual([200, 200, 429, 429, 429, 429, 429, 429, 429, 429]);
+    expect(handled()).toBe(2);
   });
 });

@@ -11,7 +11,8 @@ The first published version.
 - `rateLimit(options)`: Express 5 middleware that limits each client per rule, with a `close()` for shutdown. Invalid options throw at startup, never during a request.
 - Rules match by method, path (exact or `/prefix/*`, matched the way Express routes) and tier. The most specific rule wins.
 - `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset` on every limited request, and `Retry-After` with a `429` and `{ "error": "rate_limited" }` on a denial. All in whole seconds, rounded up.
-- Clients are identified by API key (hashed with sha256, never stored raw), then `req.user.id`, then IP, with IPv6 grouped by /64. `identify` and `tier` options replace or extend this.
+- Clients are identified by `req.user.id`, set by your auth middleware, then by IP, with IPv6 grouped by /64. `identify` and `tier` options replace or extend this.
+- An API key header is never read by the default, since a client could send a new made-up key with each request to get a new limit each time. To limit by key, verify it in your auth middleware and set `req.user` first.
 
 ### Algorithms
 
@@ -37,3 +38,4 @@ The first published version.
 No earlier version was published, so nothing depends on these.
 
 - `TokenBucket` no longer has `sweep()` or `size`, which were there for tests. It has `check`, `close` and `supportsBurst`.
+- `defaultIdentify` no longer reads `x-api-key`, and `IdentifiableRequest` no longer has `headers` (decision 0026).
