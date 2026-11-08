@@ -49,7 +49,6 @@ export async function withTimeout<T>(
   try {
     return await Promise.race([settled, timedOut]);
   } finally {
-    // Cleared on every path, so a fast check leaves no timer behind.
     clearTimeout(timer);
   }
 }

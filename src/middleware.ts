@@ -90,11 +90,11 @@ export function rateLimit(opts: RateLimitOptions): RateLimitMiddleware {
         return;
       }
       const key = buildKey(rule, identify(req));
-      // Only the check is bounded and falls back. An error in identify, tier or matching is a
-      // bug in the caller's code, not an outage, so it reaches the catch below.
       // Every rule was resolved at startup, so a missing entry can't happen; the default is a
       // safe answer if it ever did.
       const checker = algorithmFor.get(rule.id) ?? algorithm;
+      // Only the check is bounded and falls back. An error in identify, tier or matching is a
+      // bug in the caller's code, not an outage, so it reaches the catch below.
       const result = await withTimeout(() => checker.check(key, rule), timeoutMs);
       let source: 'primary' | 'fallback' = 'primary';
       if (result.ok) {

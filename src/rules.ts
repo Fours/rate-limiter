@@ -17,11 +17,8 @@ export type Matcher = (req: MatchableRequest, tier: string | undefined) => Rule 
 interface CompiledRule {
   readonly rule: Rule;
   readonly index: number;
-  /** Normalised exact path, or undefined. */
   readonly exactPath: string | undefined;
-  /** Normalised wildcard prefix ("" for "/*"), or undefined. */
   readonly prefix: string | undefined;
-  /** Upper-cased method, or undefined. */
   readonly method: string | undefined;
 }
 

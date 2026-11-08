@@ -95,6 +95,4 @@ function isThenable(value: unknown): value is PromiseLike<unknown> {
   );
 }
 
-function noop(): void {
-  // Nothing to do.
-}
+function noop(): void {}

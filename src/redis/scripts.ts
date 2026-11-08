@@ -15,7 +15,7 @@ export function defineScript(source: string): LuaScript {
 /**
  * Runs a script by its SHA. If Redis no longer has it cached (after SCRIPT FLUSH, a restart or a
  * failover), runs it once with EVAL, which also caches it again. Exactly one retry, never a
- * loop, so a check stays bounded for the milestone 4 timeout. Any other error is rethrown as is.
+ * loop, so a check stays within the middleware's timeout. Any other error is rethrown as is.
  */
 export async function runScript(
   client: RedisScriptClient,

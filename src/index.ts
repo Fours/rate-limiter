@@ -1,4 +1,5 @@
-// The only public entry point: everything consumers can import is exported from here.
+// The main entry point. Everything public is exported from here, except prometheusHooks, which
+// has its own entry point, prometheus.ts, so this one never loads prom-client.
 export type { Algorithm, Clock, Decision, Rule } from './types.js';
 export { systemClock } from './clock.js';
 export { createTokenBucket } from './algorithms/token-bucket.js';

@@ -31,7 +31,7 @@ export interface InspectableTokenBucket extends TokenBucket {
 
 /**
  * Tokens are stored as integer "units", where one token is `windowMs` units and
- * the bucket refills `limit` units per ms. That is the spec's float maths scaled
+ * the bucket refills `limit` units per ms. That is the usual float maths scaled
  * by `windowMs`, so every value stays an exact integer: after a denial, waiting
  * exactly `resetMs` always yields one token, with no 0.999… rounding misses.
  * It holds up to `burst` tokens, `limit` unless the rule says otherwise. Requires
