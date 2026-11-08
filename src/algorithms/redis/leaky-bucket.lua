@@ -20,16 +20,12 @@ end
 -- burst * windowMs <= 2^51 (rule validation).
 local tolerance = (burst - 1) * window
 
--- floor(a / b) for integers, exact even where a / b in floating point would round to the next
--- integer.
+-- floor(a / b) for integers. Exact without a correction: rule validation keeps |a| below 2^51,
+-- and for |a| < 2^53 the rounding error in a / b is less than 1 / b, the least distance from a
+-- non-integer quotient to an integer, so the floor can't land on the wrong side of one. A
+-- correction step here was found by mutation testing to be unreachable.
 local function floordiv(a, b)
-  local q = math.floor(a / b)
-  if q * b > a then
-    q = q - 1
-  elseif (q + 1) * b <= a then
-    q = q + 1
-  end
-  return q
+  return math.floor(a / b)
 end
 
 local now = rl_now(ARGV[3])
@@ -81,7 +77,7 @@ end
 local room = (now + 1 - tat) * limit - rem + tolerance
 local remaining = 0
 if room > 0 then
-  -- ceil(room / window), exactly: room can be as large as burst * windowMs.
+  -- ceil(room / window): room can be as large as burst * windowMs.
   remaining = -floordiv(-room, window)
 end
 

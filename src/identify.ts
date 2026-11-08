@@ -78,7 +78,7 @@ export function normalizeIp(ip: string): string | undefined {
   const groups = ipv6Groups(address);
   const [, , , , , , g6 = 0, g7 = 0] = groups;
   if (carriesIpv4(groups)) return [g6 >> 8, g6 & 0xff, g7 >> 8, g7 & 0xff].join('.');
-  return `${formatIpv6([...groups.slice(0, 4), 0, 0, 0, 0])}/64`;
+  return `${formatPrefix64(groups)}/64`;
 }
 
 /** Whether the first 96 bits are one of the prefixes that put an IPv4 address in the last 32. */
@@ -111,26 +111,15 @@ function ipv6Groups(address: string): number[] {
   return [...head, ...new Array<number>(8 - head.length - rest.length).fill(0), ...rest];
 }
 
-/** RFC 5952: lowercase hex, no leading zeros, and the longest run of two or more zero groups as `::`. */
-function formatIpv6(groups: readonly number[]): string {
-  let bestStart = -1;
-  let bestLength = 1;
-  for (let i = 0; i < groups.length;) {
-    if (groups[i] !== 0) {
-      i++;
-      continue;
-    }
-    let j = i;
-    while (j < groups.length && groups[j] === 0) j++;
-    if (j - i > bestLength) {
-      bestStart = i;
-      bestLength = j - i;
-    }
-    i = j;
-  }
-  const hex = groups.map((g) => g.toString(16));
-  if (bestStart === -1) return hex.join(':');
-  const head = hex.slice(0, bestStart).join(':');
-  const tail = hex.slice(bestStart + bestLength).join(':');
-  return `${head}::${tail}`;
+/**
+ * The /64 of an address in RFC 5952 form: lowercase hex, no leading zeros, and its last four
+ * groups, all zero, as `::`. A run of zeros among the first four is at most three long, so the
+ * trailing run is always the longest and the only one to compress: `2001:db8:0:1::`,
+ * `0:0:1::`, `::`. A general RFC 5952 formatter was here, but mutation testing showed most of it
+ * could never run.
+ */
+function formatPrefix64(groups: readonly number[]): string {
+  const head = groups.slice(0, 4);
+  while (head.length > 0 && head.at(-1) === 0) head.pop();
+  return `${head.map((g) => g.toString(16)).join(':')}::`;
 }

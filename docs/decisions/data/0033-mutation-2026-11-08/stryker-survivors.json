@@ -1,0 +1,250 @@
+[
+  {
+    "file": "src/algorithms/default-burst.ts",
+    "line": 18,
+    "mutator": "ConditionalExpression",
+    "replacement": "true",
+    "status": "Survived",
+    "original": "return typeof value === 'number' ? value : undefined;"
+  },
+  {
+    "file": "src/algorithms/redis/factory.ts",
+    "line": 29,
+    "mutator": "StringLiteral",
+    "replacement": "\"\"",
+    "status": "Survived",
+    "original": "return defineScript(`${prelude}\\n${readFileSync(new URL(file, base), 'utf8')}`);"
+  },
+  {
+    "file": "src/algorithms/token-bucket.ts",
+    "line": 141,
+    "mutator": "ConditionalExpression",
+    "replacement": "true",
+    "status": "Survived",
+    "original": "existing.limit !== rule.limit ||"
+  },
+  {
+    "file": "src/algorithms/token-bucket.ts",
+    "line": 177,
+    "mutator": "EqualityOperator",
+    "replacement": "fromWindowMs * toWindowMs < 2 ** 53",
+    "status": "Survived",
+    "original": "fromWindowMs * toWindowMs <= 2 ** 53 ? Math.floor((part * toWindowMs) / fromWindowMs) : 0;"
+  },
+  {
+    "file": "src/fallback.ts",
+    "line": 38,
+    "mutator": "ConditionalExpression",
+    "replacement": "false",
+    "status": "Survived",
+    "original": "bucket = createTokenBucket(clock === undefined ? {} : { clock });"
+  },
+  {
+    "file": "src/hooks.ts",
+    "line": 89,
+    "mutator": "ConditionalExpression",
+    "replacement": "false",
+    "status": "Survived",
+    "original": "if (hook === undefined) return;"
+  },
+  {
+    "file": "src/hooks.ts",
+    "line": 92,
+    "mutator": "ConditionalExpression",
+    "replacement": "true",
+    "status": "Survived",
+    "original": "if (isThenable(returned)) returned.then(undefined, noop);"
+  },
+  {
+    "file": "src/hooks.ts",
+    "line": 100,
+    "mutator": "ConditionalExpression",
+    "replacement": "true",
+    "status": "Survived",
+    "original": "typeof value === 'object' &&"
+  },
+  {
+    "file": "src/hooks.ts",
+    "line": 100,
+    "mutator": "LogicalOperator",
+    "replacement": "typeof value === 'object' && value !== null && 'then' in value || typeof value.then === 'function'",
+    "status": "Survived",
+    "original": "typeof value === 'object' &&"
+  },
+  {
+    "file": "src/hooks.ts",
+    "line": 100,
+    "mutator": "ConditionalExpression",
+    "replacement": "true",
+    "status": "Survived",
+    "original": "typeof value === 'object' &&"
+  },
+  {
+    "file": "src/hooks.ts",
+    "line": 100,
+    "mutator": "LogicalOperator",
+    "replacement": "typeof value === 'object' && value !== null || 'then' in value",
+    "status": "Survived",
+    "original": "typeof value === 'object' &&"
+  },
+  {
+    "file": "src/hooks.ts",
+    "line": 100,
+    "mutator": "ConditionalExpression",
+    "replacement": "true",
+    "status": "Survived",
+    "original": "typeof value === 'object' &&"
+  },
+  {
+    "file": "src/hooks.ts",
+    "line": 100,
+    "mutator": "LogicalOperator",
+    "replacement": "typeof value === 'object' || value !== null",
+    "status": "Survived",
+    "original": "typeof value === 'object' &&"
+  },
+  {
+    "file": "src/hooks.ts",
+    "line": 100,
+    "mutator": "ConditionalExpression",
+    "replacement": "true",
+    "status": "Survived",
+    "original": "typeof value === 'object' &&"
+  },
+  {
+    "file": "src/hooks.ts",
+    "line": 101,
+    "mutator": "ConditionalExpression",
+    "replacement": "true",
+    "status": "Survived",
+    "original": "value !== null &&"
+  },
+  {
+    "file": "src/hooks.ts",
+    "line": 103,
+    "mutator": "ConditionalExpression",
+    "replacement": "true",
+    "status": "Survived",
+    "original": "typeof value.then === 'function'"
+  },
+  {
+    "file": "src/identify.ts",
+    "line": 32,
+    "mutator": "StringLiteral",
+    "replacement": "\"Stryker was here!\"",
+    "status": "Survived",
+    "original": "const given = typeof req.ip === 'string' ? req.ip : '';"
+  },
+  {
+    "file": "src/identify.ts",
+    "line": 33,
+    "mutator": "StringLiteral",
+    "replacement": "\"Stryker was here!\"",
+    "status": "Survived",
+    "original": "const ip = normalizeIp(given) ?? normalizeIp(req.socket?.remoteAddress ?? '');"
+  },
+  {
+    "file": "src/identify.ts",
+    "line": 51,
+    "mutator": "ConditionalExpression",
+    "replacement": "true",
+    "status": "Survived",
+    "original": "if (typeof id === 'number' && Number.isFinite(id)) return String(id);"
+  },
+  {
+    "file": "src/identify.ts",
+    "line": 123,
+    "mutator": "EqualityOperator",
+    "replacement": "head.length >= 0",
+    "status": "Survived",
+    "original": "while (head.length > 0 && head.at(-1) === 0) head.pop();"
+  },
+  {
+    "file": "src/identify.ts",
+    "line": 123,
+    "mutator": "ConditionalExpression",
+    "replacement": "true",
+    "status": "Survived",
+    "original": "while (head.length > 0 && head.at(-1) === 0) head.pop();"
+  },
+  {
+    "file": "src/middleware.ts",
+    "line": 264,
+    "mutator": "ConditionalExpression",
+    "replacement": "true",
+    "status": "Survived",
+    "original": "return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;"
+  },
+  {
+    "file": "src/middleware.ts",
+    "line": 286,
+    "mutator": "ConditionalExpression",
+    "replacement": "false",
+    "status": "Survived",
+    "original": "const burst = checker === undefined ? undefined : defaultBurstOf(checker);"
+  },
+  {
+    "file": "src/prometheus.ts",
+    "line": 119,
+    "mutator": "ConditionalExpression",
+    "replacement": "false",
+    "status": "Survived",
+    "original": "if (typeof bucket !== 'number' || !Number.isFinite(bucket) || bucket <= previous) {"
+  },
+  {
+    "file": "src/redis/scripts.ts",
+    "line": 12,
+    "mutator": "StringLiteral",
+    "replacement": "\"\"",
+    "status": "RuntimeError",
+    "original": "return { source, sha: createHash('sha1').update(source).digest('hex') };"
+  },
+  {
+    "file": "src/rules-file.ts",
+    "line": 82,
+    "mutator": "ConditionalExpression",
+    "replacement": "true",
+    "status": "Survived",
+    "original": "if (error instanceof InvalidRuleError && prefix !== '') {"
+  },
+  {
+    "file": "src/rules-file.ts",
+    "line": 82,
+    "mutator": "LogicalOperator",
+    "replacement": "error instanceof InvalidRuleError || prefix !== ''",
+    "status": "Survived",
+    "original": "if (error instanceof InvalidRuleError && prefix !== '') {"
+  },
+  {
+    "file": "src/rules-file.ts",
+    "line": 82,
+    "mutator": "ConditionalExpression",
+    "replacement": "true",
+    "status": "Survived",
+    "original": "if (error instanceof InvalidRuleError && prefix !== '') {"
+  },
+  {
+    "file": "src/rules-file.ts",
+    "line": 82,
+    "mutator": "StringLiteral",
+    "replacement": "\"Stryker was here!\"",
+    "status": "Survived",
+    "original": "if (error instanceof InvalidRuleError && prefix !== '') {"
+  },
+  {
+    "file": "src/rules-file.ts",
+    "line": 133,
+    "mutator": "StringLiteral",
+    "replacement": "\"\"",
+    "status": "Survived",
+    "original": "`${label}: unknown field ${JSON.stringify(unknown)}; allowed fields are ${allowed.join(', ')}`,"
+  },
+  {
+    "file": "src/rules.ts",
+    "line": 154,
+    "mutator": "BooleanLiteral",
+    "replacement": "true",
+    "status": "Survived",
+    "original": "const wildcard = rule.path?.endsWith('/*') ?? false;"
+  }
+]

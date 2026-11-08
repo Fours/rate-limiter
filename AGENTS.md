@@ -36,6 +36,8 @@ npm test            # unit tests only, no Redis needed
 npm run redis:up    # test Redis on port 6390 (docker-compose.test.yml)
 npm run test:integration   # needs the test Redis
 npm run coverage    # unit + integration, so it needs the test Redis too
+npm run mutate      # Stryker on src/ (minutes; needs the test Redis); reports/mutation/
+npm run mutate:lua  # mutates the Lua scripts in place, one at a time; don't edit them meanwhile
 npm run redis:down
 npm run build       # tsc → dist/
 npm run test:package   # builds, then tests the built package: entry points, export list, TSDoc
@@ -88,6 +90,7 @@ docs/                   milestone specs and design notes
 - Every behaviour listed in a milestone spec's "Done when" needs a test.
 - Keep line coverage on `src/` at 90% or higher.
 - Prove that the important tests can fail. After a task's tests pass, temporarily break each key behaviour, such as a fix to the spec or a guard against bypassing a limit. Check that a test fails, then restore the code, and say in the commit message what you broke. Coverage shows that code ran, not that a test would notice it being wrong.
+- Mutation testing automates the break checks ([0033](docs/decisions/0033-mutation-testing.md)). After changing an algorithm, its Lua or other logic in `src/`, run `npm run mutate -- --mutate src/<file>.ts` or `npm run mutate:lua -- <script>` for what you changed. Kill each new survivor with a test, or list it in 0033 with the reason it can't change behaviour.
 - Check library behaviour instead of assuming it. Before you design around how Express, Redis or Node behaves, run a quick probe against the installed version, for example a throwaway Express app that logs `req.baseUrl` and `req.path`. Then turn what you find into a test against the real library. Decision 0011 came from a probe like this.
 
 ## Style

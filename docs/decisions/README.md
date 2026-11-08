@@ -48,3 +48,4 @@ When you change a decision, update its record in the same commit as the code.
 | [0030](0030-match-dot-dot-both-ways.md) | Match a path with `..` both as routed and as resolved | Accepted | 5 |
 | [0031](0031-two-rules-on-one-key.md) | A rule change keeps a client's progress, even when two rules share a key | Accepted | 5 |
 | [0032](0032-unknown-fields-throw-in-code-too.md) | Unknown rule fields and options throw in code too, not only in files | Accepted | 5 |
+| [0033](0033-mutation-testing.md) | Mutation testing, with Stryker for the TypeScript and a mutator of our own for the Lua | Accepted | 5 |

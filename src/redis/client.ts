@@ -21,9 +21,6 @@ export interface NodeRedisLike {
   eval(script: string, options: { keys: string[]; arguments: string[] }): Promise<unknown>;
 }
 
-/** Marks clients made by the adapters, so a raw ioredis client can be told apart at startup. */
-const ADAPTED = Symbol('rate-limiter.adapted');
-
 /**
  * Adapts an [ioredis](https://github.com/redis/ioredis) client for the Redis algorithms. The
  * client stays yours: connect, configure and close it yourself. Any reply settings work,
@@ -34,12 +31,12 @@ const ADAPTED = Symbol('rate-limiter.adapted');
 export function fromIoredis(client: IoredisLike): RedisScriptClient {
   // node-redis spells it evalSha, so this also catches the wrong client being passed, at startup.
   assertMethods(client, ['evalsha', 'eval'], 'fromIoredis', 'fromNodeRedis');
-  return mark({
+  return {
     evalsha: (sha, keys, args) =>
       client.evalsha(sha, keys.length, ...keys, ...args).then(integersFromStrings),
     eval: (script, keys, args) =>
       client.eval(script, keys.length, ...keys, ...args).then(integersFromStrings),
-  });
+  };
 }
 
 /**
@@ -62,14 +59,10 @@ function integersFromStrings(reply: unknown): unknown {
  */
 export function fromNodeRedis(client: NodeRedisLike): RedisScriptClient {
   assertMethods(client, ['evalSha', 'eval'], 'fromNodeRedis', 'fromIoredis');
-  return mark({
+  return {
     evalsha: (sha, keys, args) => client.evalSha(sha, { keys, arguments: args }),
     eval: (script, keys, args) => client.eval(script, { keys, arguments: args }),
-  });
-}
-
-function mark(client: RedisScriptClient): RedisScriptClient {
-  return Object.defineProperty(client, ADAPTED, { value: true });
+  };
 }
 
 /**
@@ -91,7 +84,8 @@ export function assertScriptClient(
       `${where}: this looks like a node-redis client. Wrap it: fromNodeRedis(client)`,
     );
   }
-  if (client[ADAPTED] !== true && typeof client.defineCommand === 'function') {
+  // The adapters' own clients have no defineCommand, so only a raw ioredis client is caught.
+  if (typeof client.defineCommand === 'function') {
     throw new TypeError(
       `${where}: this looks like an ioredis client. Wrap it: fromIoredis(client)`,
     );

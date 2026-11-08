@@ -62,10 +62,14 @@ if allowed == 1 then
   resetMs = 2 * W - e
 else
   -- The smallest wait after which one more request fits, if nothing else arrives meanwhile.
-  -- 1. Later in this window, as the previous window's share shrinks.
-  if curr + 1 <= limit and prev > 0 then
+  -- 1. Later in this window, as the previous window's share shrinks: the smallest t with
+  --    prev * (W - e - t) + (curr + 1) * W <= limit * W. Only t < W - e is this window. Since
+  --    this request was denied, t is at least 1. With curr + 1 > limit, t is at least W - e, so
+  --    that case needs no check of its own, and at t = W - e exactly case 2 gives the same wait.
+  --    (Mutation testing found the checks these replace could never change the answer.)
+  if prev > 0 then
     local t = W - e - math.floor((limit - curr - 1) * W / prev)
-    if t >= 1 and e + t < W then
+    if t < W - e then
       resetMs = t
     end
   end

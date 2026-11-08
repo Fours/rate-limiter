@@ -16,7 +16,6 @@ export type Matcher = (req: MatchableRequest, tier: string | undefined) => Rule 
 
 interface CompiledRule {
   readonly rule: Rule;
-  readonly index: number;
   readonly exactPath: string | undefined;
   readonly prefix: string | undefined;
   readonly method: string | undefined;
@@ -64,7 +63,7 @@ export function createMatcher(rules: readonly Rule[]): Matcher {
   // request matched is handed to algorithms and hooks, which mustn't change it either.
   const frozen = rules.map((rule) => Object.freeze({ ...rule }));
   // A rule's specificity doesn't depend on the request, so rank once and take the first match.
-  const ranked = frozen.map(compileRule).sort(bySpecificity);
+  const ranked = frozen.map((rule) => compileRule(rule)).sort(bySpecificity);
 
   return (req, tier) => {
     // Express's routing keeps ".." as a segment, while express.static resolves it, so either
@@ -151,11 +150,10 @@ function isPositiveInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
 }
 
-function compileRule(rule: Rule, index: number): CompiledRule {
+function compileRule(rule: Rule): CompiledRule {
   const wildcard = rule.path?.endsWith('/*') ?? false;
   return {
     rule,
-    index,
     exactPath: rule.path !== undefined && !wildcard ? normalisePath(rule.path) : undefined,
     prefix: rule.path !== undefined && wildcard ? wildcardPrefix(rule.path) : undefined,
     method: rule.method?.toUpperCase(),
@@ -223,14 +221,17 @@ function pathRank(c: CompiledRule): number {
   return c.prefix !== undefined ? 1 : 0;
 }
 
-/** Most specific first: path kind, longer wildcard prefix, tier set, method set, then declaration order. */
+/**
+ * Most specific first: path kind, longer wildcard prefix, tier set, method set. Ties keep
+ * declaration order, since Array.prototype.sort is stable; a tie-break on the index was found by
+ * mutation testing to make no difference.
+ */
 function bySpecificity(a: CompiledRule, b: CompiledRule): number {
   return (
     pathRank(b) - pathRank(a) ||
     (b.prefix?.length ?? 0) - (a.prefix?.length ?? 0) ||
     Number(b.rule.tier !== undefined) - Number(a.rule.tier !== undefined) ||
-    Number(b.method !== undefined) - Number(a.method !== undefined) ||
-    a.index - b.index
+    Number(b.method !== undefined) - Number(a.method !== undefined)
   );
 }
 

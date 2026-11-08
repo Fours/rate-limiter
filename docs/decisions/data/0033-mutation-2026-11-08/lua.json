@@ -1,0 +1,2418 @@
+[
+  {
+    "file": "src/algorithms/redis/prelude.lua",
+    "line": 15,
+    "label": "~= to ==",
+    "original": "if override ~= '' then",
+    "mutated": "if override == '' then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/prelude.lua",
+    "line": 19,
+    "label": "+ to -",
+    "original": "return tonumber(t[1]) * 1000 + math.floor(tonumber(t[2]) / 1000)",
+    "mutated": "return tonumber(t[1]) * 1000 - math.floor(tonumber(t[2]) / 1000)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/prelude.lua",
+    "line": 19,
+    "label": "* to /",
+    "original": "return tonumber(t[1]) * 1000 + math.floor(tonumber(t[2]) / 1000)",
+    "mutated": "return tonumber(t[1]) / 1000 + math.floor(tonumber(t[2]) / 1000)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/prelude.lua",
+    "line": 19,
+    "label": "/ to *",
+    "original": "return tonumber(t[1]) * 1000 + math.floor(tonumber(t[2]) / 1000)",
+    "mutated": "return tonumber(t[1]) * 1000 + math.floor(tonumber(t[2]) * 1000)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/prelude.lua",
+    "line": 19,
+    "label": "floor to ceil",
+    "original": "return tonumber(t[1]) * 1000 + math.floor(tonumber(t[2]) / 1000)",
+    "mutated": "return tonumber(t[1]) * 1000 + math.ceil(tonumber(t[2]) / 1000)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/prelude.lua",
+    "line": 19,
+    "label": "n to n + 1",
+    "original": "return tonumber(t[1]) * 1000 + math.floor(tonumber(t[2]) / 1000)",
+    "mutated": "return tonumber(t[2]) * 1000 + math.floor(tonumber(t[2]) / 1000)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/prelude.lua",
+    "line": 19,
+    "label": "n to n + 1",
+    "original": "return tonumber(t[1]) * 1000 + math.floor(tonumber(t[2]) / 1000)",
+    "mutated": "return tonumber(t[1]) * 1001 + math.floor(tonumber(t[2]) / 1000)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/prelude.lua",
+    "line": 19,
+    "label": "n to n + 1",
+    "original": "return tonumber(t[1]) * 1000 + math.floor(tonumber(t[2]) / 1000)",
+    "mutated": "return tonumber(t[1]) * 1000 + math.floor(tonumber(t[3]) / 1000)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/prelude.lua",
+    "line": 19,
+    "label": "n to n + 1",
+    "original": "return tonumber(t[1]) * 1000 + math.floor(tonumber(t[2]) / 1000)",
+    "mutated": "return tonumber(t[1]) * 1000 + math.floor(tonumber(t[2]) / 1001)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/prelude.lua",
+    "line": 28,
+    "label": "== to ~=",
+    "original": "if actual == 'none' then",
+    "mutated": "if actual ~= 'none' then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/prelude.lua",
+    "line": 32,
+    "label": "~= to ==",
+    "original": "if actual ~= kind then",
+    "mutated": "if actual == kind then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/prelude.lua",
+    "line": 34,
+    "label": "== to ~=",
+    "original": "elseif kind == 'hash' then",
+    "mutated": "elseif kind ~= 'hash' then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/prelude.lua",
+    "line": 35,
+    "label": "== to ~=",
+    "original": "ours = redis.call('HGET', key, 'alg') == tag",
+    "mutated": "ours = redis.call('HGET', key, 'alg') ~= tag",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/prelude.lua",
+    "line": 37,
+    "label": "~= to ==",
+    "original": "ours = redis.call('ZSCORE', key, tag) ~= false",
+    "mutated": "ours = redis.call('ZSCORE', key, tag) == false",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/prelude.lua",
+    "line": 39,
+    "label": "drop not",
+    "original": "if not ours then",
+    "mutated": "if ours then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/prelude.lua",
+    "line": 40,
+    "label": "delete call",
+    "original": "redis.call('DEL', key)",
+    "mutated": "(deleted)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 7,
+    "label": "n to n + 1",
+    "original": "local key = KEYS[1]",
+    "mutated": "local key = KEYS[2]",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 8,
+    "label": "n to n + 1",
+    "original": "local limit = tonumber(ARGV[1])",
+    "mutated": "local limit = tonumber(ARGV[2])",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 9,
+    "label": "n to n + 1",
+    "original": "local window = tonumber(ARGV[2])",
+    "mutated": "local window = tonumber(ARGV[3])",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 11,
+    "label": "~= to ==",
+    "original": "if ARGV[4] ~= nil and ARGV[4] ~= '' then",
+    "mutated": "if ARGV[4] == nil and ARGV[4] ~= '' then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 11,
+    "label": "~= to ==",
+    "original": "if ARGV[4] ~= nil and ARGV[4] ~= '' then",
+    "mutated": "if ARGV[4] ~= nil and ARGV[4] == '' then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 11,
+    "label": "and to or",
+    "original": "if ARGV[4] ~= nil and ARGV[4] ~= '' then",
+    "mutated": "if ARGV[4] ~= nil or ARGV[4] ~= '' then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 11,
+    "label": "n to n + 1",
+    "original": "if ARGV[4] ~= nil and ARGV[4] ~= '' then",
+    "mutated": "if ARGV[5] ~= nil and ARGV[4] ~= '' then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 11,
+    "label": "n to n + 1",
+    "original": "if ARGV[4] ~= nil and ARGV[4] ~= '' then",
+    "mutated": "if ARGV[4] ~= nil and ARGV[5] ~= '' then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 12,
+    "label": "n to n + 1",
+    "original": "burst = tonumber(ARGV[4])",
+    "mutated": "burst = tonumber(ARGV[5])",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 15,
+    "label": "n to n + 1",
+    "original": "local now = rl_now(ARGV[3])",
+    "mutated": "local now = rl_now(ARGV[4])",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 21,
+    "label": "- to +",
+    "original": "local elapsed = math.max(0, now - last)",
+    "mutated": "local elapsed = math.max(0, now + last)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 21,
+    "label": "max to min",
+    "original": "local elapsed = math.max(0, now - last)",
+    "mutated": "local elapsed = math.min(0, now - last)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 21,
+    "label": "n to n + 1",
+    "original": "local elapsed = math.max(0, now - last)",
+    "mutated": "local elapsed = math.max(1, now - last)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 22,
+    "label": "+ to -",
+    "original": "return math.min(cap * win, units + elapsed * lim), math.max(last, now)",
+    "mutated": "return math.min(cap * win, units - elapsed * lim), math.max(last, now)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 22,
+    "label": "* to /",
+    "original": "return math.min(cap * win, units + elapsed * lim), math.max(last, now)",
+    "mutated": "return math.min(cap / win, units + elapsed * lim), math.max(last, now)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 22,
+    "label": "* to /",
+    "original": "return math.min(cap * win, units + elapsed * lim), math.max(last, now)",
+    "mutated": "return math.min(cap * win, units + elapsed / lim), math.max(last, now)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 22,
+    "label": "max to min",
+    "original": "return math.min(cap * win, units + elapsed * lim), math.max(last, now)",
+    "mutated": "return math.min(cap * win, units + elapsed * lim), math.min(last, now)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 22,
+    "label": "min to max",
+    "original": "return math.min(cap * win, units + elapsed * lim), math.max(last, now)",
+    "mutated": "return math.max(cap * win, units + elapsed * lim), math.max(last, now)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 25,
+    "label": "* to /",
+    "original": "local capacity = burst * window",
+    "mutated": "local capacity = burst / window",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 28,
+    "label": "drop not",
+    "original": "if not stored[1] then",
+    "mutated": "if stored[1] then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 28,
+    "label": "n to n + 1",
+    "original": "if not stored[1] then",
+    "mutated": "if not stored[2] then",
+    "status": "survived"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 32,
+    "label": "n to n + 1",
+    "original": "units, last = tonumber(stored[1]), tonumber(stored[2])",
+    "mutated": "units, last = tonumber(stored[2]), tonumber(stored[2])",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 32,
+    "label": "n to n + 1",
+    "original": "units, last = tonumber(stored[1]), tonumber(stored[2])",
+    "mutated": "units, last = tonumber(stored[1]), tonumber(stored[3])",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 33,
+    "label": "n to n + 1",
+    "original": "local oldLimit, oldWindow = tonumber(stored[3]), tonumber(stored[4])",
+    "mutated": "local oldLimit, oldWindow = tonumber(stored[4]), tonumber(stored[4])",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 33,
+    "label": "n to n + 1",
+    "original": "local oldLimit, oldWindow = tonumber(stored[3]), tonumber(stored[4])",
+    "mutated": "local oldLimit, oldWindow = tonumber(stored[3]), tonumber(stored[5])",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 35,
+    "label": "or to and",
+    "original": "local oldBurst = tonumber(stored[5]) or oldLimit",
+    "mutated": "local oldBurst = tonumber(stored[5]) and oldLimit",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 35,
+    "label": "n to n + 1",
+    "original": "local oldBurst = tonumber(stored[5]) or oldLimit",
+    "mutated": "local oldBurst = tonumber(stored[6]) or oldLimit",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 36,
+    "label": "~= to ==",
+    "original": "if oldLimit ~= limit or oldWindow ~= window or oldBurst ~= burst then",
+    "mutated": "if oldLimit == limit or oldWindow ~= window or oldBurst ~= burst then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 36,
+    "label": "~= to ==",
+    "original": "if oldLimit ~= limit or oldWindow ~= window or oldBurst ~= burst then",
+    "mutated": "if oldLimit ~= limit or oldWindow == window or oldBurst ~= burst then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 36,
+    "label": "~= to ==",
+    "original": "if oldLimit ~= limit or oldWindow ~= window or oldBurst ~= burst then",
+    "mutated": "if oldLimit ~= limit or oldWindow ~= window or oldBurst == burst then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 36,
+    "label": "or to and",
+    "original": "if oldLimit ~= limit or oldWindow ~= window or oldBurst ~= burst then",
+    "mutated": "if oldLimit ~= limit and oldWindow ~= window or oldBurst ~= burst then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 36,
+    "label": "or to and",
+    "original": "if oldLimit ~= limit or oldWindow ~= window or oldBurst ~= burst then",
+    "mutated": "if oldLimit ~= limit or oldWindow ~= window and oldBurst ~= burst then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 39,
+    "label": "== to ~=",
+    "original": "if units == oldBurst * oldWindow then",
+    "mutated": "if units ~= oldBurst * oldWindow then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 39,
+    "label": "* to /",
+    "original": "if units == oldBurst * oldWindow then",
+    "mutated": "if units == oldBurst / oldWindow then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 49,
+    "label": "/ to *",
+    "original": "local tokens, part = math.floor(units / oldWindow), units % oldWindow",
+    "mutated": "local tokens, part = math.floor(units * oldWindow), units % oldWindow",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 49,
+    "label": "floor to ceil",
+    "original": "local tokens, part = math.floor(units / oldWindow), units % oldWindow",
+    "mutated": "local tokens, part = math.ceil(units / oldWindow), units % oldWindow",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 50,
+    "label": "n to n + 1",
+    "original": "local fraction = 0",
+    "mutated": "local fraction = 1",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 52,
+    "label": "<= to <",
+    "original": "if oldWindow * window <= 9007199254740992 then",
+    "mutated": "if oldWindow * window < 9007199254740992 then",
+    "status": "survived"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 52,
+    "label": "* to /",
+    "original": "if oldWindow * window <= 9007199254740992 then",
+    "mutated": "if oldWindow / window <= 9007199254740992 then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 52,
+    "label": "n to n + 1",
+    "original": "if oldWindow * window <= 9007199254740992 then",
+    "mutated": "if oldWindow * window <= 9007199254740992 then",
+    "status": "survived"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 53,
+    "label": "* to /",
+    "original": "fraction = math.floor(part * window / oldWindow)",
+    "mutated": "fraction = math.floor(part / window / oldWindow)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 53,
+    "label": "/ to *",
+    "original": "fraction = math.floor(part * window / oldWindow)",
+    "mutated": "fraction = math.floor(part * window * oldWindow)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 53,
+    "label": "floor to ceil",
+    "original": "fraction = math.floor(part * window / oldWindow)",
+    "mutated": "fraction = math.ceil(part * window / oldWindow)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 55,
+    "label": "+ to -",
+    "original": "units = math.min(capacity, tokens * window + fraction)",
+    "mutated": "units = math.min(capacity, tokens * window - fraction)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 55,
+    "label": "* to /",
+    "original": "units = math.min(capacity, tokens * window + fraction)",
+    "mutated": "units = math.min(capacity, tokens / window + fraction)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 55,
+    "label": "min to max",
+    "original": "units = math.min(capacity, tokens * window + fraction)",
+    "mutated": "units = math.max(capacity, tokens * window + fraction)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 61,
+    "label": "n to n + 1",
+    "original": "local allowed = 0",
+    "mutated": "local allowed = 1",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 62,
+    "label": ">= to >",
+    "original": "if units >= window then",
+    "mutated": "if units > window then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 63,
+    "label": "- to +",
+    "original": "units = units - window",
+    "mutated": "units = units + window",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 64,
+    "label": "n to n + 1",
+    "original": "allowed = 1",
+    "mutated": "allowed = 2",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 69,
+    "label": "== to ~=",
+    "original": "if allowed == 1 then",
+    "mutated": "if allowed ~= 1 then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 69,
+    "label": "n to n + 1",
+    "original": "if allowed == 1 then",
+    "mutated": "if allowed == 2 then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 70,
+    "label": "- to +",
+    "original": "missing = capacity - units",
+    "mutated": "missing = capacity + units",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 72,
+    "label": "- to +",
+    "original": "missing = window - units",
+    "mutated": "missing = window + units",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 74,
+    "label": "/ to *",
+    "original": "local resetMs = math.ceil(missing / limit)",
+    "mutated": "local resetMs = math.ceil(missing * limit)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 74,
+    "label": "ceil to floor",
+    "original": "local resetMs = math.ceil(missing / limit)",
+    "mutated": "local resetMs = math.floor(missing / limit)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 75,
+    "label": "/ to *",
+    "original": "local remaining = math.floor(units / window)",
+    "mutated": "local remaining = math.floor(units * window)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 75,
+    "label": "floor to ceil",
+    "original": "local remaining = math.floor(units / window)",
+    "mutated": "local remaining = math.ceil(units / window)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 81,
+    "label": "~= to ==",
+    "original": "if burst ~= limit then",
+    "mutated": "if burst == limit then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 82,
+    "label": "delete call",
+    "original": "redis.call('HSET', key, 'burst', burst)",
+    "mutated": "(deleted)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 83,
+    "label": "n to n + 1",
+    "original": "elseif stored[5] then",
+    "mutated": "elseif stored[6] then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 84,
+    "label": "delete call",
+    "original": "redis.call('HDEL', key, 'burst')",
+    "mutated": "(deleted)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 88,
+    "label": "- to +",
+    "original": "redis.call('PEXPIRE', key, math.ceil((capacity - units) / limit))",
+    "mutated": "redis.call('PEXPIRE', key, math.ceil((capacity + units) / limit))",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 88,
+    "label": "/ to *",
+    "original": "redis.call('PEXPIRE', key, math.ceil((capacity - units) / limit))",
+    "mutated": "redis.call('PEXPIRE', key, math.ceil((capacity - units) * limit))",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 88,
+    "label": "ceil to floor",
+    "original": "redis.call('PEXPIRE', key, math.ceil((capacity - units) / limit))",
+    "mutated": "redis.call('PEXPIRE', key, math.floor((capacity - units) / limit))",
+    "status": "survived"
+  },
+  {
+    "file": "src/algorithms/redis/token-bucket.lua",
+    "line": 88,
+    "label": "delete call",
+    "original": "redis.call('PEXPIRE', key, math.ceil((capacity - units) / limit))",
+    "mutated": "(deleted)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 12,
+    "label": "n to n + 1",
+    "original": "local key = KEYS[1]",
+    "mutated": "local key = KEYS[2]",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 13,
+    "label": "n to n + 1",
+    "original": "local limit = tonumber(ARGV[1])",
+    "mutated": "local limit = tonumber(ARGV[2])",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 14,
+    "label": "n to n + 1",
+    "original": "local window = tonumber(ARGV[2])",
+    "mutated": "local window = tonumber(ARGV[3])",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 15,
+    "label": "n to n + 1",
+    "original": "local burst = 1",
+    "mutated": "local burst = 2",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 16,
+    "label": "~= to ==",
+    "original": "if ARGV[4] ~= nil and ARGV[4] ~= '' then",
+    "mutated": "if ARGV[4] == nil and ARGV[4] ~= '' then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 16,
+    "label": "~= to ==",
+    "original": "if ARGV[4] ~= nil and ARGV[4] ~= '' then",
+    "mutated": "if ARGV[4] ~= nil and ARGV[4] == '' then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 16,
+    "label": "and to or",
+    "original": "if ARGV[4] ~= nil and ARGV[4] ~= '' then",
+    "mutated": "if ARGV[4] ~= nil or ARGV[4] ~= '' then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 16,
+    "label": "n to n + 1",
+    "original": "if ARGV[4] ~= nil and ARGV[4] ~= '' then",
+    "mutated": "if ARGV[5] ~= nil and ARGV[4] ~= '' then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 16,
+    "label": "n to n + 1",
+    "original": "if ARGV[4] ~= nil and ARGV[4] ~= '' then",
+    "mutated": "if ARGV[4] ~= nil and ARGV[5] ~= '' then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 17,
+    "label": "n to n + 1",
+    "original": "burst = tonumber(ARGV[4])",
+    "mutated": "burst = tonumber(ARGV[5])",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 21,
+    "label": "- to +",
+    "original": "local tolerance = (burst - 1) * window",
+    "mutated": "local tolerance = (burst + 1) * window",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 21,
+    "label": "* to /",
+    "original": "local tolerance = (burst - 1) * window",
+    "mutated": "local tolerance = (burst - 1) / window",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 21,
+    "label": "n to n + 1",
+    "original": "local tolerance = (burst - 1) * window",
+    "mutated": "local tolerance = (burst - 2) * window",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 28,
+    "label": "/ to *",
+    "original": "return math.floor(a / b)",
+    "mutated": "return math.floor(a * b)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 28,
+    "label": "floor to ceil",
+    "original": "return math.floor(a / b)",
+    "mutated": "return math.ceil(a / b)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 31,
+    "label": "n to n + 1",
+    "original": "local now = rl_now(ARGV[3])",
+    "mutated": "local now = rl_now(ARGV[4])",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 35,
+    "label": "/ to *",
+    "original": "local step_ms = math.floor(window / limit)",
+    "mutated": "local step_ms = math.floor(window * limit)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 35,
+    "label": "floor to ceil",
+    "original": "local step_ms = math.floor(window / limit)",
+    "mutated": "local step_ms = math.ceil(window / limit)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 36,
+    "label": "- to +",
+    "original": "local step_rem = window - step_ms * limit",
+    "mutated": "local step_rem = window + step_ms * limit",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 36,
+    "label": "* to /",
+    "original": "local step_rem = window - step_ms * limit",
+    "mutated": "local step_rem = window - step_ms / limit",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 39,
+    "label": "n to n + 1",
+    "original": "local tat, rem = now, 0",
+    "mutated": "local tat, rem = now, 1",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 40,
+    "label": "n to n + 1",
+    "original": "if stored[1] then",
+    "mutated": "if stored[2] then",
+    "status": "survived"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 42,
+    "label": "max to min",
+    "original": "now = math.max(now, tonumber(stored[5]))",
+    "mutated": "now = math.min(now, tonumber(stored[5]))",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 42,
+    "label": "n to n + 1",
+    "original": "now = math.max(now, tonumber(stored[5]))",
+    "mutated": "now = math.max(now, tonumber(stored[6]))",
+    "status": "invalid"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 43,
+    "label": "n to n + 1",
+    "original": "tat, rem = tonumber(stored[1]), tonumber(stored[2])",
+    "mutated": "tat, rem = tonumber(stored[2]), tonumber(stored[2])",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 43,
+    "label": "n to n + 1",
+    "original": "tat, rem = tonumber(stored[1]), tonumber(stored[2])",
+    "mutated": "tat, rem = tonumber(stored[1]), tonumber(stored[3])",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 44,
+    "label": "~= to ==",
+    "original": "if tonumber(stored[3]) ~= limit or tonumber(stored[4]) ~= window then",
+    "mutated": "if tonumber(stored[3]) == limit or tonumber(stored[4]) ~= window then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 44,
+    "label": "~= to ==",
+    "original": "if tonumber(stored[3]) ~= limit or tonumber(stored[4]) ~= window then",
+    "mutated": "if tonumber(stored[3]) ~= limit or tonumber(stored[4]) == window then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 44,
+    "label": "or to and",
+    "original": "if tonumber(stored[3]) ~= limit or tonumber(stored[4]) ~= window then",
+    "mutated": "if tonumber(stored[3]) ~= limit and tonumber(stored[4]) ~= window then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 44,
+    "label": "n to n + 1",
+    "original": "if tonumber(stored[3]) ~= limit or tonumber(stored[4]) ~= window then",
+    "mutated": "if tonumber(stored[4]) ~= limit or tonumber(stored[4]) ~= window then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 44,
+    "label": "n to n + 1",
+    "original": "if tonumber(stored[3]) ~= limit or tonumber(stored[4]) ~= window then",
+    "mutated": "if tonumber(stored[3]) ~= limit or tonumber(stored[5]) ~= window then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 47,
+    "label": "> to >=",
+    "original": "if rem > 0 then",
+    "mutated": "if rem >= 0 then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 47,
+    "label": "n to n + 1",
+    "original": "if rem > 0 then",
+    "mutated": "if rem > 1 then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 48,
+    "label": "+ to -",
+    "original": "tat = tat + 1",
+    "mutated": "tat = tat - 1",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 48,
+    "label": "n to n + 1",
+    "original": "tat = tat + 1",
+    "mutated": "tat = tat + 2",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 50,
+    "label": "n to n + 1",
+    "original": "rem = 0",
+    "mutated": "rem = 1",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 54,
+    "label": "< to <=",
+    "original": "if tat < now then",
+    "mutated": "if tat <= now then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 55,
+    "label": "n to n + 1",
+    "original": "tat, rem = now, 0",
+    "mutated": "tat, rem = now, 1",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 63,
+    "label": "n to n + 1",
+    "original": "local allowed = 0",
+    "mutated": "local allowed = 1",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 64,
+    "label": "< to <=",
+    "original": "if (tat - now) * limit + rem - tolerance < limit then",
+    "mutated": "if (tat - now) * limit + rem - tolerance <= limit then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 64,
+    "label": "+ to -",
+    "original": "if (tat - now) * limit + rem - tolerance < limit then",
+    "mutated": "if (tat - now) * limit - rem - tolerance < limit then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 64,
+    "label": "- to +",
+    "original": "if (tat - now) * limit + rem - tolerance < limit then",
+    "mutated": "if (tat + now) * limit + rem - tolerance < limit then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 64,
+    "label": "- to +",
+    "original": "if (tat - now) * limit + rem - tolerance < limit then",
+    "mutated": "if (tat - now) * limit + rem + tolerance < limit then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 64,
+    "label": "* to /",
+    "original": "if (tat - now) * limit + rem - tolerance < limit then",
+    "mutated": "if (tat - now) / limit + rem - tolerance < limit then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 65,
+    "label": "n to n + 1",
+    "original": "allowed = 1",
+    "mutated": "allowed = 2",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 66,
+    "label": "+ to -",
+    "original": "tat = tat + step_ms",
+    "mutated": "tat = tat - step_ms",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 67,
+    "label": "+ to -",
+    "original": "rem = rem + step_rem",
+    "mutated": "rem = rem - step_rem",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 68,
+    "label": ">= to >",
+    "original": "if rem >= limit then",
+    "mutated": "if rem > limit then",
+    "status": "survived"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 69,
+    "label": "- to +",
+    "original": "rem = rem - limit",
+    "mutated": "rem = rem + limit",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 70,
+    "label": "+ to -",
+    "original": "tat = tat + 1",
+    "mutated": "tat = tat - 1",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 70,
+    "label": "n to n + 1",
+    "original": "tat = tat + 1",
+    "mutated": "tat = tat + 2",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 77,
+    "label": "+ to -",
+    "original": "local room = (now + 1 - tat) * limit - rem + tolerance",
+    "mutated": "local room = (now - 1 - tat) * limit - rem + tolerance",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 77,
+    "label": "+ to -",
+    "original": "local room = (now + 1 - tat) * limit - rem + tolerance",
+    "mutated": "local room = (now + 1 - tat) * limit - rem - tolerance",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 77,
+    "label": "- to +",
+    "original": "local room = (now + 1 - tat) * limit - rem + tolerance",
+    "mutated": "local room = (now + 1 + tat) * limit - rem + tolerance",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 77,
+    "label": "- to +",
+    "original": "local room = (now + 1 - tat) * limit - rem + tolerance",
+    "mutated": "local room = (now + 1 - tat) * limit + rem + tolerance",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 77,
+    "label": "* to /",
+    "original": "local room = (now + 1 - tat) * limit - rem + tolerance",
+    "mutated": "local room = (now + 1 - tat) / limit - rem + tolerance",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 77,
+    "label": "n to n + 1",
+    "original": "local room = (now + 1 - tat) * limit - rem + tolerance",
+    "mutated": "local room = (now + 2 - tat) * limit - rem + tolerance",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 78,
+    "label": "n to n + 1",
+    "original": "local remaining = 0",
+    "mutated": "local remaining = 1",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 79,
+    "label": "> to >=",
+    "original": "if room > 0 then",
+    "mutated": "if room >= 0 then",
+    "status": "survived"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 79,
+    "label": "n to n + 1",
+    "original": "if room > 0 then",
+    "mutated": "if room > 1 then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 86,
+    "label": "- to +",
+    "original": "local drained = tat - now",
+    "mutated": "local drained = tat + now",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 87,
+    "label": "> to >=",
+    "original": "if rem > 0 then",
+    "mutated": "if rem >= 0 then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 87,
+    "label": "n to n + 1",
+    "original": "if rem > 0 then",
+    "mutated": "if rem > 1 then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 88,
+    "label": "+ to -",
+    "original": "drained = drained + 1",
+    "mutated": "drained = drained - 1",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 88,
+    "label": "n to n + 1",
+    "original": "drained = drained + 1",
+    "mutated": "drained = drained + 2",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 91,
+    "label": "== to ~=",
+    "original": "if allowed == 0 then",
+    "mutated": "if allowed ~= 0 then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 91,
+    "label": "n to n + 1",
+    "original": "if allowed == 0 then",
+    "mutated": "if allowed == 1 then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 93,
+    "label": "+ to -",
+    "original": "resetMs = tat + floordiv(rem - tolerance, limit) - now",
+    "mutated": "resetMs = tat - floordiv(rem - tolerance, limit) - now",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 93,
+    "label": "- to +",
+    "original": "resetMs = tat + floordiv(rem - tolerance, limit) - now",
+    "mutated": "resetMs = tat + floordiv(rem + tolerance, limit) - now",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 93,
+    "label": "- to +",
+    "original": "resetMs = tat + floordiv(rem - tolerance, limit) - now",
+    "mutated": "resetMs = tat + floordiv(rem - tolerance, limit) + now",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 99,
+    "label": "max to min",
+    "original": "redis.call('PEXPIRE', key, math.max(1, drained))",
+    "mutated": "redis.call('PEXPIRE', key, math.min(1, drained))",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 99,
+    "label": "n to n + 1",
+    "original": "redis.call('PEXPIRE', key, math.max(1, drained))",
+    "mutated": "redis.call('PEXPIRE', key, math.max(2, drained))",
+    "status": "survived"
+  },
+  {
+    "file": "src/algorithms/redis/leaky-bucket.lua",
+    "line": 99,
+    "label": "delete call",
+    "original": "redis.call('PEXPIRE', key, math.max(1, drained))",
+    "mutated": "(deleted)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/fixed-window.lua",
+    "line": 6,
+    "label": "n to n + 1",
+    "original": "local key = KEYS[1]",
+    "mutated": "local key = KEYS[2]",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/fixed-window.lua",
+    "line": 7,
+    "label": "n to n + 1",
+    "original": "local limit = tonumber(ARGV[1])",
+    "mutated": "local limit = tonumber(ARGV[2])",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/fixed-window.lua",
+    "line": 8,
+    "label": "n to n + 1",
+    "original": "local window = tonumber(ARGV[2])",
+    "mutated": "local window = tonumber(ARGV[3])",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/fixed-window.lua",
+    "line": 10,
+    "label": "n to n + 1",
+    "original": "local now = rl_now(ARGV[3])",
+    "mutated": "local now = rl_now(ARGV[4])",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/fixed-window.lua",
+    "line": 15,
+    "label": "n to n + 1",
+    "original": "if stored[1] then",
+    "mutated": "if stored[2] then",
+    "status": "survived"
+  },
+  {
+    "file": "src/algorithms/redis/fixed-window.lua",
+    "line": 16,
+    "label": "n to n + 1",
+    "original": "window_start, window_end, count = tonumber(stored[1]), tonumber(stored[2]), tonumber(stored[3])",
+    "mutated": "window_start, window_end, count = tonumber(stored[2]), tonumber(stored[2]), tonumber(stored[3])",
+    "status": "survived"
+  },
+  {
+    "file": "src/algorithms/redis/fixed-window.lua",
+    "line": 16,
+    "label": "n to n + 1",
+    "original": "window_start, window_end, count = tonumber(stored[1]), tonumber(stored[2]), tonumber(stored[3])",
+    "mutated": "window_start, window_end, count = tonumber(stored[1]), tonumber(stored[3]), tonumber(stored[3])",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/fixed-window.lua",
+    "line": 16,
+    "label": "n to n + 1",
+    "original": "window_start, window_end, count = tonumber(stored[1]), tonumber(stored[2]), tonumber(stored[3])",
+    "mutated": "window_start, window_end, count = tonumber(stored[1]), tonumber(stored[2]), tonumber(stored[4])",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/fixed-window.lua",
+    "line": 19,
+    "label": "max to min",
+    "original": "now = math.max(now, tonumber(stored[4]))",
+    "mutated": "now = math.min(now, tonumber(stored[4]))",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/fixed-window.lua",
+    "line": 19,
+    "label": "n to n + 1",
+    "original": "now = math.max(now, tonumber(stored[4]))",
+    "mutated": "now = math.max(now, tonumber(stored[5]))",
+    "status": "invalid"
+  },
+  {
+    "file": "src/algorithms/redis/fixed-window.lua",
+    "line": 24,
+    "label": ">= to >",
+    "original": "if not stored[1] or now >= window_end then",
+    "mutated": "if not stored[1] or now > window_end then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/fixed-window.lua",
+    "line": 24,
+    "label": "or to and",
+    "original": "if not stored[1] or now >= window_end then",
+    "mutated": "if not stored[1] and now >= window_end then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/fixed-window.lua",
+    "line": 24,
+    "label": "drop not",
+    "original": "if not stored[1] or now >= window_end then",
+    "mutated": "if stored[1] or now >= window_end then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/fixed-window.lua",
+    "line": 24,
+    "label": "n to n + 1",
+    "original": "if not stored[1] or now >= window_end then",
+    "mutated": "if not stored[2] or now >= window_end then",
+    "status": "survived"
+  },
+  {
+    "file": "src/algorithms/redis/fixed-window.lua",
+    "line": 25,
+    "label": "* to /",
+    "original": "window_start = math.floor(now / window) * window",
+    "mutated": "window_start = math.floor(now / window) / window",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/fixed-window.lua",
+    "line": 25,
+    "label": "/ to *",
+    "original": "window_start = math.floor(now / window) * window",
+    "mutated": "window_start = math.floor(now * window) * window",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/fixed-window.lua",
+    "line": 25,
+    "label": "floor to ceil",
+    "original": "window_start = math.floor(now / window) * window",
+    "mutated": "window_start = math.ceil(now / window) * window",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/fixed-window.lua",
+    "line": 26,
+    "label": "+ to -",
+    "original": "window_end = window_start + window",
+    "mutated": "window_end = window_start - window",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/fixed-window.lua",
+    "line": 27,
+    "label": "n to n + 1",
+    "original": "count = 0",
+    "mutated": "count = 1",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/fixed-window.lua",
+    "line": 31,
+    "label": "n to n + 1",
+    "original": "local allowed = 0",
+    "mutated": "local allowed = 1",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/fixed-window.lua",
+    "line": 32,
+    "label": "< to <=",
+    "original": "if count < limit then",
+    "mutated": "if count <= limit then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/fixed-window.lua",
+    "line": 33,
+    "label": "+ to -",
+    "original": "count = count + 1",
+    "mutated": "count = count - 1",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/fixed-window.lua",
+    "line": 33,
+    "label": "n to n + 1",
+    "original": "count = count + 1",
+    "mutated": "count = count + 2",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/fixed-window.lua",
+    "line": 34,
+    "label": "n to n + 1",
+    "original": "allowed = 1",
+    "mutated": "allowed = 2",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/fixed-window.lua",
+    "line": 38,
+    "label": "- to +",
+    "original": "local remaining = math.max(0, limit - count)",
+    "mutated": "local remaining = math.max(0, limit + count)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/fixed-window.lua",
+    "line": 38,
+    "label": "max to min",
+    "original": "local remaining = math.max(0, limit - count)",
+    "mutated": "local remaining = math.min(0, limit - count)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/fixed-window.lua",
+    "line": 38,
+    "label": "n to n + 1",
+    "original": "local remaining = math.max(0, limit - count)",
+    "mutated": "local remaining = math.max(1, limit - count)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/fixed-window.lua",
+    "line": 40,
+    "label": "- to +",
+    "original": "local resetMs = window_end - now",
+    "mutated": "local resetMs = window_end + now",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/fixed-window.lua",
+    "line": 45,
+    "label": "- to +",
+    "original": "redis.call('PEXPIRE', key, window_end - now)",
+    "mutated": "redis.call('PEXPIRE', key, window_end + now)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/fixed-window.lua",
+    "line": 45,
+    "label": "delete call",
+    "original": "redis.call('PEXPIRE', key, window_end - now)",
+    "mutated": "(deleted)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 5,
+    "label": "n to n + 1",
+    "original": "local key = KEYS[1]",
+    "mutated": "local key = KEYS[2]",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 6,
+    "label": "n to n + 1",
+    "original": "local limit = tonumber(ARGV[1])",
+    "mutated": "local limit = tonumber(ARGV[2])",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 7,
+    "label": "n to n + 1",
+    "original": "local window = tonumber(ARGV[2])",
+    "mutated": "local window = tonumber(ARGV[3])",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 20,
+    "label": "n to n + 1",
+    "original": "local now = rl_now(ARGV[3])",
+    "mutated": "local now = rl_now(ARGV[4])",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 27,
+    "label": "max to min",
+    "original": "now = math.max(now, -tonumber(seen))",
+    "mutated": "now = math.min(now, -tonumber(seen))",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 31,
+    "label": "- to +",
+    "original": "local cutoff = now - window",
+    "mutated": "local cutoff = now + window",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 32,
+    "label": "n to n + 1",
+    "original": "redis.call('ZREMRANGEBYSCORE', key, 0, int(cutoff))",
+    "mutated": "redis.call('ZREMRANGEBYSCORE', key, 1, int(cutoff))",
+    "status": "survived"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 32,
+    "label": "delete call",
+    "original": "redis.call('ZREMRANGEBYSCORE', key, 0, int(cutoff))",
+    "mutated": "(deleted)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 34,
+    "label": "max to min",
+    "original": "local lower = '(' .. int(math.max(cutoff, 0))",
+    "mutated": "local lower = '(' .. int(math.min(cutoff, 0))",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 34,
+    "label": "n to n + 1",
+    "original": "local lower = '(' .. int(math.max(cutoff, 0))",
+    "mutated": "local lower = '(' .. int(math.max(cutoff, 1))",
+    "status": "survived"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 42,
+    "label": "n to n + 1",
+    "original": "local allowed = 0",
+    "mutated": "local allowed = 1",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 43,
+    "label": "< to <=",
+    "original": "if count < limit then",
+    "mutated": "if count <= limit then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 45,
+    "label": "delete call",
+    "original": "redis.call('ZADD', key, int(now), int(now) .. '-' .. int(same))",
+    "mutated": "(deleted)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 46,
+    "label": "+ to -",
+    "original": "count = count + 1",
+    "mutated": "count = count - 1",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 46,
+    "label": "n to n + 1",
+    "original": "count = count + 1",
+    "mutated": "count = count + 2",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 47,
+    "label": "n to n + 1",
+    "original": "allowed = 1",
+    "mutated": "allowed = 2",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 49,
+    "label": "delete call",
+    "original": "redis.call('ZADD', key, int(-now), TAG)",
+    "mutated": "(deleted)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 51,
+    "label": "- to +",
+    "original": "local remaining = math.max(0, limit - count)",
+    "mutated": "local remaining = math.max(0, limit + count)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 51,
+    "label": "max to min",
+    "original": "local remaining = math.max(0, limit - count)",
+    "mutated": "local remaining = math.min(0, limit - count)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 51,
+    "label": "n to n + 1",
+    "original": "local remaining = math.max(0, limit - count)",
+    "mutated": "local remaining = math.max(1, limit - count)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 53,
+    "label": "== to ~=",
+    "original": "if allowed == 1 then",
+    "mutated": "if allowed ~= 1 then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 53,
+    "label": "n to n + 1",
+    "original": "if allowed == 1 then",
+    "mutated": "if allowed == 2 then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 59,
+    "label": "- to +",
+    "original": "local entry = redis.call('ZRANGEBYSCORE', key, lower, '+inf', 'WITHSCORES', 'LIMIT', count - limit, 1)",
+    "mutated": "local entry = redis.call('ZRANGEBYSCORE', key, lower, '+inf', 'WITHSCORES', 'LIMIT', count + limit, 1)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 59,
+    "label": "n to n + 1",
+    "original": "local entry = redis.call('ZRANGEBYSCORE', key, lower, '+inf', 'WITHSCORES', 'LIMIT', count - limit, 1)",
+    "mutated": "local entry = redis.call('ZRANGEBYSCORE', key, lower, '+inf', 'WITHSCORES', 'LIMIT', count - limit, 2)",
+    "status": "survived"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 60,
+    "label": "+ to -",
+    "original": "resetMs = tonumber(entry[2]) + window - now",
+    "mutated": "resetMs = tonumber(entry[2]) - window - now",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 60,
+    "label": "- to +",
+    "original": "resetMs = tonumber(entry[2]) + window - now",
+    "mutated": "resetMs = tonumber(entry[2]) + window + now",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 60,
+    "label": "n to n + 1",
+    "original": "resetMs = tonumber(entry[2]) + window - now",
+    "mutated": "resetMs = tonumber(entry[3]) + window - now",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 65,
+    "label": "n to n + 1",
+    "original": "local newest = redis.call('ZRANGE', key, -1, -1, 'WITHSCORES')",
+    "mutated": "local newest = redis.call('ZRANGE', key, -2, -1, 'WITHSCORES')",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 65,
+    "label": "n to n + 1",
+    "original": "local newest = redis.call('ZRANGE', key, -1, -1, 'WITHSCORES')",
+    "mutated": "local newest = redis.call('ZRANGE', key, -1, -2, 'WITHSCORES')",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 66,
+    "label": "+ to -",
+    "original": "redis.call('PEXPIRE', key, tonumber(newest[2]) + window - now)",
+    "mutated": "redis.call('PEXPIRE', key, tonumber(newest[2]) - window - now)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 66,
+    "label": "- to +",
+    "original": "redis.call('PEXPIRE', key, tonumber(newest[2]) + window - now)",
+    "mutated": "redis.call('PEXPIRE', key, tonumber(newest[2]) + window + now)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 66,
+    "label": "n to n + 1",
+    "original": "redis.call('PEXPIRE', key, tonumber(newest[2]) + window - now)",
+    "mutated": "redis.call('PEXPIRE', key, tonumber(newest[3]) + window - now)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-log.lua",
+    "line": 66,
+    "label": "delete call",
+    "original": "redis.call('PEXPIRE', key, tonumber(newest[2]) + window - now)",
+    "mutated": "(deleted)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 11,
+    "label": "n to n + 1",
+    "original": "local key = KEYS[1]",
+    "mutated": "local key = KEYS[2]",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 12,
+    "label": "n to n + 1",
+    "original": "local limit = tonumber(ARGV[1])",
+    "mutated": "local limit = tonumber(ARGV[2])",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 13,
+    "label": "n to n + 1",
+    "original": "local W = tonumber(ARGV[2])",
+    "mutated": "local W = tonumber(ARGV[3])",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 15,
+    "label": "n to n + 1",
+    "original": "local now = rl_now(ARGV[3])",
+    "mutated": "local now = rl_now(ARGV[4])",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 19,
+    "label": "n to n + 1",
+    "original": "local curr, prev = 0, 0",
+    "mutated": "local curr, prev = 1, 0",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 19,
+    "label": "n to n + 1",
+    "original": "local curr, prev = 0, 0",
+    "mutated": "local curr, prev = 0, 1",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 21,
+    "label": "n to n + 1",
+    "original": "if stored[1] then",
+    "mutated": "if stored[2] then",
+    "status": "survived"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 23,
+    "label": "max to min",
+    "original": "now = math.max(now, tonumber(stored[5]))",
+    "mutated": "now = math.min(now, tonumber(stored[5]))",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 23,
+    "label": "n to n + 1",
+    "original": "now = math.max(now, tonumber(stored[5]))",
+    "mutated": "now = math.max(now, tonumber(stored[6]))",
+    "status": "invalid"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 29,
+    "label": "n to n + 1",
+    "original": "local old_start = tonumber(stored[1])",
+    "mutated": "local old_start = tonumber(stored[2])",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 30,
+    "label": "- to +",
+    "original": "local k = math.floor((now - old_start) / W)",
+    "mutated": "local k = math.floor((now + old_start) / W)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 30,
+    "label": "/ to *",
+    "original": "local k = math.floor((now - old_start) / W)",
+    "mutated": "local k = math.floor((now - old_start) * W)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 30,
+    "label": "floor to ceil",
+    "original": "local k = math.floor((now - old_start) / W)",
+    "mutated": "local k = math.ceil((now - old_start) / W)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 31,
+    "label": "+ to -",
+    "original": "start = old_start + k * W",
+    "mutated": "start = old_start - k * W",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 31,
+    "label": "* to /",
+    "original": "start = old_start + k * W",
+    "mutated": "start = old_start + k / W",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 32,
+    "label": "== to ~=",
+    "original": "if k == 0 then",
+    "mutated": "if k ~= 0 then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 32,
+    "label": "n to n + 1",
+    "original": "if k == 0 then",
+    "mutated": "if k == 1 then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 33,
+    "label": "n to n + 1",
+    "original": "curr, prev = tonumber(stored[3]), tonumber(stored[4])",
+    "mutated": "curr, prev = tonumber(stored[4]), tonumber(stored[4])",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 33,
+    "label": "n to n + 1",
+    "original": "curr, prev = tonumber(stored[3]), tonumber(stored[4])",
+    "mutated": "curr, prev = tonumber(stored[3]), tonumber(stored[5])",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 34,
+    "label": "== to ~=",
+    "original": "elseif k == 1 then",
+    "mutated": "elseif k ~= 1 then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 34,
+    "label": "n to n + 1",
+    "original": "elseif k == 1 then",
+    "mutated": "elseif k == 2 then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 36,
+    "label": "n to n + 1",
+    "original": "prev = tonumber(stored[3])",
+    "mutated": "prev = tonumber(stored[4])",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 40,
+    "label": "* to /",
+    "original": "start = math.floor(now / W) * W",
+    "mutated": "start = math.floor(now / W) / W",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 40,
+    "label": "/ to *",
+    "original": "start = math.floor(now / W) * W",
+    "mutated": "start = math.floor(now * W) * W",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 40,
+    "label": "floor to ceil",
+    "original": "start = math.floor(now / W) * W",
+    "mutated": "start = math.ceil(now / W) * W",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 43,
+    "label": "- to +",
+    "original": "local e = now - start",
+    "mutated": "local e = now + start",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 45,
+    "label": "+ to -",
+    "original": "return prev * (W - e) + c * W",
+    "mutated": "return prev * (W - e) - c * W",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 45,
+    "label": "- to +",
+    "original": "return prev * (W - e) + c * W",
+    "mutated": "return prev * (W + e) + c * W",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 45,
+    "label": "* to /",
+    "original": "return prev * (W - e) + c * W",
+    "mutated": "return prev / (W - e) + c * W",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 45,
+    "label": "* to /",
+    "original": "return prev * (W - e) + c * W",
+    "mutated": "return prev * (W - e) + c / W",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 50,
+    "label": "n to n + 1",
+    "original": "local allowed = 0",
+    "mutated": "local allowed = 1",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 51,
+    "label": "<= to <",
+    "original": "if estimate(curr + 1) <= limit * W then",
+    "mutated": "if estimate(curr + 1) < limit * W then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 51,
+    "label": "+ to -",
+    "original": "if estimate(curr + 1) <= limit * W then",
+    "mutated": "if estimate(curr - 1) <= limit * W then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 51,
+    "label": "* to /",
+    "original": "if estimate(curr + 1) <= limit * W then",
+    "mutated": "if estimate(curr + 1) <= limit / W then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 51,
+    "label": "n to n + 1",
+    "original": "if estimate(curr + 1) <= limit * W then",
+    "mutated": "if estimate(curr + 2) <= limit * W then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 52,
+    "label": "+ to -",
+    "original": "curr = curr + 1",
+    "mutated": "curr = curr - 1",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 52,
+    "label": "n to n + 1",
+    "original": "curr = curr + 1",
+    "mutated": "curr = curr + 2",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 53,
+    "label": "n to n + 1",
+    "original": "allowed = 1",
+    "mutated": "allowed = 2",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 57,
+    "label": "- to +",
+    "original": "local remaining = math.max(0, math.floor((limit * W - estimate(curr)) / W))",
+    "mutated": "local remaining = math.max(0, math.floor((limit * W + estimate(curr)) / W))",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 57,
+    "label": "* to /",
+    "original": "local remaining = math.max(0, math.floor((limit * W - estimate(curr)) / W))",
+    "mutated": "local remaining = math.max(0, math.floor((limit / W - estimate(curr)) / W))",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 57,
+    "label": "/ to *",
+    "original": "local remaining = math.max(0, math.floor((limit * W - estimate(curr)) / W))",
+    "mutated": "local remaining = math.max(0, math.floor((limit * W - estimate(curr)) * W))",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 57,
+    "label": "floor to ceil",
+    "original": "local remaining = math.max(0, math.floor((limit * W - estimate(curr)) / W))",
+    "mutated": "local remaining = math.max(0, math.ceil((limit * W - estimate(curr)) / W))",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 57,
+    "label": "max to min",
+    "original": "local remaining = math.max(0, math.floor((limit * W - estimate(curr)) / W))",
+    "mutated": "local remaining = math.min(0, math.floor((limit * W - estimate(curr)) / W))",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 57,
+    "label": "n to n + 1",
+    "original": "local remaining = math.max(0, math.floor((limit * W - estimate(curr)) / W))",
+    "mutated": "local remaining = math.max(1, math.floor((limit * W - estimate(curr)) / W))",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 60,
+    "label": "== to ~=",
+    "original": "if allowed == 1 then",
+    "mutated": "if allowed ~= 1 then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 60,
+    "label": "n to n + 1",
+    "original": "if allowed == 1 then",
+    "mutated": "if allowed == 2 then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 62,
+    "label": "- to +",
+    "original": "resetMs = 2 * W - e",
+    "mutated": "resetMs = 2 * W + e",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 62,
+    "label": "* to /",
+    "original": "resetMs = 2 * W - e",
+    "mutated": "resetMs = 2 / W - e",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 62,
+    "label": "n to n + 1",
+    "original": "resetMs = 2 * W - e",
+    "mutated": "resetMs = 3 * W - e",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 70,
+    "label": "> to >=",
+    "original": "if prev > 0 then",
+    "mutated": "if prev >= 0 then",
+    "status": "survived"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 70,
+    "label": "n to n + 1",
+    "original": "if prev > 0 then",
+    "mutated": "if prev > 1 then",
+    "status": "survived"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 71,
+    "label": "- to +",
+    "original": "local t = W - e - math.floor((limit - curr - 1) * W / prev)",
+    "mutated": "local t = W + e - math.floor((limit - curr - 1) * W / prev)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 71,
+    "label": "- to +",
+    "original": "local t = W - e - math.floor((limit - curr - 1) * W / prev)",
+    "mutated": "local t = W - e + math.floor((limit - curr - 1) * W / prev)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 71,
+    "label": "- to +",
+    "original": "local t = W - e - math.floor((limit - curr - 1) * W / prev)",
+    "mutated": "local t = W - e - math.floor((limit + curr - 1) * W / prev)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 71,
+    "label": "- to +",
+    "original": "local t = W - e - math.floor((limit - curr - 1) * W / prev)",
+    "mutated": "local t = W - e - math.floor((limit - curr + 1) * W / prev)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 71,
+    "label": "* to /",
+    "original": "local t = W - e - math.floor((limit - curr - 1) * W / prev)",
+    "mutated": "local t = W - e - math.floor((limit - curr - 1) / W / prev)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 71,
+    "label": "/ to *",
+    "original": "local t = W - e - math.floor((limit - curr - 1) * W / prev)",
+    "mutated": "local t = W - e - math.floor((limit - curr - 1) * W * prev)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 71,
+    "label": "floor to ceil",
+    "original": "local t = W - e - math.floor((limit - curr - 1) * W / prev)",
+    "mutated": "local t = W - e - math.ceil((limit - curr - 1) * W / prev)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 71,
+    "label": "n to n + 1",
+    "original": "local t = W - e - math.floor((limit - curr - 1) * W / prev)",
+    "mutated": "local t = W - e - math.floor((limit - curr - 2) * W / prev)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 72,
+    "label": "< to <=",
+    "original": "if t < W - e then",
+    "mutated": "if t <= W - e then",
+    "status": "survived"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 72,
+    "label": "- to +",
+    "original": "if t < W - e then",
+    "mutated": "if t < W + e then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 76,
+    "label": "== to ~=",
+    "original": "if resetMs == nil then",
+    "mutated": "if resetMs ~= nil then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 77,
+    "label": "== to ~=",
+    "original": "if curr == 0 then",
+    "mutated": "if curr ~= 0 then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 77,
+    "label": "n to n + 1",
+    "original": "if curr == 0 then",
+    "mutated": "if curr == 1 then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 79,
+    "label": "- to +",
+    "original": "resetMs = W - e",
+    "mutated": "resetMs = W + e",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 82,
+    "label": "- to +",
+    "original": "local fits = math.floor((limit - 1) * W / curr)",
+    "mutated": "local fits = math.floor((limit + 1) * W / curr)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 82,
+    "label": "* to /",
+    "original": "local fits = math.floor((limit - 1) * W / curr)",
+    "mutated": "local fits = math.floor((limit - 1) / W / curr)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 82,
+    "label": "/ to *",
+    "original": "local fits = math.floor((limit - 1) * W / curr)",
+    "mutated": "local fits = math.floor((limit - 1) * W * curr)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 82,
+    "label": "floor to ceil",
+    "original": "local fits = math.floor((limit - 1) * W / curr)",
+    "mutated": "local fits = math.ceil((limit - 1) * W / curr)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 82,
+    "label": "n to n + 1",
+    "original": "local fits = math.floor((limit - 1) * W / curr)",
+    "mutated": "local fits = math.floor((limit - 2) * W / curr)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 83,
+    "label": ">= to >",
+    "original": "if fits >= 1 then",
+    "mutated": "if fits > 1 then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 83,
+    "label": "n to n + 1",
+    "original": "if fits >= 1 then",
+    "mutated": "if fits >= 2 then",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 84,
+    "label": "+ to -",
+    "original": "resetMs = W - e + math.max(0, W - fits)",
+    "mutated": "resetMs = W - e - math.max(0, W - fits)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 84,
+    "label": "- to +",
+    "original": "resetMs = W - e + math.max(0, W - fits)",
+    "mutated": "resetMs = W + e + math.max(0, W - fits)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 84,
+    "label": "- to +",
+    "original": "resetMs = W - e + math.max(0, W - fits)",
+    "mutated": "resetMs = W - e + math.max(0, W + fits)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 84,
+    "label": "max to min",
+    "original": "resetMs = W - e + math.max(0, W - fits)",
+    "mutated": "resetMs = W - e + math.min(0, W - fits)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 84,
+    "label": "n to n + 1",
+    "original": "resetMs = W - e + math.max(0, W - fits)",
+    "mutated": "resetMs = W - e + math.max(1, W - fits)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 88,
+    "label": "- to +",
+    "original": "resetMs = 2 * W - e",
+    "mutated": "resetMs = 2 * W + e",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 88,
+    "label": "* to /",
+    "original": "resetMs = 2 * W - e",
+    "mutated": "resetMs = 2 / W - e",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 88,
+    "label": "n to n + 1",
+    "original": "resetMs = 2 * W - e",
+    "mutated": "resetMs = 3 * W - e",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 97,
+    "label": "- to +",
+    "original": "redis.call('PEXPIRE', key, 2 * W - e)",
+    "mutated": "redis.call('PEXPIRE', key, 2 * W + e)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 97,
+    "label": "* to /",
+    "original": "redis.call('PEXPIRE', key, 2 * W - e)",
+    "mutated": "redis.call('PEXPIRE', key, 2 / W - e)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 97,
+    "label": "n to n + 1",
+    "original": "redis.call('PEXPIRE', key, 2 * W - e)",
+    "mutated": "redis.call('PEXPIRE', key, 3 * W - e)",
+    "status": "killed"
+  },
+  {
+    "file": "src/algorithms/redis/sliding-window-counter.lua",
+    "line": 97,
+    "label": "delete call",
+    "original": "redis.call('PEXPIRE', key, 2 * W - e)",
+    "mutated": "(deleted)",
+    "status": "killed"
+  }
+]

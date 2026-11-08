@@ -607,6 +607,8 @@ npm test                  # unit tests, no Redis needed
 npm run redis:up          # test Redis in Docker, on port 6390
 npm run test:integration
 npm run coverage          # unit and integration together
+npm run mutate            # Stryker: mutates src/ and runs the tests against each mutant; needs the test Redis
+npm run mutate:lua        # the same for the Lua scripts, which Stryker can't mutate
 npm run build
 npm run test:package      # builds, then tests the built package: entry points, exports, TSDoc
 npm run check:package     # after a build: what npm would ship, publint, and attw for the types
@@ -617,7 +619,7 @@ bench/observe-check.sh         # Prometheus and Grafana: scraping, counters, the
 bench/chaos-check.sh           # Redis killed, then paused, under traffic: nothing fails
 ```
 
-The benchmarks themselves are `npm run bench`, and `npm run bench -- --scenario chaos` for the 45-minute failure test. See [Rerun them](#rerun-them).
+The two mutation runs take several minutes each and aren't part of CI. Their scores and the surviving mutants are in [0033](docs/decisions/0033-mutation-testing.md). The benchmarks themselves are `npm run bench`, and `npm run bench -- --scenario chaos` for the 45-minute failure test. See [Rerun them](#rerun-them).
 
 ## License
 

@@ -1,0 +1,17 @@
+{
+  "date": "2026-11-08",
+  "machine": "Apple M5 Pro, 24 GB",
+  "node": "v25.8.2",
+  "redis": "7.4.12 (docker-compose.test.yml, port 6390)",
+  "stryker": "@stryker-mutator/core 10.1.1, @stryker-mutator/vitest-runner 10.1.1",
+  "vitest": "4.1.12",
+  "commands": {
+    "stryker": "npm run redis:up && npm run mutate   (stryker.config.mjs: concurrency 4, coverageAnalysis perTest; 244 s)",
+    "lua": "npm run mutate:lua   (scripts/mutate-lua.js; 219 s)"
+  },
+  "files": {
+    "stryker-summary.txt": "Stryker's per-file table from the final run",
+    "stryker-survivors.json": "every Stryker mutant not killed or timed out, with the line it changed",
+    "lua.json": "every Lua mutant and its result from the final run"
+  }
+}
