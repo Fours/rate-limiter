@@ -44,6 +44,12 @@ describe('defaultIdentify in Express', () => {
     expect(await idFor(request(a).get('/'))).toBe('user_acct_7');
   });
 
+  it('gives forwarded NAT64 clients their own IPv4 IDs (0029)', async () => {
+    const forwarded = (ip: string) => idFor(request(app(true)).get('/').set('X-Forwarded-For', ip));
+    expect(await forwarded('64:ff9b::198.51.100.1')).toBe('ip_198.51.100.1');
+    expect(await forwarded('64:ff9b::198.51.100.2')).toBe('ip_198.51.100.2');
+  });
+
   it('ignores X-Forwarded-For unless trust proxy is set', async () => {
     const xff = { 'X-Forwarded-For': '203.0.113.7' };
     expect(await idFor(request(app(false)).get('/').set(xff))).not.toBe('ip_203.0.113.7');

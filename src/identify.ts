@@ -17,8 +17,8 @@ export interface IdentifiableRequest {
  * request would get a new limit each time (decision 0026). To limit by key, check it in your
  * auth middleware, set `req.user`, and mount the limiter after it.
  *
- * IPs are grouped as decision 0020 describes: an IPv6 client by its /64, and an IPv4-mapped
- * address as the IPv4 address it carries.
+ * IPs are grouped as decisions 0020 and 0029 describe: an IPv6 client by its /64, and an IPv6
+ * address that carries an IPv4 one as that IPv4 address.
  */
 export function defaultIdentify(req: IdentifiableRequest): string {
   const userId = readUserId(req.user);
@@ -50,8 +50,11 @@ function readUserId(user: unknown): string | undefined {
  * The form of an IP that identifies a client (decision 0020), or undefined if it isn't an IP.
  *
  * - IPv4 stays as it is.
- * - IPv4-mapped IPv6 (`::ffff:1.2.3.4`, or `::ffff:102:304`) is the IPv4 address it carries.
- *   On a server listening on `::`, Node's default, every IPv4 client arrives in this form.
+ * - IPv6 that carries an IPv4 address is that IPv4 address (decision 0029): IPv4-mapped
+ *   (`::ffff:1.2.3.4`, or `::ffff:102:304`), which is how every IPv4 client reaches a server
+ *   listening on `::`, Node's default; translated (`::ffff:0:1.2.3.4`); the well-known NAT64
+ *   prefix (`64:ff9b::1.2.3.4`); and the old IPv4-compatible form (`::1.2.3.4`). Otherwise every
+ *   IPv4 client behind one translator would share one /64.
  * - Any other IPv6 is its /64, in RFC 5952 form: `2001:db8:1:2::/64`. One host usually gets a
  *   whole /64, and could otherwise pick a new address, and a new limit, for every request.
  *
@@ -67,11 +70,22 @@ export function normalizeIp(ip: string): string | undefined {
   if (!isIPv6(address)) return undefined;
 
   const groups = ipv6Groups(address);
-  const [g0, g1, g2, g3, g4, g5, g6 = 0, g7 = 0] = groups;
-  if (g0 === 0 && g1 === 0 && g2 === 0 && g3 === 0 && g4 === 0 && g5 === 0xffff) {
-    return [g6 >> 8, g6 & 0xff, g7 >> 8, g7 & 0xff].join('.');
-  }
+  const [, , , , , , g6 = 0, g7 = 0] = groups;
+  if (carriesIpv4(groups)) return [g6 >> 8, g6 & 0xff, g7 >> 8, g7 & 0xff].join('.');
   return `${formatIpv6([...groups.slice(0, 4), 0, 0, 0, 0])}/64`;
+}
+
+/** Whether the first 96 bits are one of the prefixes that put an IPv4 address in the last 32. */
+function carriesIpv4(groups: readonly number[]): boolean {
+  const [g0, g1, g2, g3, g4, g5, g6] = groups;
+  const zeroTo = (n: number) => groups.slice(0, n).every((g) => g === 0);
+  return (
+    (zeroTo(5) && g5 === 0xffff) || // ::ffff:0:0/96, mapped
+    (zeroTo(4) && g4 === 0xffff && g5 === 0) || // ::ffff:0:0:0/96, translated (RFC 2765)
+    (g0 === 0x64 && g1 === 0xff9b && g2 === 0 && g3 === 0 && g4 === 0 && g5 === 0) || // NAT64
+    // ::/96, IPv4-compatible (deprecated). Not :: or ::1, whose third-last group is 0.
+    (zeroTo(6) && g6 !== 0)
+  );
 }
 
 /** The eight 16-bit groups of a valid IPv6 address, with `::` and a dotted IPv4 tail expanded. */

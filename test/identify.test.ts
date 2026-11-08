@@ -71,8 +71,28 @@ describe('defaultIdentify', () => {
       expect(id('fe80::1%en0')).toBe('ip_fe80::/64');
       expect(id('2001:db8:0:0:1::')).toBe('ip_2001:db8::/64');
       expect(id('1:0:2:0::')).toBe('ip_1:0:2::/64');
-      // An IPv4 tail on a non-mapped address is just more IPv6 bits.
-      expect(id('64:ff9b::198.51.100.7')).toBe('ip_64:ff9b::/64');
+      // An IPv4 tail outside the prefixes that carry IPv4 is just more IPv6 bits.
+      expect(id('2001:db8::198.51.100.7')).toBe('ip_2001:db8::/64');
+      expect(id('64:ff9b:1::198.51.100.7')).toBe('ip_64:ff9b:1::/64');
+    });
+
+    it.each([
+      ['NAT64, well-known prefix', '64:ff9b::198.51.100.7'],
+      ['NAT64 in hex', '64:ff9b::c633:6407'],
+      ['translated (RFC 2765)', '::ffff:0:198.51.100.7'],
+      ['IPv4-compatible', '::198.51.100.7'],
+    ])('gives an address that carries IPv4, %s, its IPv4 ID (0029)', (_label, ip) => {
+      expect(id(ip)).toBe('ip_198.51.100.7');
+    });
+
+    it('keeps two IPv4 clients behind one NAT64 translator apart (0029)', () => {
+      expect(id('64:ff9b::198.51.100.1')).not.toBe(id('64:ff9b::198.51.100.2'));
+    });
+
+    it('leaves :: and ::1 as IPv6, not as 0.0.0.0 and 0.0.0.1', () => {
+      expect(id('::')).toBe('ip_::/64');
+      expect(id('::1')).toBe('ip_::/64');
+      expect(id('::ffff')).toBe('ip_::/64');
     });
 
     it('keeps IPv4 as today, and gives IPv4-mapped addresses the same ID', () => {
