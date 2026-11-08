@@ -115,9 +115,11 @@ export function rateLimit(opts: RateLimitOptions): RateLimitMiddleware {
         return;
       } else {
         hooks.onFallback(
-          result.reason === 'timeout'
-            ? { req, rule, key, reason: 'timeout' }
-            : { req, rule, key, reason: 'error', error: result.error },
+          Object.freeze(
+            result.reason === 'timeout'
+              ? { req, rule, key, reason: 'timeout' }
+              : { req, rule, key, reason: 'error', error: result.error },
+          ),
         );
         ({ rule: applied, decision } = await fallback.check(
           key,
@@ -126,7 +128,15 @@ export function rateLimit(opts: RateLimitOptions): RateLimitMiddleware {
         source = 'fallback';
       }
       const durationMs = performance.now() - start;
-      hooks.onDecision({ req, rule, limit: applied.limit, key, decision, source, durationMs });
+      // A frozen copy, since the headers and the 429 are made from this decision after the hook.
+      const event = {
+        req,
+        rule,
+        limit: applied.limit,
+        key,
+        decision: Object.freeze({ ...decision }),
+      };
+      hooks.onDecision(Object.freeze({ ...event, source, durationMs }));
     } catch (err) {
       next(err);
       return;

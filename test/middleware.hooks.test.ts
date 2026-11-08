@@ -65,6 +65,55 @@ function harness(opts: Partial<RateLimitOptions>): { app: Express; errors: unkno
   return { app, errors };
 }
 
+describe('a hook writing to its event', () => {
+  // Found by the 1.0 correctness review: onDecision got the live decision the headers and the
+  // 429 are made from, so a hook could turn a denial into a pass.
+  function writer(write: (event: Record<string, unknown>) => void): RateLimitHooks {
+    return {
+      onDecision: (event) => {
+        write(event as unknown as Record<string, unknown>);
+      },
+    };
+  }
+
+  it.each([
+    [
+      'decision.allowed',
+      (e: Record<string, unknown>) => ((e.decision as { allowed: boolean }).allowed = true),
+    ],
+    [
+      'decision.remaining',
+      (e: Record<string, unknown>) => ((e.decision as { remaining: number }).remaining = 99),
+    ],
+    ['rule.limit', (e: Record<string, unknown>) => ((e.rule as { limit: number }).limit = 1_000)],
+    [
+      'the event itself',
+      (e: Record<string, unknown>) => (e.decision = { allowed: true, remaining: 9, resetMs: 0 }),
+    ],
+  ])("can't change the response by writing %s", async (_label, write) => {
+    const { app } = harness({ hooks: writer(write) });
+    const statuses: number[] = [];
+    const remaining: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const res = await request(app).get('/limited');
+      statuses.push(res.status);
+      remaining.push(String(res.headers['ratelimit-remaining']));
+    }
+    expect(statuses).toStrictEqual([200, 200, 429]);
+    expect(remaining).toStrictEqual(['1', '0', '0']);
+  });
+
+  it('gets frozen events, so a write fails in the hook, where it is ignored', async () => {
+    const events: DecisionEvent[] = [];
+    const { app } = harness({ hooks: { onDecision: (e) => void events.push(e) } });
+    await request(app).get('/limited');
+    const [event] = events;
+    expect(Object.isFrozen(event)).toBe(true);
+    expect(Object.isFrozen(event?.decision)).toBe(true);
+    expect(Object.isFrozen(event?.rule)).toBe(true);
+  });
+});
+
 describe('onDecision', () => {
   it('gets every decision from the primary, allowed and denied', async () => {
     const r = recording();
@@ -78,7 +127,7 @@ describe('onDecision', () => {
     ]);
     const [first] = r.decisions;
     expect(first?.source).toBe('primary');
-    expect(first?.rule).toBe(rule);
+    expect(first?.rule).toStrictEqual(rule);
     expect(first?.limit).toBe(2);
     expect(first?.key).toMatch(/^rl:api:/);
     expect(first?.req.path).toBe('/limited');

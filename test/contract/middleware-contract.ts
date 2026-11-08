@@ -225,7 +225,10 @@ export function describeMiddleware(
       for (let i = 0; i < 3; i++) await request(h.app).get('/');
       expect(events.map((e) => e.decision)).toStrictEqual(h.decisions);
       expect(events.map((e) => e.source)).toStrictEqual(['primary', 'primary', 'primary']);
-      expect(events.every((e) => e.rule === rule && e.limit === rule.limit)).toBe(true);
+      for (const e of events) {
+        expect(e.rule).toStrictEqual(rule);
+        expect(e.limit).toBe(rule.limit);
+      }
     });
 
     it('allows exactly its burst of 50 concurrent requests against limit: 10', async () => {

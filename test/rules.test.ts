@@ -386,8 +386,18 @@ describe('createMatcher', () => {
     ).toBeUndefined();
   });
 
-  it('returns the original rule object', () => {
+  it('returns a frozen copy of the rule as configured, not normalised', () => {
     const rule: Rule = { id: 'a', ...base, path: '/Orders', method: 'post' };
-    expect(createMatcher([rule])(req('POST', '/orders'), undefined)).toBe(rule);
+    const matched = createMatcher([rule])(req('POST', '/orders'), undefined);
+    expect(matched).toStrictEqual(rule);
+    expect(Object.isFrozen(matched)).toBe(true);
+  });
+
+  it("isn't changed by the caller changing a rule after it was validated", () => {
+    const rule = { id: 'a', ...base, path: '/orders' };
+    const match = createMatcher([rule]);
+    rule.path = '/elsewhere';
+    rule.limit = -1;
+    expect(match(req('GET', '/orders'), undefined)).toMatchObject({ path: '/orders', limit: 10 });
   });
 });

@@ -42,8 +42,11 @@ export function validateRules(rules: unknown): asserts rules is readonly Rule[] 
  */
 export function createMatcher(rules: readonly Rule[]): Matcher {
   validateRules(rules);
+  // Frozen copies: the caller's objects could change after they were validated, and the rule a
+  // request matched is handed to algorithms and hooks, which mustn't change it either.
+  const frozen = rules.map((rule) => Object.freeze({ ...rule }));
   // A rule's specificity doesn't depend on the request, so rank once and take the first match.
-  const ranked = rules.map(compileRule).sort(bySpecificity);
+  const ranked = frozen.map(compileRule).sort(bySpecificity);
 
   return (req, tier) => {
     // Express's routing keeps ".." as a segment, while express.static resolves it, so either

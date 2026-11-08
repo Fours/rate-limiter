@@ -33,7 +33,8 @@ export type FallbackEvent = {
 
 /**
  * Called synchronously, and never allowed to affect the request: a hook that throws, or returns
- * a promise that rejects, is ignored. What a hook returns is never awaited.
+ * a promise that rejects, is ignored. What a hook returns is never awaited. Events, their rules
+ * and decisions are frozen, so a hook can't change the response by writing to them.
  */
 export interface RateLimitHooks {
   /** Called once for every limited request, allowed or denied, after its decision. */
