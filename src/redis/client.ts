@@ -26,7 +26,8 @@ const ADAPTED = Symbol('rate-limiter.adapted');
 
 /**
  * Adapts an [ioredis](https://github.com/redis/ioredis) client for the Redis algorithms. The
- * client stays yours: connect, configure and close it yourself.
+ * client stays yours: connect, configure and close it yourself. Any reply settings work,
+ * `stringNumbers: true` included.
  *
  * @throws TypeError if `client` isn't an ioredis client, for example a node-redis one.
  */
@@ -34,9 +35,23 @@ export function fromIoredis(client: IoredisLike): RedisScriptClient {
   // node-redis spells it evalSha, so this also catches the wrong client being passed, at startup.
   assertMethods(client, ['evalsha', 'eval'], 'fromIoredis', 'fromNodeRedis');
   return mark({
-    evalsha: (sha, keys, args) => client.evalsha(sha, keys.length, ...keys, ...args),
-    eval: (script, keys, args) => client.eval(script, keys.length, ...keys, ...args),
+    evalsha: (sha, keys, args) =>
+      client.evalsha(sha, keys.length, ...keys, ...args).then(integersFromStrings),
+    eval: (script, keys, args) =>
+      client.eval(script, keys.length, ...keys, ...args).then(integersFromStrings),
   });
+}
+
+/**
+ * With `stringNumbers: true`, ioredis returns every integer as a decimal string, and the scripts
+ * reply with integers only. Turned back here, so the setting can't fail every check at request
+ * time. Only plain decimal integers are converted; anything else is left for the reply check.
+ */
+function integersFromStrings(reply: unknown): unknown {
+  if (!Array.isArray(reply)) return reply;
+  return reply.map((value: unknown) =>
+    typeof value === 'string' && /^(0|-?[1-9][0-9]*)$/.test(value) ? Number(value) : value,
+  );
 }
 
 /**

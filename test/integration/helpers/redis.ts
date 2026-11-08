@@ -5,8 +5,8 @@ import { createClient } from 'redis';
 /** The test Redis from docker-compose.test.yml. Port 6390 keeps tests away from any other Redis. */
 export const redisUrl = process.env.REDIS_URL ?? 'redis://127.0.0.1:6390';
 
-export async function connectIoredis(): Promise<Redis> {
-  const client = new Redis(redisUrl, { lazyConnect: true, maxRetriesPerRequest: 1 });
+export async function connectIoredis(options: { stringNumbers?: boolean } = {}): Promise<Redis> {
+  const client = new Redis(redisUrl, { lazyConnect: true, maxRetriesPerRequest: 1, ...options });
   await client.connect();
   return client;
 }

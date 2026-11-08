@@ -43,6 +43,18 @@ describe.each([
     expect(reply).toStrictEqual(['k1', 'k2', 'a1', 'a2', 2, 2]);
   });
 
+  it('accepts replies from ioredis with stringNumbers: true', async () => {
+    // Found by the 1.0 correctness review: with this setting, every check failed at request
+    // time, so the limiter ran on the per-instance fallback for good.
+    const strings = await connectIoredis({ stringNumbers: true });
+    try {
+      const reply = await runScript(fromIoredis(strings), decision, ['k'], ['7']);
+      expect(parseDecision(reply)).toStrictEqual({ allowed: true, remaining: 7, resetMs: 1_500 });
+    } finally {
+      await strings.quit();
+    }
+  });
+
   it('returns a reply parseDecision accepts', async () => {
     const reply = await runScript(adapt(), decision, ['k'], ['7']);
     expect(parseDecision(reply)).toStrictEqual({ allowed: true, remaining: 7, resetMs: 1_500 });
