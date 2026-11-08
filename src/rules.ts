@@ -146,9 +146,10 @@ function normalisePath(path: string): string {
  * can only make more requests match a rule. `..` is kept: see {@link resolveDots}.
  */
 function pathSegments(path: string): string[] {
-  return decodePath(path)
-    .toLowerCase()
+  return path
     .split('/')
+    .flatMap((segment) => decodeSegment(segment).split('/'))
+    .map((segment) => segment.toLowerCase())
     .filter((segment) => segment !== '' && segment !== '.');
 }
 
@@ -166,12 +167,15 @@ function join(segments: readonly string[]): string {
   return `/${segments.join('/')}`;
 }
 
-/** Decodes percent-escapes once, as a handler would. A malformed escape is left as it is. */
-function decodePath(path: string): string {
+/**
+ * Decodes percent-escapes once, as a handler would. A segment with a malformed escape is left as
+ * it is. Segment by segment, so one stray `%` can't keep the rest of the path encoded.
+ */
+function decodeSegment(segment: string): string {
   try {
-    return decodeURIComponent(path);
+    return decodeURIComponent(segment);
   } catch {
-    return path;
+    return segment;
   }
 }
 

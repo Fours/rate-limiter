@@ -240,6 +240,12 @@ describe('createMatcher', () => {
       expect(pick(rules, req('GET', '/A%zz'))).toBe('bad');
     });
 
+    it('still decodes the other segments when one has a malformed escape', () => {
+      const wild: Rule[] = [{ id: 'acme', ...base, path: '/t/acme/*' }];
+      expect(pick(wild, req('GET', '/t/%61cme/report%zz'))).toBe('acme');
+      expect(pick(wild, req('GET', '/t/%zz/../%61cme/x'))).toBe('acme');
+    });
+
     it('applies the same normalisation to wildcard prefixes', () => {
       const wild: Rule[] = [{ id: 'wild', ...base, path: '/downloads/*' }];
       expect(pick(wild, req('GET', '/%64ownloads/big.zip'))).toBe('wild');

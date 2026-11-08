@@ -129,6 +129,27 @@ describe('spellings a decoding handler serves the same (0027)', () => {
     const res = await request(app).get('/t/%61cme/report');
     expect(res.status).toBe(429);
   });
+
+  it('limits an encoded :param even when a later segment has a malformed escape', async () => {
+    const limiter = rateLimit({
+      rules: [{ id: 'acme', limit: 1, windowMs: 60_000, path: '/t/acme/*' }],
+      algorithm: createTokenBucket({ clock: new FakeClock() }),
+    });
+    const router = express.Router({ mergeParams: true });
+    router.use((req, res) => {
+      res.send(`tenant ${String((req.params as { tenant?: string }).tenant)}`);
+    });
+    const app = express();
+    app.use(limiter);
+    app.use('/t/:tenant', router);
+    expect((await request(app).get('/t/acme/report')).status).toBe(200);
+    const res = await request(app).get('/t/%61cme/report%ZZ');
+    expect(res.status).toBe(429);
+    // Unlimited, the router does take it as tenant acme, so this was a real bypass.
+    const open = express();
+    open.use('/t/:tenant', router);
+    expect((await request(open).get('/t/%61cme/report%ZZ')).text).toBe('tenant acme');
+  });
 });
 
 // Express's routing and mounts keep ".." as an ordinary segment, unlike express.static, so a
