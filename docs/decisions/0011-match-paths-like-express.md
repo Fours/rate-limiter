@@ -1,6 +1,6 @@
 # 0011. Match paths and methods the way Express routes them
 
-- **Status:** Accepted
+- **Status:** Superseded by [0027](0027-match-paths-as-handlers-read-them.md), which also decodes the path and resolves `//`, `.` and `..`, as decoding handlers do. The rules here for case, methods and wildcards still hold.
 - **Date:** 2026-11-06
 - **Milestone:** 1
 

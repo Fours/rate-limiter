@@ -213,6 +213,40 @@ describe('createMatcher', () => {
       );
     });
 
+    it.each([
+      ['a percent-escape', '/%6frders'],
+      ['an encoded slash', '/api%2forders'],
+      ['a doubled slash', '//api//orders'],
+      ['several trailing slashes', '/api/orders//'],
+      ['a dot segment', '/./api/./orders'],
+      ['a dot-dot segment', '/x/../api/orders'],
+      ['an encoded dot-dot segment', '/x/%2e%2e/api/orders'],
+      ['dot-dot above the root', '/../../api/orders'],
+    ])('matches %s the way a decoding handler reads it (0027)', (_label, path) => {
+      const api: Rule[] = [
+        { id: 'exact', ...base, path: path.includes('api') ? '/api/orders' : '/orders' },
+      ];
+      expect(pick(api, req('GET', path))).toBe('exact');
+    });
+
+    it('decodes once only, as a handler does, and keeps a malformed escape as it is', () => {
+      const rules: Rule[] = [
+        { id: 'dot', ...base, path: '/a.b' },
+        { id: 'bad', ...base, path: '/a%zz' },
+      ];
+      expect(pick(rules, req('GET', '/a%2eb'))).toBe('dot');
+      // A handler decodes "%252e" once, to "%2e": another file than "a.b".
+      expect(pick(rules, req('GET', '/a%252eb'))).toBeUndefined();
+      expect(pick(rules, req('GET', '/A%zz'))).toBe('bad');
+    });
+
+    it('applies the same normalisation to wildcard prefixes', () => {
+      const wild: Rule[] = [{ id: 'wild', ...base, path: '/downloads/*' }];
+      expect(pick(wild, req('GET', '/%64ownloads/big.zip'))).toBe('wild');
+      expect(pick(wild, req('GET', '/downloads%2fbig.zip'))).toBe('wild');
+      expect(pick(wild, req('GET', '/downloads/../other'))).toBeUndefined();
+    });
+
     it('joins baseUrl and path, so rules work inside mounted routers', () => {
       const api: Rule[] = [
         { id: 'api-orders', ...base, path: '/api/orders' },

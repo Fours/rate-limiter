@@ -9,7 +9,7 @@ The first published version.
 ### The middleware
 
 - `rateLimit(options)`: Express 5 middleware that limits each client per rule, with a `close()` for shutdown. Invalid options throw at startup, never during a request.
-- Rules match by method, path (exact or `/prefix/*`, matched the way Express routes) and tier. The most specific rule wins.
+- Rules match by method, path (exact or `/prefix/*`) and tier. The most specific rule wins. Paths match the way Express and decoding handlers such as `express.static` read them: case-insensitive, decoded once, with `//`, `.`, `..` and trailing slashes resolved, so another spelling of a path can't get around its rule.
 - `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset` on every limited request, and `Retry-After` with a `429` and `{ "error": "rate_limited" }` on a denial. All in whole seconds, rounded up.
 - Clients are identified by `req.user.id`, set by your auth middleware, then by IP, with IPv6 grouped by /64. `identify` and `tier` options replace or extend this.
 - An API key header is never read by the default, since a client could send a new made-up key with each request to get a new limit each time. To limit by key, verify it in your auth middleware and set `req.user` first.

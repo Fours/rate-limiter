@@ -37,7 +37,8 @@ export function validateRules(rules: unknown): asserts rules is readonly Rule[] 
 /**
  * Validates the rules, then returns a function that picks the most specific
  * matching rule for a request. Paths and methods match the way Express routes
- * them (decision 0011), so case, a trailing slash or HEAD can't dodge a rule.
+ * them (decisions 0011 and 0027), so case, a trailing slash, an encoding, `//`, `.`, `..` or
+ * HEAD can't dodge a rule.
  */
 export function createMatcher(rules: readonly Rule[]): Matcher {
   validateRules(rules);
@@ -123,11 +124,33 @@ function compileRule(rule: Rule, index: number): CompiledRule {
   };
 }
 
-/** Express routes case-insensitively and ignores one trailing slash by default; so do we. */
+/**
+ * The path a handler may end up serving, so that writing it another way can't dodge a rule
+ * (decision 0027). Express routes case-insensitively and ignores a trailing slash. Handlers that
+ * decode the path, such as `express.static` or a route with a `:param`, also treat `%64` as `d`,
+ * `%2F` as `/`, `//` as `/` and resolve `.` and `..`. So this decodes once, drops empty and `.`
+ * segments, resolves `..`, and lower-cases. Each step can only make more requests match a rule,
+ * which errs towards limiting.
+ */
 function normalisePath(path: string): string {
+  // "/*" compiles to the empty prefix, which matches every path.
   if (path === '') return '';
-  const lower = path.toLowerCase();
-  return lower.length > 1 && lower.endsWith('/') ? lower.slice(0, -1) : lower;
+  const segments: string[] = [];
+  for (const segment of decodePath(path).split('/')) {
+    if (segment === '' || segment === '.') continue;
+    if (segment === '..') segments.pop();
+    else segments.push(segment);
+  }
+  return `/${segments.join('/')}`.toLowerCase();
+}
+
+/** Decodes percent-escapes once, as a handler would. A malformed escape is left as it is. */
+function decodePath(path: string): string {
+  try {
+    return decodeURIComponent(path);
+  } catch {
+    return path;
+  }
 }
 
 function pathRank(c: CompiledRule): number {
