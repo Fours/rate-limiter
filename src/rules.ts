@@ -59,7 +59,7 @@ function validateRule(raw: unknown, index: number, ids: Set<string>): void {
     throw new InvalidRuleError(`${position}: must be an object`);
   }
   const rule = raw as Record<string, unknown>;
-  const { id, limit, windowMs, burst, path, method, tier } = rule;
+  const { id, limit, windowMs, burst, algorithm, path, method, tier } = rule;
   const label = typeof id === 'string' ? `${position} (${JSON.stringify(id)})` : position;
   const fail = (problem: string) => new InvalidRuleError(`${label}: ${problem}`);
 
@@ -79,6 +79,10 @@ function validateRule(raw: unknown, index: number, ids: Set<string>): void {
     if (burst * windowMs > Number.MAX_SAFE_INTEGER) {
       throw fail('burst * windowMs must not exceed Number.MAX_SAFE_INTEGER');
     }
+  }
+
+  if (algorithm !== undefined && (typeof algorithm !== 'string' || algorithm === '')) {
+    throw fail('algorithm must be a non-empty string, a name from the algorithms option');
   }
 
   if (path !== undefined) {

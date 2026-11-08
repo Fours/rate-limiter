@@ -107,8 +107,8 @@ Do these in order. Each one ends with passing tests.
 | Task | Status | Commit |
 | --- | --- | --- |
 | T0. The edges-check failure | Done | 8bfc4d2 |
-| T1. `burst` | Done | |
-| T2. `algorithm` per rule | Not started | |
+| T1. `burst` | Done | 21c2da5 |
+| T2. `algorithm` per rule | Done | |
 | T3. API review for 1.0 | Not started | |
 | T4. Release workflow and 1.0.0 | Not started | |
 | T5. Demo foundation | Not started | |
@@ -148,14 +148,16 @@ Write [0022](decisions/0022-burst.md).
 
 Write [0023](decisions/0023-algorithm-per-rule.md).
 
+*As built:* `rateLimit` resolves each rule to its algorithm once, at startup, and runs the burst check from T1 against that algorithm. Names come only from the `algorithms` object's own keys. Names no rule uses are allowed, rules can't hold algorithm objects, and no name is reserved for the default (agreed in T2's plan review). When only `algorithms` is given, rules that name none use the built-in in-memory token bucket, as before, and `close()` stops it. An unknown name's error lists the names there are.
+
 **Done when:**
 
-- [ ] A rule naming an algorithm is checked by it, and a rule naming none by the default, tested with recording fake algorithms
-- [ ] An unknown name throws at startup, from code and from rules files
-- [ ] Integration: two rules on two Redis algorithms share one Redis, and each behaves as its algorithm should
-- [ ] Moving a rule to another algorithm starts its clients fresh, as 0016 says, tested against Redis
-- [ ] `close()` closes only the algorithms the middleware created
-- [ ] `burst` validation (T1) uses the rule's own algorithm
+- [x] A rule naming an algorithm is checked by it, and a rule naming none by the default, tested with recording fake algorithms
+- [x] An unknown name throws at startup, from code and from rules files
+- [x] Integration: two rules on two Redis algorithms share one Redis, and each behaves as its algorithm should
+- [x] Moving a rule to another algorithm starts its clients fresh, as 0016 says, tested against Redis
+- [x] `close()` closes only the algorithms the middleware created
+- [x] `burst` validation (T1) uses the rule's own algorithm
 
 ### T3. API review for 1.0
 

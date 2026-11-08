@@ -40,3 +40,4 @@ When you change a decision, update its record in the same commit as the code.
 | [0020](0020-ipv6-by-64.md) | IPv6 clients are grouped by /64, and IPv4-mapped addresses count as IPv4 | Accepted | 4 |
 | [0021](0021-per-request-timing-tolerance.md) | The benchmarks give each request its own timing tolerance, from its limiter time | Accepted | 5 |
 | [0022](0022-burst.md) | An optional `burst` on rules, for the token and leaky buckets only | Accepted | 5 |
+| [0023](0023-algorithm-per-rule.md) | Rules can name their algorithm, from names the caller chooses | Accepted | 5 |

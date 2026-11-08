@@ -9,6 +9,7 @@ import { createRedisSlidingWindowLog } from '../src/algorithms/redis/sliding-win
 import { createRedisTokenBucket } from '../src/algorithms/redis/token-bucket.js';
 import { createTokenBucket } from '../src/algorithms/token-bucket.js';
 import { rateLimit, type RateLimitOptions } from '../src/middleware.js';
+import { parseRules } from '../src/rules-file.js';
 import { InvalidRuleError } from '../src/rules.js';
 import type { Algorithm, Rule } from '../src/types.js';
 import { FakeClock } from './helpers/fake-clock.js';
@@ -324,5 +325,146 @@ describe('burst', () => {
     const res = await request(app).get('/');
     expect(res.headers['ratelimit-limit']).toBe('2');
     expect(res.headers['ratelimit-remaining']).toBe('4');
+  });
+});
+
+describe('algorithm per rule', () => {
+  /** Allows everything, and records which keys and rules it saw. */
+  function recording(name: string, seen: string[]): Algorithm & { close: () => void } {
+    return {
+      check: (key, r) => {
+        seen.push(`${name} ${r.id} ${key}`);
+        return Promise.resolve({ allowed: true, remaining: 1, resetMs: 1_000 });
+      },
+      close: vi.fn(),
+    };
+  }
+  const login: Rule = {
+    id: 'login',
+    limit: 5,
+    windowMs: 60_000,
+    path: '/login',
+    algorithm: 'exact',
+  };
+  const plain: Rule = { id: 'plain', limit: 5, windowMs: 60_000 };
+
+  function app(opts: Partial<RateLimitOptions>) {
+    const limiter = rateLimit({ rules: [login, plain], ...opts });
+    const a = express();
+    a.use(limiter);
+    a.all('/{*rest}', (_req, res) => res.send('ok'));
+    return { app: a, limiter };
+  }
+
+  it('checks a rule that names an algorithm with it, and one that names none with the default', async () => {
+    const seen: string[] = [];
+    const { app: a } = app({
+      algorithm: recording('default', seen),
+      algorithms: { exact: recording('exact', seen), smooth: recording('smooth', seen) },
+    });
+    await request(a).get('/login').set('x-api-key', 'k1');
+    await request(a).get('/other').set('x-api-key', 'k1');
+    expect(seen).toHaveLength(2);
+    expect(seen[0]).toMatch(/^exact login rl:login:key_/);
+    expect(seen[1]).toMatch(/^default plain rl:plain:key_/);
+  });
+
+  it('uses the in-memory default for rules that name none, when only algorithms is given', async () => {
+    const seen: string[] = [];
+    const { app: a, limiter } = app({ algorithms: { exact: recording('exact', seen) } });
+    // plain is limited by the built-in token bucket: 5, then 429.
+    for (let i = 0; i < 5; i++) expect((await request(a).get('/other')).status).toBe(200);
+    expect((await request(a).get('/other')).status).toBe(429);
+    expect(seen).toHaveLength(0);
+    limiter.close();
+  });
+
+  it('throws at startup for a name that the algorithms option lacks', () => {
+    const seen: string[] = [];
+    expect(() =>
+      rateLimit({
+        rules: [login],
+        algorithms: { smooth: recording('s', seen), log: recording('l', seen) },
+      }),
+    ).toThrow(
+      new InvalidRuleError(
+        'rateLimit: rule "login" names algorithm "exact", which isn\'t in the algorithms option. Its names are "smooth", "log".',
+      ),
+    );
+    expect(() => rateLimit({ rules: [login] })).toThrow(
+      new InvalidRuleError(
+        'rateLimit: rule "login" names algorithm "exact", but no algorithms option was given.',
+      ),
+    );
+  });
+
+  it("doesn't take a name from the object's prototype", () => {
+    expect(() =>
+      rateLimit({ rules: [{ ...login, algorithm: 'toString' }], algorithms: {} }),
+    ).toThrow(InvalidRuleError);
+  });
+
+  it('throws at startup for a name in a rules file that the algorithms option lacks', async () => {
+    const rules = await parseRules(
+      'rules:\n  - { id: login, limit: 5, windowMs: 60000, algorithm: exakt }',
+      'yaml',
+    );
+    expect(() => rateLimit({ rules, algorithms: { exact: recording('e', []) } })).toThrow(
+      /rule "login" names algorithm "exakt", which isn't in the algorithms option/,
+    );
+  });
+
+  it('allows names no rule uses', () => {
+    rateLimit({ rules: [plain], algorithms: { unused: recording('u', []) } }).close();
+  });
+
+  it.each([
+    ['not an object', 'exact', 'rateLimit: algorithms must be an object of algorithms by name'],
+    ['an array', [], 'rateLimit: algorithms must be an object of algorithms by name'],
+    [
+      'a value without check',
+      { exact: {} },
+      'rateLimit: algorithms.exact must have a check(key, rule) function',
+    ],
+  ])('rejects algorithms that is %s', (_what, algorithms, message) => {
+    expect(() =>
+      rateLimit({ rules: [plain], algorithms: algorithms as unknown as Record<string, Algorithm> }),
+    ).toThrow(new TypeError(message));
+  });
+
+  it('closes only what it created: the default bucket, never named algorithms', () => {
+    const exact = recording('exact', []);
+    const given = recording('given', []);
+    rateLimit({ rules: [login, plain], algorithm: given, algorithms: { exact } }).close();
+    expect(exact.close).not.toHaveBeenCalled();
+    expect(given.close).not.toHaveBeenCalled();
+
+    // The default it created is stopped: no sweep timer left behind.
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    const limiter = rateLimit({ rules: [login, plain], algorithms: { exact } });
+    expect(vi.getTimerCount()).toBe(1);
+    limiter.close();
+    expect(vi.getTimerCount()).toBe(0);
+    expect(exact.close).not.toHaveBeenCalled();
+  });
+
+  it("checks a burst against the rule's own algorithm", () => {
+    const window: Algorithm = {
+      check: () => Promise.resolve({ allowed: true, remaining: 0, resetMs: 0 }),
+    };
+    const bucket: Algorithm = { ...window, supportsBurst: true };
+    const smooth: Rule = { id: 'smooth', limit: 5, windowMs: 1_000, burst: 2, algorithm: 'bucket' };
+    // The default takes no burst, but the rule's own algorithm does.
+    expect(() =>
+      rateLimit({ rules: [smooth], algorithm: window, algorithms: { bucket } }),
+    ).not.toThrow();
+    // And the other way round.
+    expect(() =>
+      rateLimit({
+        rules: [{ ...smooth, algorithm: 'window' }],
+        algorithm: bucket,
+        algorithms: { window },
+      }),
+    ).toThrow(/rule "smooth" has a burst, but its algorithm doesn't take one/);
   });
 });

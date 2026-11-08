@@ -20,8 +20,14 @@ export interface FallbackOptions {
 
 export interface RateLimitOptions {
   readonly rules: readonly Rule[];
-  /** Default: an in-memory token bucket, which `close()` stops. */
+  /** For rules that name no algorithm. Default: an in-memory token bucket, which `close()` stops. */
   readonly algorithm?: Algorithm;
+  /**
+   * Algorithms by name, for rules that set `algorithm`: `{ exact: createRedisSlidingWindowLog(...) }`
+   * with a rule's `algorithm: 'exact'`. The names are yours. `close()` leaves these alone
+   * (decision 0023).
+   */
+  readonly algorithms?: Readonly<Record<string, Algorithm>>;
   /** Default: API key, then user ID, then IP, then "anon". */
   readonly identify?: (req: Request) => string;
   /** The request's tier, for rules that set `tier`. Default: none. */
@@ -56,7 +62,7 @@ export function rateLimit(opts: RateLimitOptions): RateLimitMiddleware {
   const fallback = resolveFallback(opts.fallback);
   const hooks = resolveHooks(opts.hooks);
   const { algorithm, close } = resolveAlgorithm(opts.algorithm);
-  assertBurstsSupported(opts.rules, algorithm);
+  const algorithmFor = resolveRuleAlgorithms(opts.rules, algorithm, opts.algorithms);
   const identify = opts.identify ?? defaultIdentify;
   const tierOf = opts.tier;
 
@@ -76,7 +82,10 @@ export function rateLimit(opts: RateLimitOptions): RateLimitMiddleware {
       const key = buildKey(rule, identify(req));
       // Only the check is bounded and falls back. An error in identify, tier or matching is a
       // bug in the caller's code, not an outage, so it reaches the catch below.
-      const result = await withTimeout(() => algorithm.check(key, rule), timeoutMs);
+      // Every rule was resolved at startup, so a missing entry can't happen; the default is a
+      // safe answer if it ever did.
+      const checker = algorithmFor.get(rule.id) ?? algorithm;
+      const result = await withTimeout(() => checker.check(key, rule), timeoutMs);
       let source: 'primary' | 'fallback' = 'primary';
       if (result.ok) {
         applied = rule;
@@ -155,18 +164,55 @@ function isPositiveInteger(value: unknown): value is number {
 }
 
 /**
- * A burst on a rule whose algorithm can't honour it would be silently ignored, so it fails at
- * startup instead (decision 0022). The rules have already been validated by createMatcher.
+ * Each rule's algorithm by rule ID: the one it names in `algorithms`, or the default (decision
+ * 0023). A name that isn't there, or a burst on a rule whose algorithm can't honour it (decision
+ * 0022), fails here at startup rather than at request time or silently. The rules have already
+ * been validated by createMatcher.
  */
-function assertBurstsSupported(rules: readonly Rule[], algorithm: Algorithm): void {
-  if (algorithm.supportsBurst === true) return;
-  const rule = rules.find((r) => r.burst !== undefined);
-  if (rule !== undefined) {
-    throw new InvalidRuleError(
-      `rateLimit: rule ${JSON.stringify(rule.id)} has a burst, but its algorithm doesn't take one. ` +
-        'Only the token bucket and the leaky bucket do; remove the burst or change the algorithm.',
-    );
+function resolveRuleAlgorithms(
+  rules: readonly Rule[],
+  fallbackDefault: Algorithm,
+  given: unknown,
+): Map<string, Algorithm> {
+  const named = resolveNamedAlgorithms(given);
+  const out = new Map<string, Algorithm>();
+  for (const rule of rules) {
+    let algorithm = fallbackDefault;
+    if (rule.algorithm !== undefined) {
+      const found = Object.hasOwn(named, rule.algorithm) ? named[rule.algorithm] : undefined;
+      if (found === undefined) {
+        const names = Object.keys(named);
+        throw new InvalidRuleError(
+          `rateLimit: rule ${JSON.stringify(rule.id)} names algorithm ${JSON.stringify(rule.algorithm)}, ` +
+            (names.length === 0
+              ? 'but no algorithms option was given.'
+              : `which isn't in the algorithms option. Its names are ${names.map((n) => JSON.stringify(n)).join(', ')}.`),
+        );
+      }
+      algorithm = found;
+    }
+    if (rule.burst !== undefined && algorithm.supportsBurst !== true) {
+      throw new InvalidRuleError(
+        `rateLimit: rule ${JSON.stringify(rule.id)} has a burst, but its algorithm doesn't take one. ` +
+          'Only the token bucket and the leaky bucket do; remove the burst or change the algorithm.',
+      );
+    }
+    out.set(rule.id, algorithm);
   }
+  return out;
+}
+
+function resolveNamedAlgorithms(given: unknown): Readonly<Record<string, Algorithm>> {
+  if (given === undefined) return {};
+  if (typeof given !== 'object' || given === null || Array.isArray(given)) {
+    throw new TypeError('rateLimit: algorithms must be an object of algorithms by name');
+  }
+  for (const [name, value] of Object.entries(given)) {
+    if (!isAlgorithm(value)) {
+      throw new TypeError(`rateLimit: algorithms.${name} must have a check(key, rule) function`);
+    }
+  }
+  return given as Readonly<Record<string, Algorithm>>;
 }
 
 /** Only an algorithm we created is ours to close. A caller's may be shared with other limiters. */

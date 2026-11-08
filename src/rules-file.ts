@@ -25,6 +25,7 @@ export const RULE_FIELDS = [
   'limit',
   'windowMs',
   'burst',
+  'algorithm',
   'method',
   'path',
   'tier',

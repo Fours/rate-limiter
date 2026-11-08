@@ -11,6 +11,11 @@ export interface Rule {
    * May be larger than `limit`. Positive integer (decision 0022).
    */
   readonly burst?: number;
+  /**
+   * Which algorithm checks this rule: a name from `rateLimit`'s `algorithms` option. The default
+   * `algorithm` when absent (decision 0023).
+   */
+  readonly algorithm?: string;
   /** e.g. "POST". Matches any method when absent. */
   readonly method?: string;
   /** Exact "/orders" or prefix "/orders/*". Matches any path when absent. */

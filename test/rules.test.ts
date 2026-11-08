@@ -154,6 +154,16 @@ describe('validateRules', () => {
     );
   });
 
+  it.each(['', 3, null])('rejects algorithm %j', (algorithm) => {
+    expect(() => {
+      validateRules([{ ...base, id: 'a', algorithm }]);
+    }).toThrow(
+      new InvalidRuleError(
+        'rules[0] ("a"): algorithm must be a non-empty string, a name from the algorithms option',
+      ),
+    );
+  });
+
   it.each(['', 1])('rejects tier %j', (tier) => {
     expect(() => {
       validateRules([{ id: 'a', ...base, tier }]);

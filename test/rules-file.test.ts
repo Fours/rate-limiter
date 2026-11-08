@@ -76,7 +76,7 @@ describe('loadRules', () => {
     const error = await rejection(loadRules(path));
     expect(error).toBeInstanceOf(InvalidRuleError);
     expect(error.message).toBe(
-      `${path}: rules[1] ("orders"): unknown field "limt"; allowed fields are id, limit, windowMs, burst, method, path, tier`,
+      `${path}: rules[1] ("orders"): unknown field "limt"; allowed fields are id, limit, windowMs, burst, algorithm, method, path, tier`,
     );
   });
 

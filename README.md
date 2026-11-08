@@ -66,6 +66,7 @@ Invalid options throw when you call `rateLimit`, never during a request. Bad rul
 | `limit` | positive integer | Requests allowed per window |
 | `windowMs` | positive integer | The window, in ms. For the token bucket, the time a used-up limit takes to refill completely. |
 | `burst` | positive integer, optional | How many requests can arrive at once. Token bucket and leaky bucket only: see below. |
+| `algorithm` | `string`, optional | The name of the algorithm that checks this rule, from the `algorithms` option. The default `algorithm` when absent: see [Choosing an algorithm](#choosing-an-algorithm). |
 | `method` | `string`, optional | For example `POST`. Any method when absent. |
 | `path` | `string`, optional | Exact, like `/orders`, or a prefix, like `/orders/*`. Any path when absent. |
 | `tier` | `string`, optional | Matches the value from `options.tier`. Any tier when absent. |
@@ -238,6 +239,21 @@ All five use the same rules and headers. They differ in how a client's requests 
 | Sliding window counter | `createRedisSlidingWindowCounter()` | About `limit` in any `windowMs`, estimated from two counts. It never allows more than `limit` by its estimate. | Close to exact at a fixed, small cost: a good default for Redis | [1.05× the limit at window edges (at most 1.43×); 192 B a key](#benchmarks) |
 
 The leaky bucket surprises people: with `limit: 10, windowMs: 60_000` it allows one request every 6 seconds, so a client that sends 10 at once gets 1 through and 9 `429`s. That's the point of it: no bursts. If you want a few, set `burst` on the rule; for many, use one of the others.
+
+Rules can use different algorithms in one limiter. Name them in `algorithms`, and give each rule that wants one its name in `algorithm`; the rest use `algorithm`, the default:
+
+```ts
+rateLimit({
+  rules: [
+    { id: 'login', limit: 5, windowMs: 60_000, path: '/login', algorithm: 'exact' },
+    { id: 'api', limit: 1_000, windowMs: 60_000 },
+  ],
+  algorithm: createRedisSlidingWindowCounter({ client }),
+  algorithms: { exact: createRedisSlidingWindowLog({ client }) },
+});
+```
+
+The names are yours, and rules files can use them too. A name that isn't in `algorithms` throws at startup. Moving a rule to another algorithm gives each of its clients a fresh limit once, as switching the default does ([0016](docs/decisions/0016-switching-algorithms-starts-fresh.md), [0023](docs/decisions/0023-algorithm-per-rule.md)). `close()` leaves the algorithms you pass in alone.
 
 The milestone 2 spec has the [exact maths and storage of each](docs/milestone-2.md#algorithms).
 
