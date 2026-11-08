@@ -13,3 +13,6 @@ docs/decisions/data/*-ramp-*/*/run-*/k6.json.gz
 # Steady at 15,000 req/s is about 900,000 requests a run, 7 MB compressed. Its summary.md,
 # spread.md, redis-calls.json and k6-summary.json are committed; the raw records stay local.
 docs/decisions/data/*-steady-15000rps-*/*/run-*/requests.jsonl.gz
+# Mutation testing (npm run mutate): reports and Stryker's sandbox.
+reports/
+.stryker-tmp/

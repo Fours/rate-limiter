@@ -4,13 +4,22 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   // docs/decisions/data/ holds evidence kept as it was run, such as probe scripts, like Prettier.
-  { ignores: ['dist/', 'coverage/', 'node_modules/', 'docs/decisions/data/'] },
+  {
+    ignores: [
+      'dist/',
+      'coverage/',
+      'node_modules/',
+      'docs/decisions/data/',
+      'reports/',
+      '.stryker-tmp/',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
   {
     languageOptions: {
       parserOptions: {
-        projectService: { allowDefaultProject: ['*.js', 'scripts/*.js'] },
+        projectService: { allowDefaultProject: ['*.js', '*.mjs', 'scripts/*.js'] },
         tsconfigRootDir: import.meta.dirname,
       },
     },

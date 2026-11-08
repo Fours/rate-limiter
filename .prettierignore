@@ -6,3 +6,5 @@ package-lock.json
 # Benchmark output, kept exactly as the tools wrote it.
 docs/decisions/data/
 bench/results/
+reports/
+.stryker-tmp/
