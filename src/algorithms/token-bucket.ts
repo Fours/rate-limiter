@@ -35,8 +35,8 @@ export interface InspectableTokenBucket extends TokenBucket {
  * by `windowMs`, so every value stays an exact integer: after a denial, waiting
  * exactly `resetMs` always yields one token, with no 0.999… rounding misses.
  * It holds up to `burst` tokens, `limit` unless the rule says otherwise. Requires
- * `limit * windowMs` and `burst * windowMs <= Number.MAX_SAFE_INTEGER`, which
- * rule validation checks at startup.
+ * `limit * windowMs` and `burst * windowMs` of at most 2^51, which rule validation
+ * checks at startup.
  */
 interface Bucket {
   units: number;

@@ -98,33 +98,33 @@ describe('validateRules', () => {
     },
   );
 
-  it('rejects burst * windowMs above Number.MAX_SAFE_INTEGER, and accepts it at the edge', () => {
-    // MAX_SAFE_INTEGER = 2^53 - 1 = 6361 * 69431 * 20394401
-    expect(() => {
-      validateRules([{ id: 'edge', limit: 1, burst: 6_361 * 69_431, windowMs: 20_394_401 }]);
-    }).not.toThrow();
-    expect(() => {
-      validateRules([{ id: 'big', limit: 1, burst: 1_000_000, windowMs: 10_000_000_000 }]);
-    }).toThrow(
-      new InvalidRuleError(
-        'rules[0] ("big"): burst * windowMs must not exceed Number.MAX_SAFE_INTEGER',
-      ),
-    );
-  });
-
-  it('rejects limit * windowMs above Number.MAX_SAFE_INTEGER, and accepts it at the edge', () => {
-    // MAX_SAFE_INTEGER = 2^53 - 1 = 6361 * 69431 * 20394401
-    expect(() => {
-      validateRules([{ id: 'edge', limit: 6_361 * 69_431, windowMs: 20_394_401 }]);
-    }).not.toThrow();
-    expect(() => {
-      validateRules([{ id: 'big', limit: 1_000_000, windowMs: 10_000_000_000 }]);
-    }).toThrow(
-      new InvalidRuleError(
-        'rules[0] ("big"): limit * windowMs must not exceed Number.MAX_SAFE_INTEGER',
-      ),
-    );
-  });
+  it.each(['limit', 'burst'] as const)(
+    'rejects %s * windowMs above 2^51, and accepts it at the edge',
+    (field) => {
+      // Found by the 1.0 correctness review: up to 2^53 passed here, but the scripts' replies,
+      // up to twice windowMs, then went past the safe integers and failed every check.
+      const at = (n: number, windowMs: number): Rule =>
+        field === 'limit'
+          ? { id: 'r', limit: n, windowMs }
+          : { id: 'r', limit: 1, burst: n, windowMs };
+      expect(() => {
+        validateRules([at(2 ** 11, 2 ** 40)]);
+      }).not.toThrow();
+      expect(() => {
+        validateRules([at(1, 2 ** 51)]);
+      }).not.toThrow();
+      expect(() => {
+        validateRules([at(2 ** 11 + 1, 2 ** 40)]);
+      }).toThrow(
+        new InvalidRuleError(
+          `rules[0] ("r"): ${field} * windowMs must be at most 2^51 (2251799813685248)`,
+        ),
+      );
+      expect(() => {
+        validateRules([at(1, Number.MAX_SAFE_INTEGER)]);
+      }).toThrow(/must be at most 2\^51/);
+    },
+  );
 
   it.each([
     ['orders', 'path must start with "/"'],

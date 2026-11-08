@@ -1,6 +1,6 @@
 -- Token bucket. The same maths as src/algorithms/token-bucket.ts: state is kept in integer
 -- "units", where one token is windowMs units and the bucket refills `limit` units per ms, so
--- every value is exact (limit * windowMs and burst * windowMs <= 2^53, checked by rule
+-- every value is exact (limit * windowMs and burst * windowMs <= 2^51, checked by rule
 -- validation). It holds up to `burst` tokens, `limit` by default (decision 0022).
 -- Arguments, reply, rl_now and rl_claim: see prelude.lua. ARGV[4] is the burst, empty for none.
 

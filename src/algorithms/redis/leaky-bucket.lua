@@ -17,7 +17,7 @@ if ARGV[4] ~= nil and ARGV[4] ~= '' then
   burst = tonumber(ARGV[4])
 end
 -- How early a slot may be taken, in 1/limit ms: (burst - 1) * T. Exact, since
--- burst * windowMs <= 2^53 (rule validation).
+-- burst * windowMs <= 2^51 (rule validation).
 local tolerance = (burst - 1) * window
 
 -- floor(a / b) for integers, exact even where a / b in floating point would round to the next

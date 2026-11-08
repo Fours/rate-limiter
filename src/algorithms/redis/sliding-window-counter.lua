@@ -5,7 +5,8 @@
 --
 -- With W = windowMs and e = ms since the current window began, the estimate in integer units is
 --   prev * (W - e) + curr * W
--- compared against limit * W, so there's no float rounding (every value stays below 2^53).
+-- compared against limit * W, so there's no float rounding: with limit * W at most 2^51 (rule
+-- validation), each term stays below 2^52.
 
 local key = KEYS[1]
 local limit = tonumber(ARGV[1])

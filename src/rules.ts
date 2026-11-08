@@ -22,6 +22,9 @@ interface CompiledRule {
   readonly method: string | undefined;
 }
 
+/** The largest `limit * windowMs` or `burst * windowMs`: 2^51, about 71,000 years of ms. */
+const MAX_SPAN = 2 ** 51;
+
 /**
  * Every field a rule may have. Typed against `Rule` so a field can't be listed that `Rule` lacks;
  * a type test catches the reverse. Any other field throws, in code as in files (decision 0032).
@@ -102,15 +105,17 @@ function validateRule(raw: unknown, index: number, ids: Set<string>): void {
 
   if (!isPositiveInteger(limit)) throw fail('limit must be a positive integer');
   if (!isPositiveInteger(windowMs)) throw fail('windowMs must be a positive integer');
-  // The token bucket counts in integer units of limit * windowMs; past this, maths stops being exact.
-  if (limit * windowMs > Number.MAX_SAFE_INTEGER) {
-    throw fail('limit * windowMs must not exceed Number.MAX_SAFE_INTEGER');
+  // The token bucket counts in integer units of limit * windowMs, and the scripts reply with
+  // times up to twice windowMs. Below 2^51, every one stays a safe integer, which the reply
+  // check requires. Up to 2^53, some rules passed here and then failed every check.
+  if (limit * windowMs > MAX_SPAN) {
+    throw fail(`limit * windowMs must be at most 2^51 (${String(MAX_SPAN)})`);
   }
   if (burst !== undefined) {
     if (!isPositiveInteger(burst)) throw fail('burst must be a positive integer');
     // A token bucket with a burst holds integer units of burst * windowMs (decision 0022).
-    if (burst * windowMs > Number.MAX_SAFE_INTEGER) {
-      throw fail('burst * windowMs must not exceed Number.MAX_SAFE_INTEGER');
+    if (burst * windowMs > MAX_SPAN) {
+      throw fail(`burst * windowMs must be at most 2^51 (${String(MAX_SPAN)})`);
     }
   }
 
