@@ -16,11 +16,17 @@ import {
   runSteps,
   useRedis,
   withFakeClock,
+  withoutExpiry,
 } from '../helpers/algorithms.js';
 import { uniqueRuleId } from '../helpers/redis.js';
 
 const r = useRedis();
 const redisCounter = withFakeClock(r, createRedisSlidingWindowCounterForTest);
+const counterWithoutExpiry = withoutExpiry(
+  r,
+  'sliding-window-counter.lua',
+  'createRedisSlidingWindowCounter',
+);
 const W = 60_000;
 
 describeAlgorithm('Redis sliding window counter', redisCounter, {
@@ -236,7 +242,8 @@ describe('Redis sliding window counter', () => {
         const rule = freshRule({ limit: 1 + pick(5), windowMs: w });
         const shorter: Rule = { ...rule, windowMs: w + 1 };
         const key = buildKey(rule, 'c');
-        const { algorithm, clock } = redisCounter();
+        // Without expiry, like the model: see withoutExpiry.
+        const { algorithm, clock } = counterWithoutExpiry();
         const modelClock = new FakeClock(clock.now());
         const model = referenceModel(modelClock);
         for (let i = 0; i < 120; i++) {
@@ -244,10 +251,10 @@ describe('Redis sliding window counter', () => {
           clock.advance(step);
           modelClock.advance(step);
           // Now and then a second rule on the key, as in 0031.
-          const r = pick(10) === 0 ? shorter : rule;
-          const got = await algorithm.check(key, r);
+          const checked = pick(10) === 0 ? shorter : rule;
+          const got = await algorithm.check(key, checked);
           expect(got, `run ${String(run)}, check ${String(i)}`).toStrictEqual(
-            await model.check(key, r),
+            await model.check(key, checked),
           );
           if (!got.allowed) cases.add(Math.sign(got.resetMs - (w - (clock.now() % w))));
         }

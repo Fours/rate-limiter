@@ -1,8 +1,13 @@
+import { readFileSync } from 'node:fs';
 import type { Redis } from 'ioredis';
 import { afterAll, beforeAll, expect } from 'vitest';
-import type { InternalRedisAlgorithmOptions } from '../../../src/algorithms/redis/factory.js';
+import {
+  createRedisAlgorithm,
+  type InternalRedisAlgorithmOptions,
+} from '../../../src/algorithms/redis/factory.js';
 import { buildKey } from '../../../src/identify.js';
 import { fromIoredis, type RedisScriptClient } from '../../../src/redis/client.js';
+import { defineScript } from '../../../src/redis/scripts.js';
 import type { Algorithm, Decision, Rule } from '../../../src/types.js';
 import type { AlgorithmUnderTest } from '../../contract/algorithm-contract.js';
 import { FakeClock } from '../../helpers/fake-clock.js';
@@ -46,6 +51,35 @@ export function withFakeClock(
   return () => {
     const clock = new FakeClock();
     return { algorithm: create({ client: handle.client, clock }), clock };
+  };
+}
+
+/**
+ * A Redis algorithm from a copy of its script with the PEXPIRE removed, driven by a fresh
+ * FakeClock. For comparisons against a model with no expiry: the time is fake, but Redis expires
+ * keys in real time, and a TTL of a few ms can run out between two checks in the same fake ms,
+ * which starts the client fresh. That happened in CI. Expiry has tests of its own, which check
+ * that a kept key and an expired one give the same answer.
+ */
+export function withoutExpiry(
+  handle: RedisHandle,
+  script: string,
+  name: string,
+  supportsBurst = false,
+): () => AlgorithmUnderTest {
+  const read = (file: string) =>
+    readFileSync(new URL(`../../../src/algorithms/redis/${file}`, import.meta.url), 'utf8');
+  const source = read(script);
+  const stripped = source.replace(/^redis\.call\('PEXPIRE'.*$/m, '');
+  if (stripped === source) throw new Error(`withoutExpiry: no PEXPIRE line in ${script}`);
+  // As loadScript builds it: the prelude, then the script.
+  const lua = defineScript(`${read('prelude.lua')}\n${stripped}`);
+  return () => {
+    const clock = new FakeClock();
+    return {
+      algorithm: createRedisAlgorithm(lua, name, { client: handle.client, clock }, supportsBurst),
+      clock,
+    };
   };
 }
 

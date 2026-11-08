@@ -19,11 +19,13 @@ import {
   runSteps,
   useRedis,
   withFakeClock,
+  withoutExpiry,
 } from '../helpers/algorithms.js';
 import { uniqueRuleId } from '../helpers/redis.js';
 
 const r = useRedis();
 const redisLeaky = withFakeClock(r, createRedisLeakyBucketForTest);
+const leakyWithoutExpiry = withoutExpiry(r, 'leaky-bucket.lua', 'createRedisLeakyBucket', true);
 
 describeAlgorithm('Redis leaky bucket', redisLeaky, {
   // No burst: one at a time, unless the rule is faster than one per ms.
@@ -282,18 +284,19 @@ describe('Redis leaky bucket', () => {
       const rule = randomRule();
       const other = randomRule();
       const key = buildKey(rule, 'c');
-      const { algorithm, clock } = redisLeaky();
+      // Without expiry, like the model: see withoutExpiry.
+      const { algorithm, clock } = leakyWithoutExpiry();
       const modelClock = new FakeClock(clock.now());
       const model = referenceModel(modelClock);
       for (let i = 0; i < 120; i++) {
         const step = pick(4) === 0 ? pick(3 * windowMs) : pick(2);
         clock.advance(step);
         modelClock.advance(step);
-        const r = pick(8) === 0 ? other : rule;
+        const checked = pick(8) === 0 ? other : rule;
         expect(
-          await algorithm.check(key, r),
+          await algorithm.check(key, checked),
           `run ${String(run)}, check ${String(i)}`,
-        ).toStrictEqual(await model.check(key, r));
+        ).toStrictEqual(await model.check(key, checked));
       }
     }
   });
