@@ -43,6 +43,7 @@ npm run build       # tsc → dist/
 npm run test:package   # builds, then tests the built package: entry points, export list, TSDoc
 npm run check:package  # after a build: npm pack contents, publint, attw
 npm run example     # examples/basic
+scripts/smoke-published.sh [version|tarball]  # README quick start against the npm package, in Docker, on both Node versions
 npm run stack:up       # the benchmark stack: nginx, 3 app instances, Redis (docker-compose.yml)
 npm run stack:observe  # the same, plus Prometheus (:9090) and Grafana (:3001), with METRICS=1
 npm run stack:down     # stops either, observability included

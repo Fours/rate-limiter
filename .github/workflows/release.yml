@@ -1,0 +1,58 @@
+name: Release
+
+# Publishes to npm when a version tag is pushed, with trusted publishing (OIDC) and provenance.
+# No npm token exists anywhere: npm trusts this workflow, in this repository, in the npm
+# environment, and nothing else (decision 0025).
+on:
+  push:
+    tags: ['v*']
+
+# Nothing here writes to the repository. Only the publish job gets an OIDC token.
+permissions:
+  contents: read
+
+# Two pushes of the same tag never publish at once.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Every CI check, the stack job included, on the tagged commit.
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    needs: ci
+    runs-on: ubuntu-latest
+    # Protected on GitHub: only v* tags may deploy to it. npm's trusted publisher names it too,
+    # so a run outside it can't publish even from this workflow file.
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The whole history, to check the tagged commit is on main.
+          fetch-depth: 0
+      # Node 24 for its npm 11: trusted publishing needs npm 11.5.1 or later, and Node 22 ships
+      # npm 10. Keep in step with ci.yml's matrix.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.22.1
+          registry-url: https://registry.npmjs.org
+      - name: Check npm can publish with OIDC
+        run: |
+          npm --version
+          node -e "const [a,b,c]=process.argv[1].split('.').map(Number); process.exit(a>11||(a===11&&(b>5||(b===5&&c>=1)))?0:1)" "$(npm --version)" \
+            || { echo "::error title=Release refused::npm $(npm --version) is older than 11.5.1, which trusted publishing needs"; exit 1; }
+      - name: Check the tag matches package.json's version
+        run: node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/check-release-tag.ts "$GITHUB_REF_NAME"
+      - name: Check the tagged commit is on main
+        run: |
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main \
+            || { echo "::error title=Release refused::$GITHUB_REF_NAME is not on main"; exit 1; }
+      - run: npm ci
+      - run: npm run build
+      # npm adds provenance on its own when it publishes through OIDC from a public repository.
+      - run: npm publish

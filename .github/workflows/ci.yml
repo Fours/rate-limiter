@@ -1,8 +1,11 @@
 name: CI
 
 on:
+  # Branches only: a v* tag runs these same jobs through release.yml, before it publishes.
   push:
+    branches: ['**']
   pull_request:
+  workflow_call:
 
 jobs:
   check:

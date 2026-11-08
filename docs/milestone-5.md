@@ -109,8 +109,8 @@ Do these in order. Each one ends with passing tests.
 | T0. The edges-check failure | Done | 8bfc4d2 |
 | T1. `burst` | Done | 21c2da5 |
 | T2. `algorithm` per rule | Done | 2751a7e |
-| T3. API review for 1.0 | Done | |
-| T4. Release workflow and 1.0.0 | Not started | |
+| T3. API review for 1.0 | Done | 0e66a25 |
+| T4. Release workflow and 1.0.0 | In progress | |
 | T5. Demo foundation | Not started | |
 | T6. The demo page | Not started | |
 | T7. The write-up | Not started | |
