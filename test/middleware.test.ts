@@ -187,6 +187,19 @@ describe('rateLimit middleware', () => {
       expect(errors).toHaveLength(1);
       expect(handled()).toBe(0);
     });
+
+    it.each([
+      ['undefined', () => undefined, 'got undefined'],
+      ['a number', () => 42, 'got 42'],
+      ['a Promise, from an async identify', () => Promise.resolve('u1'), 'got a Promise'],
+    ])('passes an identify that returns %s to next(err)', async (_label, identify, message) => {
+      // Found by the 1.0 correctness review: the value went into the key as "undefined" or
+      // "[object Promise]", so every client shared one bucket.
+      const { app, errors, handled } = harness({ identify: identify as unknown as () => string });
+      expect((await request(app).get('/')).status).toBe(500);
+      expect(String(errors[0])).toContain(`identify must return a string, ${message}`);
+      expect(handled()).toBe(0);
+    });
   });
 
   it('allows exactly 10 of 50 concurrent requests against limit: 10', async () => {

@@ -100,7 +100,7 @@ export function rateLimit(opts: RateLimitOptions): RateLimitMiddleware {
         next();
         return;
       }
-      const key = buildKey(rule, identify(req), prefix);
+      const key = buildKey(rule, clientIdOf(identify, req), prefix);
       // Every rule was resolved at startup, so a missing entry can't happen; the default is a
       // safe answer if it ever did.
       const checker = algorithmFor.get(rule.id) ?? algorithm;
@@ -159,6 +159,21 @@ export function rateLimit(opts: RateLimitOptions): RateLimitMiddleware {
       fallback?.close();
     },
   });
+}
+
+/**
+ * A custom identify's answer, checked: a non-string, such as undefined or the Promise an async
+ * identify returns, would make the same key for every client, so all of them would share one
+ * bucket. It goes to next(err), like an identify that throws.
+ */
+function clientIdOf(identify: (req: Request) => string, req: Request): string {
+  const id: unknown = identify(req);
+  if (typeof id !== 'string') {
+    throw new TypeError(
+      `rateLimit: identify must return a string, got ${id instanceof Promise ? 'a Promise (identify must not be async)' : show(id)}`,
+    );
+  }
+  return id;
 }
 
 /** Every option `rateLimit` takes. A type test keeps this in step with RateLimitOptions. */

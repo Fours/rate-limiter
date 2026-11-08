@@ -347,7 +347,7 @@ rateLimit({ rules, identify: (req) => `account_${lookupAccount(req)}` });
 
 Two things to watch:
 
-- **Return a non-empty string.** Every request that gets `''` shares one bucket.
+- **Return a non-empty string, synchronously.** Every request that gets `''` shares one bucket. Anything that isn't a string, including the Promise an `async` function returns, goes to `next(err)`, as a thrown error does.
 - **Use a prefix that can't be confused with another rule's keys.** Storage keys are `rl:{rule.id}:{clientId}`, and rule ids may contain `:`. So rule `a` with client `b:ip_1` and rule `a:b` with client `ip_1` both give `rl:a:b:ip_1`. A fixed prefix like `account_`, with no `:` in it, avoids this.
 
 ## Headers
