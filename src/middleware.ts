@@ -1,5 +1,6 @@
 import type { Request, RequestHandler } from 'express';
 import { createTokenBucket } from './algorithms/token-bucket.js';
+import { defaultBurstOf } from './algorithms/default-burst.js';
 import { createFallback, type Fallback } from './fallback.js';
 import { rateLimitHeaders, retryAfter } from './headers.js';
 import { resolveHooks, type RateLimitHooks } from './hooks.js';
@@ -81,6 +82,7 @@ export function rateLimit(opts: RateLimitOptions): RateLimitMiddleware {
   const prefix = resolvePrefix(opts.prefix);
   const { algorithm, close } = resolveAlgorithm(opts.algorithm);
   const algorithmFor = resolveRuleAlgorithms(opts.rules, algorithm, opts.algorithms);
+  const fallbackRuleFor = fallbackRules(opts.rules, algorithmFor);
   const identify = opts.identify ?? defaultIdentify;
   const tierOf = opts.tier;
 
@@ -117,7 +119,10 @@ export function rateLimit(opts: RateLimitOptions): RateLimitMiddleware {
             ? { req, rule, key, reason: 'timeout' }
             : { req, rule, key, reason: 'error', error: result.error },
         );
-        ({ rule: applied, decision } = await fallback.check(key, rule));
+        ({ rule: applied, decision } = await fallback.check(
+          key,
+          fallbackRuleFor.get(rule.id) ?? rule,
+        ));
         source = 'fallback';
       }
       const durationMs = performance.now() - start;
@@ -205,6 +210,25 @@ function isPositiveInteger(value: unknown): value is number {
  * 0022), fails here at startup rather than at request time or silently. The rules have already
  * been validated by createMatcher.
  */
+/**
+ * The rules the fallback checks: each with the burst its own algorithm would use, where that
+ * isn't `limit`. The fallback is a token bucket, which reads a missing burst as `limit`, so a
+ * leaky bucket rule, with no burst by default, would otherwise take its whole limit at once
+ * during an outage.
+ */
+function fallbackRules(
+  rules: readonly Rule[],
+  algorithmFor: ReadonlyMap<string, Algorithm>,
+): Map<string, Rule> {
+  const out = new Map<string, Rule>();
+  for (const rule of rules) {
+    const checker = algorithmFor.get(rule.id);
+    const burst = checker === undefined ? undefined : defaultBurstOf(checker);
+    if (rule.burst === undefined && burst !== undefined) out.set(rule.id, { ...rule, burst });
+  }
+  return out;
+}
+
 function resolveRuleAlgorithms(
   rules: readonly Rule[],
   fallbackDefault: Algorithm,

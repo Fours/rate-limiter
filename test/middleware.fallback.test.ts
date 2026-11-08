@@ -1,7 +1,10 @@
 import express, { type ErrorRequestHandler, type Express } from 'express';
 import request from 'supertest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createRedisFixedWindow } from '../src/algorithms/redis/fixed-window.js';
+import { createRedisLeakyBucket } from '../src/algorithms/redis/leaky-bucket.js';
 import { rateLimit, type RateLimitMiddleware, type RateLimitOptions } from '../src/middleware.js';
+import type { RedisScriptClient } from '../src/redis/client.js';
 import { RateLimitTimeoutError } from '../src/timeout.js';
 import type { Algorithm, Decision, Rule } from '../src/types.js';
 import { untilTimerPending } from './helpers/timers.js';
@@ -171,6 +174,41 @@ describe('timeout and fallback', () => {
     const { app } = harness({ algorithm: { check: () => Promise.resolve(allowed) } });
     await request(app).get('/');
     expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+describe("the fallback keeps the rule's own default burst", () => {
+  // A Redis client that's down, so every check falls back.
+  const down: RedisScriptClient = {
+    evalsha: () => Promise.reject(failure),
+    eval: () => Promise.reject(failure),
+  };
+  const slow: Rule = { id: 'slow', limit: 10, windowMs: 3_600_000 };
+
+  async function allowedAtOnce(opts: Partial<RateLimitOptions>, r: Rule = slow): Promise<number> {
+    const { app } = harness({ rules: [r], ...opts });
+    let ok = 0;
+    for (let i = 0; i < 12; i++) if ((await request(app).get('/')).status === 200) ok++;
+    return ok;
+  }
+
+  it('lets a leaky bucket rule without a burst take 1 at once, not its whole limit', async () => {
+    // Found by the 1.0 correctness review: the fallback read the missing burst as the token
+    // bucket's default, limit, so a rule meant to smooth traffic took 10 at once in an outage.
+    const leaky = createRedisLeakyBucket({ client: down });
+    expect(await allowedAtOnce({ algorithm: leaky })).toBe(1);
+    expect(await allowedAtOnce({ algorithm: leaky }, { ...slow, burst: 4 })).toBe(4);
+  });
+
+  it('does the same for a leaky bucket named per rule, and splits nothing below 1', async () => {
+    const algorithms = { leaky: createRedisLeakyBucket({ client: down }) };
+    const r: Rule = { ...slow, algorithm: 'leaky' };
+    expect(await allowedAtOnce({ algorithms, fallback: { instances: 3 } }, r)).toBe(1);
+  });
+
+  it('keeps limit as the burst for the other algorithms, whose windows allow that', async () => {
+    const fixed = createRedisFixedWindow({ client: down });
+    expect(await allowedAtOnce({ algorithm: fixed })).toBe(10);
   });
 });
 
