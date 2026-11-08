@@ -44,4 +44,4 @@ When you change a decision, update its record in the same commit as the code.
 | [0026](0026-no-unverified-api-keys.md) | The default identity never trusts an unverified API key | Accepted | 5 |
 | [0027](0027-match-paths-as-handlers-read-them.md) | Match paths the way a decoding handler reads them | Accepted | 5 |
 | [0028](0028-key-prefix-per-limiter.md) | Each limiter sharing a Redis gets its own key prefix | Accepted | 5 |
-| [0029](0029-ipv4-in-ipv6.md) | IPv6 that carries IPv4 counts as IPv4 | Accepted | 5 |
+| [0029](0029-ipv4-in-ipv6-and-non-ip-values.md) | IPv6 that carries IPv4 counts as IPv4, and a value that isn't an IP is never a client ID | Accepted | 5 |

@@ -4,6 +4,8 @@ import type { Rule } from './types.js';
 /** The parts of a request identification reads. An Express `Request` satisfies this. */
 export interface IdentifiableRequest {
   readonly ip?: string | undefined;
+  /** The connection. Its address is used when `ip` isn't an IP (decision 0029). */
+  readonly socket?: { readonly remoteAddress?: string | undefined } | undefined;
   /** Set by auth middleware, if any. Express doesn't type it, so its shape is checked at runtime. */
   readonly user?: unknown;
 }
@@ -18,13 +20,18 @@ export interface IdentifiableRequest {
  * auth middleware, set `req.user`, and mount the limiter after it.
  *
  * IPs are grouped as decisions 0020 and 0029 describe: an IPv6 client by its /64, and an IPv6
- * address that carries an IPv4 one as that IPv4 address.
+ * address that carries an IPv4 one as that IPv4 address. A `req.ip` that isn't an IP, which only
+ * a forged `X-Forwarded-For` can produce, gives way to the connection's own address.
  */
 export function defaultIdentify(req: IdentifiableRequest): string {
   const userId = readUserId(req.user);
   if (userId !== undefined) return `user_${userId}`;
 
-  if (typeof req.ip === 'string' && req.ip !== '') return `ip_${normalizeIp(req.ip) ?? req.ip}`;
+  if (typeof req.ip === 'string' && req.ip !== '') {
+    // Not the raw value: any string a client sent would be a new client, and a long one a long key.
+    const ip = normalizeIp(req.ip) ?? normalizeIp(req.socket?.remoteAddress ?? '');
+    if (ip !== undefined) return `ip_${ip}`;
+  }
   return 'anon';
 }
 

@@ -324,7 +324,7 @@ app.use(rateLimit({ rules, algorithm }));
 IPs are grouped so one client can't escape its limit by changing address ([0020](docs/decisions/0020-ipv6-by-64.md)):
 
 - **IPv6 clients by /64:** `2001:db8:1:2::7` and `2001:db8:1:2:abcd::1` are both `ip_2001:db8:1:2::/64`. One home or server usually gets a whole /64, so it could otherwise use a new address for every request. Everyone in that /64 shares the limit, as everyone behind one IPv4 NAT does.
-- **IPv4-mapped addresses as IPv4:** a server listening on `::`, Node's default, sees IPv4 clients as `::ffff:203.0.113.7`. That's `ip_203.0.113.7`, the same as on an IPv4-only server. NAT64 (`64:ff9b::203.0.113.7`), translated (`::ffff:0:203.0.113.7`) and IPv4-compatible (`::203.0.113.7`) addresses count as IPv4 the same way, so IPv4 clients behind a NAT64 translator don't share one bucket ([0029](docs/decisions/0029-ipv4-in-ipv6.md)). A network-specific NAT64 prefix can't be told from ordinary IPv6: behind one, pass your own `identify`.
+- **IPv4-mapped addresses as IPv4:** a server listening on `::`, Node's default, sees IPv4 clients as `::ffff:203.0.113.7`. That's `ip_203.0.113.7`, the same as on an IPv4-only server. NAT64 (`64:ff9b::203.0.113.7`), translated (`::ffff:0:203.0.113.7`) and IPv4-compatible (`::203.0.113.7`) addresses count as IPv4 the same way, so IPv4 clients behind a NAT64 translator don't share one bucket ([0029](docs/decisions/0029-ipv4-in-ipv6-and-non-ip-values.md)). A network-specific NAT64 prefix can't be told from ordinary IPv6: behind one, pass your own `identify`.
 - Brackets, zones (`%eth0`), case and the way an address is abbreviated don't matter.
 
 **Upgrading from an earlier version:** IPv6 clients, and IPv4 clients of a server listening on `::`, get new storage keys, so they start once with a full limit. Their old keys expire on their own.
@@ -337,7 +337,7 @@ Without it, `req.ip` is the proxy's address, so **every client shares one limit*
 app.set('trust proxy', 1); // one load balancer in front of the app
 ```
 
-Don't use `true` if clients can reach the app directly. Express would then believe any `X-Forwarded-For` header, and a client could pick a new identity on every request. See the [Express docs](https://expressjs.com/en/guide/behind-proxies.html).
+Only set it if clients can't reach the app without going through your proxies, for example because the app listens on a private network. With any `trust proxy` setting, `1` included, a client that connects directly can send its own `X-Forwarded-For` and pick a new IP, and a new limit, on every request. Trust no more hops than you run, and never `true` unless every connection comes through a proxy. A forwarded value that isn't an IP at all is ignored, and the connection's own address used instead ([0029](docs/decisions/0029-ipv4-in-ipv6-and-non-ip-values.md)). See the [Express docs](https://expressjs.com/en/guide/behind-proxies.html).
 
 ### A custom `identify`
 

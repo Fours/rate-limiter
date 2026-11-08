@@ -105,10 +105,16 @@ describe('defaultIdentify', () => {
       expect(id('::ffff:203.0.113.7%eth0')).toBe('ip_203.0.113.7');
     });
 
-    it('keeps a value that is not an IP as it is', () => {
-      expect(id('unknown')).toBe('ip_unknown');
-      expect(id('01.2.3.4')).toBe('ip_01.2.3.4');
-      expect(id('2001:db8::1::2')).toBe('ip_2001:db8::1::2');
+    it("uses the connection's address when req.ip isn't an IP, never the raw value (0029)", () => {
+      const socket = { remoteAddress: '::ffff:203.0.113.9' };
+      for (const ip of ['unknown', '01.2.3.4', '2001:db8::1::2', 'x'.repeat(10_000)]) {
+        expect(defaultIdentify({ ip, socket })).toBe('ip_203.0.113.9');
+      }
+    });
+
+    it("falls back to anon when neither req.ip nor the connection's address is an IP", () => {
+      expect(id('garbage')).toBe('anon');
+      expect(defaultIdentify({ ip: 'garbage', socket: { remoteAddress: 'nope' } })).toBe('anon');
     });
   });
 
