@@ -135,7 +135,7 @@ describe('Redis token bucket', () => {
   });
 
   describe('a limit change on the same key', () => {
-    it('carries over whole tokens only, never more than the new limit', async () => {
+    it('carries over the tokens and the fraction of the next, never more than the new limit', async () => {
       const { algorithm, clock } = redisBucket();
       const rule: Rule = { id: uniqueRuleId('change'), limit: 10, windowMs: 60_000 };
       const key = buildKey(rule, 'c');
@@ -147,13 +147,30 @@ describe('Redis token bucket', () => {
       // Half a token's worth of time: 7.5 tokens each.
       clock.advance(3_000);
 
-      // 7 whole tokens carried, not 7.5. One taken leaves 6 of 9; the 3 missing refill at
-      // 9 per minute, so 20 s. Carrying 7.5 would say 16 667 ms.
+      // 7.5 tokens carried (0031). One taken leaves 6.5 of 9; the 2.5 missing refill at 9 per
+      // minute, so 16 667 ms. Whole tokens only, as before 0031, would say 20 s.
       const shrunk = await algorithm.check(key, { ...rule, limit: 9 });
-      expect(shrunk).toStrictEqual({ allowed: true, remaining: 6, resetMs: 20_000 });
-      // Never more than the new limit: 7 tokens become 4, one taken.
+      expect(shrunk).toStrictEqual({ allowed: true, remaining: 6, resetMs: 16_667 });
+      // Never more than the new limit: 7.5 tokens become 4, one taken.
       const tiny = await algorithm.check(capped, { ...rule, limit: 4 });
       expect(tiny).toMatchObject({ allowed: true, remaining: 3 });
+    });
+
+    it('keeps refilling a client whose checks alternate between two rules (0031)', async () => {
+      const { algorithm, clock } = redisBucket();
+      const oldRule: Rule = { id: uniqueRuleId('mixed'), limit: 2, windowMs: 60_000 };
+      const newRule: Rule = { ...oldRule, limit: 3 };
+      const key = buildKey(oldRule, 'c');
+      await algorithm.check(key, oldRule);
+      await algorithm.check(key, oldRule);
+      let allowed = 0;
+      for (let i = 0; i < 60; i++) {
+        clock.advance(10_000);
+        if ((await algorithm.check(key, i % 2 === 0 ? newRule : oldRule)).allowed) allowed++;
+      }
+      // Both refill at least 2 a minute: 20 in 10 minutes, and at most 30. Whole tokens gave 0.
+      expect(allowed).toBeGreaterThanOrEqual(20);
+      expect(allowed).toBeLessThanOrEqual(30);
     });
 
     it('carries the whole tokens into a bigger limit, then refills at the new rate', async () => {

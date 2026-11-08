@@ -34,11 +34,18 @@ else
   -- State written before bursts existed has no burst field: its capacity was its limit.
   local oldBurst = tonumber(stored[5]) or oldLimit
   if oldLimit ~= limit or oldWindow ~= window or oldBurst ~= burst then
-    -- The rule changed under this key. Carry over whole tokens only, rounding down and capped
-    -- at the new burst, so a change never grants more than the client already had, nor more
-    -- than the new rule holds.
+    -- The rule changed under this key, or two rules share it, as in a rolling deploy (0031).
+    -- Carry over the tokens, the fraction of the next one included, rounding down to a unit and
+    -- capped at the new burst: never more than the client had, nor than the new rule holds.
+    -- Dropping the fraction would lock out a client whose checks alternate between two rules.
     units, last = refill(units, last, oldLimit, oldWindow, oldBurst)
-    units = math.min(burst, math.floor(units / oldWindow)) * window
+    local tokens, part = math.floor(units / oldWindow), units % oldWindow
+    local fraction = 0
+    -- part * window / oldWindow is exact only while oldWindow * window fits in 2^53.
+    if oldWindow * window <= 9007199254740992 then
+      fraction = math.floor(part * window / oldWindow)
+    end
+    units = math.min(burst * window, tokens * window + fraction)
   end
 end
 units, last = refill(units, last, limit, window, burst)

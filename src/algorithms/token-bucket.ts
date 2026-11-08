@@ -142,17 +142,34 @@ function bucketFor(buckets: Map<string, Bucket>, key: string, rule: Rule, now: n
     existing.windowMs !== rule.windowMs ||
     existing.burst !== burst
   ) {
-    // The rule changed under this key (e.g. config reload). Carry over whole tokens only,
-    // rounding down and capped at the new burst, so a change never grants more than the client
-    // already had, nor more than the new rule holds.
+    // The rule changed under this key, or two rules share it, as in a rolling deploy (0031).
     refill(existing, now);
-    const tokens = Math.min(burst, Math.floor(existing.units / existing.windowMs));
-    existing.units = tokens * rule.windowMs;
+    existing.units = carryUnits(existing.units, existing.windowMs, rule.windowMs, burst);
     existing.limit = rule.limit;
     existing.windowMs = rule.windowMs;
     existing.burst = burst;
   }
   return existing;
+}
+
+/**
+ * Units from one window's scale to another's: the tokens, the fraction of the next one included,
+ * rounded down to a unit and capped at the new burst. So never more than the client had, nor than
+ * the new rule holds. Dropping the fraction would lock out a client whose checks alternate
+ * between two rules (decision 0031). The same maths as token-bucket.lua.
+ */
+function carryUnits(
+  units: number,
+  fromWindowMs: number,
+  toWindowMs: number,
+  burst: number,
+): number {
+  const tokens = Math.floor(units / fromWindowMs);
+  const part = units % fromWindowMs;
+  // part * toWindowMs / fromWindowMs is exact only while the product of the windows fits.
+  const fraction =
+    fromWindowMs * toWindowMs <= 2 ** 53 ? Math.floor((part * toWindowMs) / fromWindowMs) : 0;
+  return Math.min(burst * toWindowMs, tokens * toWindowMs + fraction);
 }
 
 function refill(bucket: Bucket, now: number): void {

@@ -191,7 +191,36 @@ describe('createTokenBucket', () => {
     expect(await countAllowed(check)).toBe(1);
   });
 
-  it('carries over whole tokens only when the rule changes under a key', async () => {
+  it('keeps refilling a client whose checks alternate between two rules (0031)', async () => {
+    // Two rules on one key, as during a rolling deploy. Dropping the fraction of a token on each
+    // change threw every refill away, and locked the client out.
+    const oldRule: Rule = { id: 'r', limit: 2, windowMs: 60_000 };
+    const newRule: Rule = { id: 'r', limit: 3, windowMs: 60_000 };
+    const { clock, check } = setup(oldRule);
+    await countAllowed(check);
+    let allowed = 0;
+    for (let i = 0; i < 60; i++) {
+      clock.advance(10_000);
+      if ((await check(undefined, i % 2 === 0 ? newRule : oldRule)).allowed) allowed++;
+    }
+    // Both refill at least 2 a minute: 20 in 10 minutes, and at most 30.
+    expect(allowed).toBeGreaterThanOrEqual(20);
+    expect(allowed).toBeLessThanOrEqual(30);
+  });
+
+  it('carries the fraction of a token across windows of different lengths, rounding down', async () => {
+    const { clock, check } = setup({ id: 'r', limit: 1, windowMs: 3_000 });
+    await check(); // empty
+    clock.advance(1_000); // a third of a token: 1 000 of 3 000 units
+    // In 7 ms tokens that's 2.33 units, rounded down to 2: 5 ms to the next token, not 4.67.
+    expect(await check(undefined, { id: 'r', limit: 1, windowMs: 7 })).toStrictEqual({
+      allowed: false,
+      remaining: 0,
+      resetMs: 5,
+    });
+  });
+
+  it('carries over the tokens and the fraction of the next when the rule changes under a key', async () => {
     const { clock, check } = setup({ id: 'r', limit: 10, windowMs: 1_000 });
     await countAllowed(check);
     clock.advance(250); // 2.5 tokens under the old rule

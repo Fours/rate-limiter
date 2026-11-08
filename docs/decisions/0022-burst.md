@@ -1,6 +1,6 @@
 # 0022. An optional `burst` on rules, for the token and leaky buckets only
 
-- **Status:** Accepted
+- **Status:** Accepted. The token bucket now carries the fraction of a token too, not only whole tokens ([0031](0031-two-rules-on-one-key.md)).
 - **Date:** 2026-11-08
 - **Milestone:** 5
 

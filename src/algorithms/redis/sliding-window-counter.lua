@@ -1,6 +1,6 @@
 -- Sliding window counter: two counts per client, this window's and the previous one's, with the
 -- previous window's requests assumed spread evenly across it. Cheap and close to exact, but an
--- estimate (0008). Windows are aligned to the epoch.
+-- estimate (0008). A new key's windows are aligned to the epoch.
 -- Arguments, reply, rl_now and rl_claim: see prelude.lua.
 --
 -- With W = windowMs and e = ms since the current window began, the estimate in integer units is
@@ -16,29 +16,27 @@ rl_claim(key, 'hash', 'sliding-window-counter')
 
 local stored = redis.call('HMGET', key, 'start', 'window', 'curr', 'prev', 'last')
 local curr, prev = 0, 0
+local start
 if stored[1] then
   -- Time only moves forward, so a clock that steps back can't reach an earlier window.
   now = math.max(now, tonumber(stored[5]))
-end
-local start = math.floor(now / W) * W
-
-if stored[1] then
-  local old_start, old_window = tonumber(stored[1]), tonumber(stored[2])
-  local old_curr, old_prev = tonumber(stored[3]), tonumber(stored[4])
-  if old_window ~= W then
-    -- windowMs changed, so the old windows don't line up with the new ones. While the old state
-    -- still matters, count all of it in the current window: the old estimate was at most
-    -- prev + curr, so this never allows more than before.
-    if now < old_start + 2 * old_window then
-      curr = old_curr + old_prev
-    end
-  elseif old_start == start then
-    curr, prev = old_curr, old_prev
-  elseif old_start == start - W then
+  -- Windows go on from the stored one's start, k windows of the current W later. That's the
+  -- epoch alignment unless windowMs changed. When it did, or two rules share this key, as in a
+  -- rolling deploy, the counts keep their age and roll over with whichever W is checking
+  -- (0031). Re-aligning to the new W's epoch windows put them back in the current window on
+  -- every change, so while checks alternated between two windows they never aged out.
+  local old_start = tonumber(stored[1])
+  local k = math.floor((now - old_start) / W)
+  start = old_start + k * W
+  if k == 0 then
+    curr, prev = tonumber(stored[3]), tonumber(stored[4])
+  elseif k == 1 then
     -- One window on: this window's count becomes the previous one.
-    prev = old_curr
+    prev = tonumber(stored[3])
   end
   -- Two or more windows on: both counts have aged out.
+else
+  start = math.floor(now / W) * W
 end
 
 local e = now - start

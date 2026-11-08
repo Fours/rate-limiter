@@ -242,7 +242,25 @@ describe('Redis sliding window counter', () => {
     });
   });
 
-  it('counts both windows in the current one when windowMs changes, so nothing is gained', async () => {
+  it('lets counts age out while checks alternate between two windows (0031)', async () => {
+    // Two rules on one key, as during a rolling deploy. Re-aligned to each W's own windows, the
+    // counts went back into the current window on every check and never aged out: 3 of 40.
+    const { algorithm, clock } = redisCounter();
+    const a = freshRule({ limit: 3, windowMs: 60_000 });
+    const b: Rule = { ...a, windowMs: 61_000 };
+    const key = buildKey(a, 'c');
+    const pattern: boolean[] = [];
+    for (let i = 0; i < 40; i++) {
+      pattern.push((await algorithm.check(key, i % 2 === 0 ? a : b)).allowed);
+      clock.advance(30_000);
+    }
+    // 2 a minute, under both limits. The estimate is just over 3 at some checks (2 * 31/61 + 2),
+    // so a few are denied, but never two in a row.
+    expect(pattern.filter(Boolean).length).toBeGreaterThanOrEqual(28);
+    expect(pattern.some((ok, i) => !ok && pattern[i + 1] === false)).toBe(false);
+  });
+
+  it('keeps the old windows going when windowMs changes, so the counts keep their age', async () => {
     const { algorithm, clock } = redisCounter();
     const rule = freshRule({ limit: 5 });
     const key = buildKey(rule, 'c');
@@ -250,8 +268,14 @@ describe('Redis sliding window counter', () => {
     clock.advance(30_000);
     await algorithm.check(key, rule); // prev 2, curr 1: estimate 2 * 0.5 + 1 = 2
 
-    // In 2-minute windows, all 3 count in the current window, so 2 more fit.
-    expect(await allowedNow(algorithm, key, { ...rule, windowMs: 120_000 })).toBe(2);
+    // A 2-minute window from this window's start: prev weighs 90/120, so the estimate is
+    // 2 * 0.75 + 1 = 2.5, and 2 more fit under 5.
+    const longer = { ...rule, windowMs: 120_000 };
+    expect(await allowedNow(algorithm, key, longer)).toBe(2);
+    // It rolls over 2 minutes after that start, not at the epoch's 2-minute boundary: the 3 in
+    // it become the previous window, weighing just under 3, so 2 fit, not 5.
+    clock.advance(90_001);
+    expect(await allowedNow(algorithm, key, longer)).toBe(2);
   });
 
   describe('switching algorithms (decision 0016)', () => {
