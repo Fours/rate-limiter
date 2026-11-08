@@ -1,6 +1,6 @@
 # 0006. Each check is one Lua script via `EVALSHA`
 
-- **Status:** Accepted
+- **Status:** Accepted. As built (milestone 2), there's no `SCRIPT LOAD`: each script is run with `EVALSHA` and sent once with `EVAL` on `NOSCRIPT`, which caches it.
 - **Date:** 2026-11-06
 - **Milestone:** 2
 

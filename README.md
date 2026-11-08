@@ -77,7 +77,7 @@ The default algorithm is a token bucket: requests are refilled steadily, at `lim
 
 `burst` separates the steady rate from how many requests can arrive at once. `{ limit: 100, windowMs: 60_000, burst: 10 }` allows 100 a minute, but at most 10 at a time. For the token bucket it's the bucket's size, `limit` by default. For the leaky bucket it's how many slots a client can use early, 1 by default, so no burst. It can be larger than `limit`, for example 10 a second with bursts of 50; then `RateLimit-Remaining` can be higher than `RateLimit-Limit`, which stays the steady rate. Raising a rule's burst lets the token bucket refill to the new size at the steady rate (a bucket that's already full gets it at once, as an expired key does), while the leaky bucket gives the extra room at once. The window algorithms have no burst to set, so `rateLimit()` throws at startup if a rule with one is checked by them ([0022](docs/decisions/0022-burst.md)).
 
-Paths and methods match the way Express and its handlers read them, so clients can't get around a rule by changing case, adding a trailing slash or sending `HEAD` instead of `GET`. Paths are decoded once, and `//`, `.` and `..` are resolved, so `/%64ownloads/f`, `//downloads/f` and `/x/../downloads/f` all count as `/downloads/f`, as `express.static` would serve them ([0027](docs/decisions/0027-match-paths-as-handlers-read-them.md)). A path with `..` also counts as it's written, since Express's routes and mounts don't resolve `..`: `/admin/..` matches `/admin/*` ([0030](docs/decisions/0030-match-dot-dot-both-ways.md)). `/orders/*` matches `/orders` itself and anything under it. When several rules match, the most specific wins: exact path, then wildcard path (longest first), then no path; then a rule with `tier` set; then a rule with `method` set; then the one declared first. A request that matches no rule isn't limited and gets no headers. The [spec](docs/milestone-1.md#rule-matching) has the full rules.
+Paths and methods match the way Express and its handlers read them, so clients can't get around a rule by changing case, adding a trailing slash or sending `HEAD` instead of `GET`. Paths are decoded once, and `//`, `.` and `..` are resolved, so `/%64ownloads/f`, `//downloads/f` and `/x/../downloads/f` all count as `/downloads/f`, as `express.static` would serve them ([0027](docs/decisions/0027-match-paths-as-handlers-read-them.md)). A path with `..` also counts as it's written, since Express's routes and mounts don't resolve `..`: `/admin/..` matches `/admin/*` ([0030](docs/decisions/0030-match-dot-dot-both-ways.md)). `/orders/*` matches `/orders` itself and anything under it. When several rules match, the most specific wins: exact path, then wildcard path (longest first), then no path; then a rule with `tier` set; then a rule with `method` set; then the one declared first. A request that matches no rule isn't limited and gets no headers. The [spec](docs/milestone-1.md#rule-matching) has the full rules, and [0027](docs/decisions/0027-match-paths-as-handlers-read-them.md) and [0030](docs/decisions/0030-match-dot-dot-both-ways.md) how paths are read.
 
 ## Using Redis
 
@@ -110,7 +110,7 @@ How it stays correct with many instances:
 
 - **One round trip, atomic.** Each check is a single Lua script run with `EVALSHA`, so two instances can't both take a client's last request ([0006](docs/decisions/0006-atomic-lua-checks.md)).
 - **One clock.** Scripts use Redis's own time, so instances whose clocks disagree still agree on the limit ([0007](docs/decisions/0007-redis-server-time.md)).
-- **One key per client and rule,** `rl:{rule.id}:{clientId}`, with a TTL, so idle clients cost nothing. Switching algorithms on a live Redis starts each client fresh instead of misreading the old algorithm's state ([0016](docs/decisions/0016-switching-algorithms-starts-fresh.md)).
+- **One key per client and rule,** `rl:{rule.id}:{clientId}` (or your `prefix` in place of `rl`), with a TTL, so idle clients cost nothing. Switching algorithms on a live Redis starts each client fresh instead of misreading the old algorithm's state ([0016](docs/decisions/0016-switching-algorithms-starts-fresh.md)).
 - **One prefix per limiter.** If two limiters share a Redis, for example one before auth and one after, give each its own `prefix`, such as `prefix: 'preauth'`. Otherwise two rules with the same `id` write the same keys: on two algorithms each check deletes the other's state, and nobody is limited ([0028](docs/decisions/0028-key-prefix-per-limiter.md)).
 
 If Redis goes down, requests are still answered. See [Failure handling](#failure-handling), including the client settings to use.
@@ -158,7 +158,7 @@ From the chaos test: three instances, 500 req/s, Redis killed or paused for 20 s
 | Failed requests | 0 in 15 runs | 0 in 15 runs |
 | End-to-end p99 during the outage | about 1.6 ms, slightly *faster* than normal | about 53 ms: normal plus the 50 ms timeout |
 | Back on Redis after it returns | about 2 s, with ioredis's default backoff | under 50 ms |
-| Most one client got in a window around a change | about 2× the limit | about 2× going away, 1.1× coming back |
+| Most one client got in a window around a change | about 2× the limit | about 2× going away, 1.1× coming back (1.65× for the fixed window) |
 
 The overshoot comes from the switches: the fallback's buckets start full when Redis goes away, and a restarted Redis with no persistence starts every client fresh. The leaky bucket allows no burst, so it stays near 1× when Redis comes back.
 
@@ -348,7 +348,7 @@ rateLimit({ rules, identify: (req) => `account_${lookupAccount(req)}` });
 Two things to watch:
 
 - **Return a non-empty string, synchronously.** Every request that gets `''` shares one bucket. Anything that isn't a string, including the Promise an `async` function returns, goes to `next(err)`, as a thrown error does.
-- **Use a prefix that can't be confused with another rule's keys.** Storage keys are `rl:{rule.id}:{clientId}`, and rule ids may contain `:`. So rule `a` with client `b:ip_1` and rule `a:b` with client `ip_1` both give `rl:a:b:ip_1`. A fixed prefix like `account_`, with no `:` in it, avoids this.
+- **Use a prefix that can't be confused with another rule's keys.** Storage keys are `rl:{rule.id}:{clientId}`, with your `prefix` in place of `rl` if you set one, and rule ids may contain `:`. So rule `a` with client `b:ip_1` and rule `a:b` with client `ip_1` both give `rl:a:b:ip_1`. A fixed prefix like `account_`, with no `:` in it, avoids this.
 
 ## Headers
 

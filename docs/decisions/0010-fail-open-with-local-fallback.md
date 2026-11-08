@@ -1,6 +1,6 @@
 # 0010. Fail open with a local fallback when Redis is down
 
-- **Status:** Accepted
+- **Status:** Accepted. The leaky bucket's "going away" figures were measured before the fallback kept its no-burst default, in milestone 5, and are higher than it now allows.
 - **Date:** 2026-11-06
 - **Milestone:** 4
 

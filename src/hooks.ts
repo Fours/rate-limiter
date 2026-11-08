@@ -9,7 +9,7 @@ export interface DecisionEvent {
   readonly rule: Rule;
   /** The limit the decision was made against: `rule.limit`, or the fallback's share of it. */
   readonly limit: number;
-  /** `rl:{rule.id}:{clientId}`. It can hold an IP or a user ID: not a metric label. */
+  /** `{prefix}:{rule.id}:{clientId}`, `rl:…` by default. It can hold an IP or a user ID: not a metric label. */
   readonly key: string;
   /** What the algorithm, or the fallback, decided. */
   readonly decision: Decision;
@@ -25,7 +25,7 @@ export type FallbackEvent = {
   readonly req: Request;
   /** The rule as configured. */
   readonly rule: Rule;
-  /** `rl:{rule.id}:{clientId}`. It can hold an IP or a user ID: not a metric label. */
+  /** `{prefix}:{rule.id}:{clientId}`, `rl:…` by default. It can hold an IP or a user ID: not a metric label. */
   readonly key: string;
 } &
   // Why the fallback answers: the check took longer than `timeoutMs`, or it failed with `error`.

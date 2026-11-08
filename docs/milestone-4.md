@@ -82,6 +82,8 @@ interface FallbackEvent {
 }
 ```
 
+*As built:* `FallbackEvent` is a union on `reason`, so `error` is there exactly when `reason` is `'error'`. See `src/hooks.ts`.
+
 - `onDecision` runs once per limited request, after the decision and before the response, for primary and fallback decisions alike. `onFallback` runs before it, when a check falls back. Requests that match no rule call neither.
 - **Hooks are synchronous and can't break a request.** A hook that throws is caught, and the request carries on. Anything a hook returns, including a promise, is ignored (open question 4).
 - **`req` is the request as it arrived** (T1 review): it can hold a raw API key in its headers, but none of the limiter's own fields does. `durationMs` runs from entering the middleware, so it includes `identify`. Details in [0019](decisions/0019-hook-events.md).

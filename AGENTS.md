@@ -76,7 +76,7 @@ docs/                   milestone specs and design notes
 - **No `prom-client` or other metrics dependency in the core.** Metrics go through optional hooks. The Prometheus adapter is a separate entry point, with `prom-client` as an optional peer dependency.
 - **Don't add runtime dependencies** beyond the Express peer dependency unless the milestone spec calls for one.
 - **Don't store raw API keys anywhere.** Hash them before they go into storage keys, logs or metric labels.
-- Storage keys look like `rl:{rule.id}:{clientId}`.
+- Storage keys look like `{prefix}:{rule.id}:{clientId}`, with `rl` as the default prefix (decision 0028).
 - Headers are `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset` (seconds) on every limited request, plus `Retry-After` on a 429. The 429 body is `{ "error": "rate_limited" }`.
 - Invalid configuration throws at startup, never at request time.
 

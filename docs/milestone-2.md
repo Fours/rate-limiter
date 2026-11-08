@@ -88,6 +88,8 @@ Each one returns a `Decision`, with `resetMs` following [0003](decisions/0003-re
 | Sliding window log | sorted set: one entry per allowed request, plus a tag member | exactly `limit` in any `windowMs` | `windowMs` / until the oldest entry ages out | `windowMs` |
 | Sliding window counter | hash: `start`, `window`, `curr`, `prev`, `last` | while `prev × (remaining share of window) + curr + 1 ≤ limit`, an estimate | until both counts have aged out / until one more request fits | until the end of the next window |
 
+*As built, after milestone 5:* the fixed window stores `start`, `end`, `count` and `last`; the token bucket also stores `limit`, `window` and, when it differs from the limit, `burst`; and the sliding window log's TTL is until its newest entry ages out, as below.
+
 Details each script must get right:
 
 - **Token bucket:** a port of the milestone 1 maths, unchanged: integer units, the high-water mark, and carrying over whole tokens when a rule's limit changes. *After T3 in milestone 5:* the fraction of a token carries over too ([0031](decisions/0031-two-rules-on-one-key.md)). The behaviour suite runs against both versions, so they can't drift apart.

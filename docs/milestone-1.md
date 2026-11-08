@@ -83,7 +83,7 @@ A rule matches when every field it sets matches the request. Paths and methods m
 
 - `method` is compared case-insensitively. A `HEAD` request also matches a `GET` rule, because Express runs GET handlers for HEAD.
 - `tier` comes from `opts.tier(req)` and is compared exactly.
-- `path` is checked against the request path without the query string (`req.baseUrl + req.path`). Both sides are lower-cased, and one trailing slash is removed unless the path is `/`. A router's root (`/api` + `/`) therefore matches `/api`.
+- `path` is checked against the request path without the query string (`req.baseUrl + req.path`). Both sides are lower-cased, and one trailing slash is removed unless the path is `/`. A router's root (`/api` + `/`) therefore matches `/api`. *Since milestone 5:* paths are also decoded and `//`, `.` and `..` read the way handlers read them ([0027](decisions/0027-match-paths-as-handlers-read-them.md), [0030](decisions/0030-match-dot-dot-both-ways.md)).
 - A wildcard `/orders/*` matches `/orders` itself and anything under `/orders/`, but not `/ordersXYZ`. `/*` matches every path.
 
 When several rules match, the most specific one wins, in this order:
@@ -98,6 +98,7 @@ No match means the request is not limited. `next()` runs and no headers are set.
 Rules are checked once, when the middleware is created. Types are checked at runtime too, because milestone 2 loads rules from YAML or JSON:
 
 - `id` is a non-empty string, unique across rules.
+- *Since milestone 5:* unknown fields throw too, and the bound below is 2^51 ([0032](decisions/0032-unknown-fields-throw-in-code-too.md)).
 - `limit` and `windowMs` are positive integers, with `limit * windowMs <= Number.MAX_SAFE_INTEGER` (the token bucket counts in exact integer units).
 - `path`, if set, starts with `/`, has no `?` or `#`, and is either exact or ends in `/*` with no other `*`.
 - `method`, if set, is letters only. `tier`, if set, is a non-empty string.
@@ -106,7 +107,7 @@ Invalid rules throw an `InvalidRuleError` that names the rule's position and id,
 
 ### Client identification
 
-The default `identify(req)` uses the first one of these that is present:
+The default `identify(req)` uses the first one of these that is present. *Since milestone 5, it no longer reads `x-api-key`: an unverified key could be made up for each request ([0026](decisions/0026-no-unverified-api-keys.md)).*
 
 1. `x-api-key` header → `key_<first 16 hex chars of sha256(apiKey)>`. The raw key is hashed so it never ends up in storage keys, logs or metric labels.
 2. `req.user?.id` → `user_<id>`
