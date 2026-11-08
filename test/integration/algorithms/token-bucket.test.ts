@@ -156,6 +156,26 @@ describe('Redis token bucket', () => {
       expect(tiny).toMatchObject({ allowed: true, remaining: 3 });
     });
 
+    it('gives a full bucket the raised burst at once, as an expired key gets it', async () => {
+      // Found by the 1.0 correctness review: at its TTL, a kept key allowed 2 under a burst
+      // raised to 10, and an expired one 10. Redis TTLs run on real time, so a DEL stands in.
+      const run = async (expire: boolean) => {
+        const { algorithm, clock } = redisBucket();
+        const old: Rule = { id: uniqueRuleId('raised'), limit: 2, windowMs: 60_000 };
+        const key = buildKey(old, 'c');
+        await algorithm.check(key, old);
+        clock.advance(30_000); // full again, exactly at the key's TTL
+        if (expire) await r.redis.del(key);
+        let allowed = 0;
+        for (let i = 0; i < 12; i++) {
+          if ((await algorithm.check(key, { ...old, burst: 10 })).allowed) allowed++;
+        }
+        return allowed;
+      };
+      expect(await run(false)).toBe(10);
+      expect(await run(true)).toBe(10);
+    });
+
     it('keeps refilling a client whose checks alternate between two rules (0031)', async () => {
       const { algorithm, clock } = redisBucket();
       const oldRule: Rule = { id: uniqueRuleId('mixed'), limit: 2, windowMs: 60_000 };

@@ -144,7 +144,13 @@ function bucketFor(buckets: Map<string, Bucket>, key: string, rule: Rule, now: n
   ) {
     // The rule changed under this key, or two rules share it, as in a rolling deploy (0031).
     refill(existing, now);
-    existing.units = carryUnits(existing.units, existing.windowMs, rule.windowMs, burst);
+    // Full under the old rule is the same as swept, so it starts full under the new rule too,
+    // and the answer doesn't depend on when the sweep runs. Redis does the same, where a full
+    // bucket's key has expired.
+    existing.units =
+      existing.units === capacity(existing)
+        ? burst * rule.windowMs
+        : carryUnits(existing.units, existing.windowMs, rule.windowMs, burst);
     existing.limit = rule.limit;
     existing.windowMs = rule.windowMs;
     existing.burst = burst;

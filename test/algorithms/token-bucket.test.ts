@@ -191,6 +191,22 @@ describe('createTokenBucket', () => {
     expect(await countAllowed(check)).toBe(1);
   });
 
+  it('gives the same answer after a rule change whether or not the sweep ran', async () => {
+    // Found by the 1.0 correctness review: a full bucket kept its old size through a raised
+    // limit, while a swept one started at the new size.
+    const before: Rule = { id: 'r', limit: 5, windowMs: 1_000 };
+    const raised: Rule = { id: 'r', limit: 10, windowMs: 1_000 };
+    const run = async (sweep: boolean) => {
+      const { clock, bucket, check } = setup(before);
+      await check();
+      clock.advance(10_000); // full again under the old rule
+      if (sweep) bucket.sweep();
+      return check(undefined, raised);
+    };
+    expect(await run(false)).toStrictEqual(await run(true));
+    expect(await run(false)).toMatchObject({ remaining: 9 });
+  });
+
   it('keeps refilling a client whose checks alternate between two rules (0031)', async () => {
     // Two rules on one key, as during a rolling deploy. Dropping the fraction of a token on each
     // change threw every refill away, and locked the client out.

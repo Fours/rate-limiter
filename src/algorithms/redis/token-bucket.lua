@@ -35,17 +35,25 @@ else
   local oldBurst = tonumber(stored[5]) or oldLimit
   if oldLimit ~= limit or oldWindow ~= window or oldBurst ~= burst then
     -- The rule changed under this key, or two rules share it, as in a rolling deploy (0031).
-    -- Carry over the tokens, the fraction of the next one included, rounding down to a unit and
-    -- capped at the new burst: never more than the client had, nor than the new rule holds.
-    -- Dropping the fraction would lock out a client whose checks alternate between two rules.
     units, last = refill(units, last, oldLimit, oldWindow, oldBurst)
-    local tokens, part = math.floor(units / oldWindow), units % oldWindow
-    local fraction = 0
-    -- part * window / oldWindow is exact only while oldWindow * window fits in 2^53.
-    if oldWindow * window <= 9007199254740992 then
-      fraction = math.floor(part * window / oldWindow)
+    if units == oldBurst * oldWindow then
+      -- Full under the old rule, which is the same as no key: the PEXPIRE below would drop it
+      -- by now if Redis got there first. So it starts full under the new rule too, and the
+      -- answer doesn't depend on when the key expires.
+      units = capacity
+    else
+      -- Carry over the tokens, the fraction of the next one included, rounded down to a unit
+      -- and capped at the new burst: never more than the client had, nor than the new rule
+      -- holds. Dropping the fraction would lock out a client whose checks alternate between
+      -- two rules.
+      local tokens, part = math.floor(units / oldWindow), units % oldWindow
+      local fraction = 0
+      -- part * window / oldWindow is exact only while oldWindow * window fits in 2^53.
+      if oldWindow * window <= 9007199254740992 then
+        fraction = math.floor(part * window / oldWindow)
+      end
+      units = math.min(capacity, tokens * window + fraction)
     end
-    units = math.min(burst * window, tokens * window + fraction)
   end
 end
 units, last = refill(units, last, limit, window, burst)
