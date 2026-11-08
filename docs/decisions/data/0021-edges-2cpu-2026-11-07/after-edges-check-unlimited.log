@@ -1,0 +1,90 @@
+== edges-check 1
+     fixed-window: each burst edge, slowest client: 100 before, 100 after within 154 ms; 100 before, 100 after within 146 ms
+ok   fixed-window: peak 200 per window against a limit of 100, the boundary burst
+ok   fixed-window quick run took 39s
+ok   fixed-window: re-running the analysis gives the same summary
+     sliding-window-log: each burst edge, slowest client: 100 before, under 100 after; 97 before, under 100 after
+ok   sliding-window-log: peak 100 per window, never over the limit of 100 (40s)
+ok   sliding-window-log: re-running the analysis gives the same summary
+exit 0
+== edges-check 2
+     fixed-window: each burst edge, slowest client: 100 before, 100 after within 149 ms; 100 before, 100 after within 152 ms
+ok   fixed-window: peak 200 per window against a limit of 100, the boundary burst
+ok   fixed-window quick run took 39s
+ok   fixed-window: re-running the analysis gives the same summary
+     sliding-window-log: each burst edge, slowest client: 100 before, under 100 after; 97 before, under 100 after
+ok   sliding-window-log: peak 100 per window, never over the limit of 100 (39s)
+ok   sliding-window-log: re-running the analysis gives the same summary
+exit 0
+== edges-check 3
+     fixed-window: each burst edge, slowest client: 100 before, 100 after within 158 ms; 100 before, 100 after within 165 ms
+ok   fixed-window: peak 200 per window against a limit of 100, the boundary burst
+ok   fixed-window quick run took 40s
+ok   fixed-window: re-running the analysis gives the same summary
+     sliding-window-log: each burst edge, slowest client: 100 before, under 100 after; 97 before, under 100 after
+ok   sliding-window-log: peak 100 per window, never over the limit of 100 (40s)
+ok   sliding-window-log: re-running the analysis gives the same summary
+exit 0
+== edges-check 4
+     fixed-window: each burst edge, slowest client: 100 before, 100 after within 192 ms; 100 before, 100 after within 202 ms
+ok   fixed-window: peak 200 per window against a limit of 100, the boundary burst
+ok   fixed-window quick run took 39s
+ok   fixed-window: re-running the analysis gives the same summary
+     sliding-window-log: each burst edge, slowest client: 100 before, under 100 after; 97 before, under 100 after
+ok   sliding-window-log: peak 100 per window, never over the limit of 100 (39s)
+ok   sliding-window-log: re-running the analysis gives the same summary
+exit 0
+== edges-check 5
+     fixed-window: each burst edge, slowest client: 100 before, 100 after within 184 ms; 100 before, 100 after within 213 ms
+ok   fixed-window: peak 200 per window against a limit of 100, the boundary burst
+ok   fixed-window quick run took 40s
+ok   fixed-window: re-running the analysis gives the same summary
+     sliding-window-log: each burst edge, slowest client: 100 before, under 100 after; 97 before, under 100 after
+ok   sliding-window-log: peak 100 per window, never over the limit of 100 (39s)
+ok   sliding-window-log: re-running the analysis gives the same summary
+exit 0
+== edges-check 6
+     fixed-window: each burst edge, slowest client: 100 before, 100 after within 183 ms; 100 before, 100 after within 191 ms
+ok   fixed-window: peak 200 per window against a limit of 100, the boundary burst
+ok   fixed-window quick run took 40s
+ok   fixed-window: re-running the analysis gives the same summary
+     sliding-window-log: each burst edge, slowest client: 100 before, under 100 after; 98 before, under 100 after
+ok   sliding-window-log: peak 100 per window, never over the limit of 100 (40s)
+ok   sliding-window-log: re-running the analysis gives the same summary
+exit 0
+== edges-check 7
+     fixed-window: each burst edge, slowest client: 100 before, 100 after within 177 ms; 100 before, 100 after within 186 ms
+ok   fixed-window: peak 200 per window against a limit of 100, the boundary burst
+ok   fixed-window quick run took 39s
+ok   fixed-window: re-running the analysis gives the same summary
+     sliding-window-log: each burst edge, slowest client: 100 before, under 100 after; 97 before, under 100 after
+ok   sliding-window-log: peak 100 per window, never over the limit of 100 (40s)
+ok   sliding-window-log: re-running the analysis gives the same summary
+exit 0
+== edges-check 8
+     fixed-window: each burst edge, slowest client: 100 before, 100 after within 177 ms; 100 before, 100 after within 195 ms
+ok   fixed-window: peak 200 per window against a limit of 100, the boundary burst
+ok   fixed-window quick run took 40s
+ok   fixed-window: re-running the analysis gives the same summary
+     sliding-window-log: each burst edge, slowest client: 100 before, under 100 after; 97 before, under 100 after
+ok   sliding-window-log: peak 100 per window, never over the limit of 100 (40s)
+ok   sliding-window-log: re-running the analysis gives the same summary
+exit 0
+== edges-check 9
+     fixed-window: each burst edge, slowest client: 100 before, 100 after within 176 ms; 100 before, 100 after within 174 ms
+ok   fixed-window: peak 200 per window against a limit of 100, the boundary burst
+ok   fixed-window quick run took 39s
+ok   fixed-window: re-running the analysis gives the same summary
+     sliding-window-log: each burst edge, slowest client: 100 before, under 100 after; 97 before, under 100 after
+ok   sliding-window-log: peak 100 per window, never over the limit of 100 (39s)
+ok   sliding-window-log: re-running the analysis gives the same summary
+exit 0
+== edges-check 10
+     fixed-window: each burst edge, slowest client: 100 before, 100 after within 184 ms; 100 before, 100 after within 168 ms
+ok   fixed-window: peak 200 per window against a limit of 100, the boundary burst
+ok   fixed-window quick run took 39s
+ok   fixed-window: re-running the analysis gives the same summary
+     sliding-window-log: each burst edge, slowest client: 100 before, under 100 after; 97 before, under 100 after
+ok   sliding-window-log: peak 100 per window, never over the limit of 100 (40s)
+ok   sliding-window-log: re-running the analysis gives the same summary
+exit 0

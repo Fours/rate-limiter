@@ -34,7 +34,8 @@ When you change a decision, update its record in the same commit as the code.
 | [0014](0014-leaky-bucket-as-gcra.md) | The leaky bucket is a burst-free GCRA | Accepted | 2 |
 | [0015](0015-rules-files.md) | Rules files: one shape, strict fields, optional YAML | Accepted | 2 |
 | [0016](0016-switching-algorithms-starts-fresh.md) | Switching algorithms starts each client fresh | Accepted | 2 |
-| [0017](0017-how-the-benchmarks-measure.md) | How the benchmarks measure: the limiter's own cost via `Server-Timing`, three runs, no numbers in CI | Accepted | 3 |
+| [0017](0017-how-the-benchmarks-measure.md) | How the benchmarks measure: the limiter's own cost via `Server-Timing`, three runs, no numbers in CI | Accepted; 2 ms resolution superseded by 0021 | 3 |
 | [0018](0018-timeout-and-fallback-in-the-middleware.md) | The timeout and fallback live in the middleware, around any algorithm | Accepted | 4 |
 | [0019](0019-hook-events.md) | Hooks get plain events, synchronously, and can't break a request | Accepted | 4 |
 | [0020](0020-ipv6-by-64.md) | IPv6 clients are grouped by /64, and IPv4-mapped addresses count as IPv4 | Accepted | 4 |
+| [0021](0021-per-request-timing-tolerance.md) | The benchmarks give each request its own timing tolerance, from its limiter time | Accepted | 5 |

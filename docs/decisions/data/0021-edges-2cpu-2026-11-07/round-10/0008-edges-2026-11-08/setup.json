@@ -1,0 +1,30 @@
+{
+  "date": "2026-11-08T00:18:10.352Z",
+  "command": "npm run bench -- --scenario edges --algorithm sliding-window-log --quick --out docs/decisions/data/0021-edges-2cpu-2026-11-07/round-10",
+  "git": {
+    "commit": "7b07d1181b6e74b8c74b621da6e676bb17378864",
+    "uncommittedChanges": true
+  },
+  "host": {
+    "os": "Darwin 25.4.0 arm64",
+    "cpu": "Apple M5 Pro",
+    "cores": 18,
+    "memoryGiB": 24
+  },
+  "docker": {
+    "version": "29.4.1",
+    "cpus": 18,
+    "memoryGiB": 8
+  },
+  "versions": {
+    "node": "v22.23.4",
+    "redis": "Redis server v=7.4.12 sha=00000000:0 malloc=jemalloc-5.3.0 bits=64 build=f852dc16704a5509",
+    "nginx": "nginx version: nginx/1.31.8",
+    "k6": "k6 v2.3.0 (commit/e088784614, go1.27.1, linux/arm64)"
+  },
+  "stack": {
+    "instances": 3,
+    "nginxWorkers": 1,
+    "metrics": false
+  }
+}

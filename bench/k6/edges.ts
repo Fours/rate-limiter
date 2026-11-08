@@ -1,6 +1,6 @@
 // Accuracy at window edges: 10 clients, one per VU. Around each chosen boundary of the 10 s grid
-// (where the fixed window resets) a client sends a burst of LIMIT requests 400 ms before it and
-// another 50 ms after it, with a trickle of about 5 req/s in between. Bursts fall on every other
+// (where the fixed window resets) a client sends a burst of LIMIT requests starting 400 to 650 ms
+// before it, and another 50 ms after it, with a trickle of about 5 req/s in between. Bursts fall on every other
 // boundary, so a burst's requests age out of a sliding window mid-trickle rather than during the
 // next burst. That keeps the moments when a slot frees up far apart, so a small timing error
 // can't make two requests look like they share a window. 6 bursts, or 2 with QUICK=1.
@@ -30,6 +30,9 @@ export default function (): void {
   const client = `edge-${String(__VU)}`;
   for (let k = 0; k < BURSTS; k++) {
     const boundary = first + k * 2 * WINDOW_MS;
+    // The trickle stops at its first slot past this, so the burst starts up to one jittered
+    // trickle step (250 ms) earlier. Kept as is so 0008's edges data stays comparable (milestone
+    // 5, T0).
     trickleUntil(client, boundary - 400);
     for (let i = 0; i < LIMIT; i++) hit(client);
     sleepUntil(boundary + 50);

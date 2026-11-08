@@ -1,6 +1,6 @@
 # 0017. How the benchmarks measure
 
-- **Status:** Accepted
+- **Status:** Accepted. The fixed 2 ms of resolution is superseded by [0021](0021-per-request-timing-tolerance.md).
 - **Date:** 2026-11-06
 - **Milestone:** 3
 
@@ -22,7 +22,7 @@ How the numbers are computed, fixed in T2 before any data existed (`bench/analys
 
 - **Records.** Every scenario writes one line per request, `{ client, t, sentAt, status, e2eMs, limiterMs }`. The k6 script logs each request itself. `t` is when the app received the request, by `Date.now()`: the same wall clock Redis `TIME` reads, and in whole ms like Redis. `sentAt` is k6's own send time, kept for comparison. *Changed in T3*, from "the send time": see the evidence below. The ramp is the exception (*changed in T5*): logging every request capped k6 below the stack's knee, so the ramp keeps per-second totals from k6's own JSON output instead, by when each response arrived.
 - **Peak per window.** For each client, the most allowed requests in any span `[s, s + windowMs − 2 ms)`, and the summary reports the busiest client. The span is half-open, matching the sliding window log's own window `(now − windowMs, now]`. Overshoot is the peak minus `limit`.
-- **2 ms of resolution** (`RESOLUTION_MS`, *added in T3*). Redis `TIME` is truncated to whole ms, and so is `t`. Two requests the log correctly allows one window apart by Redis's clock can therefore look up to about 2 ms closer by `t`. Window comparisons give that much benefit of the doubt: spans for the peak are 2 ms shorter, and trailing windows for false denials 2 ms longer. That's 0.02% of a 10 s window, so it can't hide a real overshoot such as the fixed window's 2×.
+- **2 ms of resolution** (`RESOLUTION_MS`, *added in T3*). Redis `TIME` is truncated to whole ms, and so is `t`. Two requests the log correctly allows one window apart by Redis's clock can therefore look up to about 2 ms closer by `t`. Window comparisons give that much benefit of the doubt: spans for the peak are 2 ms shorter, and trailing windows for false denials 2 ms longer. That's 0.02% of a 10 s window, so it can't hide a real overshoot such as the fixed window's 2×. *Superseded by [0021](0021-per-request-timing-tolerance.md) in milestone 5: each request gets its own tolerance, from its `limiterMs`, with 2 ms as the floor.*
 - **False denials.** A 429 when fewer than `limit` requests were allowed for that client in the trailing window `(t − windowMs − 2 ms, t]`: a denial an exact sliding window would have allowed. It's reported as a share of all requests. The token bucket and the leaky bucket score high on it by design, since they refill gradually or allow no burst, so it measures distance from the exact ideal, not bugs.
 - **Percentiles: nearest rank**, the `ceil(p/100 × n)`-th smallest sample. A p99 is then a latency some request actually saw, with no interpolation.
 - **Throughput.** The busiest whole second whose p99 end-to-end time was under 50 ms, whose responses were all 200 or 429, and in which k6 dropped no iterations. A 429 is the limiter working, not an error. A dropped iteration is a request k6 should have sent but couldn't, short of VUs or CPU: in that second the load generator was the limit, so it can't show what the stack sustained. *The drop rule was added in T5*, as were seconds by arrival time for the ramp.

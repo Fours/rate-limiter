@@ -78,15 +78,11 @@ export interface CpuSample {
 export const SLO_MS = 50;
 
 /**
- * How finely the records can place a request against the limiter's own clock, in ms. Redis
- * `TIME` is truncated to whole ms, so two requests a sliding window log correctly allows exactly
- * one window apart can be up to 1 ms less than a window apart in real time. The records' `t` is
- * also taken in the app, a fraction of a ms before Redis decides. So window comparisons give
- * this much benefit of the doubt: spans for the peak are this much shorter, and trailing windows
- * for false denials this much longer.
- *
- * Added in T3, after the first quick runs: the log showed 101 against a limit of 100 in 10
- * spans, each between 9,999.5 and 9,999.99 ms long for a 10,000 ms window (decision 0017).
+ * The least benefit of the doubt any request gets, in ms. Redis `TIME` and `t` are both
+ * truncated to whole ms, and `t` is taken in the app just before the limiter runs, so a decision
+ * Redis timed at T has T − 1 < t <= T at best. Added in milestone 3's T3, after the first quick
+ * runs showed the log at 101 in 10 spans each 9,999.5 to 9,999.99 ms long (decision 0017). Kept
+ * as the floor of `slackOf` (decision 0021).
  */
 export const RESOLUTION_MS = 2;
 
@@ -94,24 +90,77 @@ const ALLOWED = 200;
 const DENIED = 429;
 
 /**
- * The most timestamps in any span `[s, s + windowMs)`. Half-open, like the sliding window log's
- * own window `(now − W, now]`: two requests exactly `windowMs` apart are never in one window.
- * The busiest span can always be slid right until it starts at a request, so only spans that
- * start at a request need checking. That's a two-pointer pass, not a scan over every start time.
+ * How long after `t` the limiter may have decided, by its own clock, in ms. `t` is stamped just
+ * before the limiter runs, and the decision happens somewhere inside the limiter's own time,
+ * which `Server-Timing` reports as `limiterMs`. So the decision's time is in
+ * `[t, t + floor(limiterMs) + 1]`, the 1 for whole-ms truncation, and never less than
+ * RESOLUTION_MS, the floor 0017 measured. Records without `limiterMs` get RESOLUTION_MS.
+ *
+ * Added in milestone 5's T0: on a 2-CPU stack the limiter's p99 reached 3 ms and its maximum 17,
+ * and a request that took over a freed slot 3 ms more slowly than the one that freed it made the
+ * log look 101 against a limit of 100 under a fixed 2 ms (decision 0021).
  */
-export function maxInWindow(times: readonly number[], windowMs: number): number {
-  const sorted = [...times].sort((a, b) => a - b);
+export function slackOf(r: Pick<RequestRecord, 'limiterMs'>): number {
+  return r.limiterMs === undefined
+    ? RESOLUTION_MS
+    : Math.max(RESOLUTION_MS, Math.floor(r.limiterMs) + 1);
+}
+
+/** A request placed in time: arrived at `t`, decided by the limiter's clock by `t + slack`. */
+export interface Timed {
+  readonly t: number;
+  readonly slack: number;
+}
+
+export function timed(r: RequestRecord): Timed {
+  return { t: r.t, slack: slackOf(r) };
+}
+
+/**
+ * How many of `sorted` (by `t`) were certainly decided in `[start, start + windowMs)`: arrived at
+ * or after `start`, and decided before the end even at their latest. Only requests within the
+ * largest slack of the end can fail the second test, so only those are checked one by one.
+ */
+function certainlyIn(
+  sorted: readonly Timed[],
+  start: number,
+  windowMs: number,
+  maxSlack: number,
+): number {
+  const end = start + windowMs;
+  const from = lowerBound(sorted, start);
+  const to = lowerBound(sorted, end);
+  let count = to - from;
+  for (let i = to - 1; i >= from; i--) {
+    const p = sorted[i] as Timed; // from <= i < to <= length
+    if (p.t < end - maxSlack) break;
+    if (p.t + p.slack >= end) count--;
+  }
+  return count;
+}
+
+function maxSlackOf(points: readonly Timed[]): number {
+  return points.reduce((most, p) => Math.max(most, p.slack), 0);
+}
+
+/**
+ * The most requests certainly in any one span `[s, s + windowMs)`: each arrived at or after `s`
+ * and was decided before `s + windowMs`, even at the latest its slack allows. Half-open, like the
+ * sliding window log's own window `(now − W, now]`: two requests exactly `windowMs` apart are
+ * never in one window. The busiest span can always be slid right until it starts at a request,
+ * so only spans that start at one need checking. With every slack 0, it's the most timestamps in
+ * any span.
+ */
+export function maxInWindow(points: readonly Timed[], windowMs: number): number {
+  const sorted = [...points].sort((a, b) => a.t - b.t);
+  const maxSlack = maxSlackOf(sorted);
   let best = 0;
-  let left = 0;
-  sorted.forEach((t, right) => {
-    while (t - (sorted[left] ?? t) >= windowMs) left++;
-    best = Math.max(best, right - left + 1);
-  });
+  for (const p of sorted) best = Math.max(best, certainlyIn(sorted, p.t, windowMs, maxSlack));
   return best;
 }
 
 export interface Peak {
-  /** Most requests allowed for one client in any span of `windowMs − RESOLUTION_MS`. */
+  /** Most requests allowed for one client certainly within one window (maxInWindow). */
   readonly peak: number;
   /** That client, or undefined when nothing was allowed. */
   readonly client: string | undefined;
@@ -120,18 +169,79 @@ export interface Peak {
 export function peakPerWindow(records: readonly RequestRecord[], windowMs: number): Peak {
   let best: Peak = { peak: 0, client: undefined };
   for (const [client, own] of byClient(records)) {
-    const peak = maxInWindow(
-      own.filter((r) => r.status === ALLOWED).map((r) => r.t),
-      windowMs - RESOLUTION_MS,
-    );
+    const peak = maxInWindow(own.filter((r) => r.status === ALLOWED).map(timed), windowMs);
     if (peak > best.peak) best = { peak, client };
   }
   return best;
 }
 
+/** How full the fixed windows on either side of one burst boundary got, for the slowest client. */
+export interface EdgeFill {
+  /** The boundary, epoch ms: a multiple of windowMs, where the fixed window resets. */
+  readonly boundary: number;
+  /** The fewest requests any client had allowed in `[boundary − windowMs, boundary)`. */
+  readonly before: number;
+  /**
+   * How long after the boundary the slowest client's `limit`-th request in the next window was
+   * allowed, in ms, or undefined if some client never got that many.
+   */
+  readonly afterMs: number | undefined;
+}
+
+/**
+ * The edges scenario's bursts, measured against the windows they aim at (milestone 5, T0). To
+ * show a fixed window's worst case, each client should have a full window just before a boundary
+ * and `limit` more allowed soon after it. A burst that runs late leaves the first window short,
+ * and a slow one pushes the second's past the reach of one window-long span: either makes the
+ * boundary peak smaller than the scenario was built to show. Burst boundaries are those where
+ * some client sent at least `limit` requests within a second either side (the trickle sends
+ * about 10). Times are the app's (`t`), as for the peak; sending uses `sentAt` where known.
+ */
+export function edgeFill(
+  records: readonly RequestRecord[],
+  windowMs: number,
+  limit: number,
+): EdgeFill[] {
+  const clients = [...byClient(records).values()];
+  const boundaries = new Set<number>();
+  for (const own of clients) {
+    const counts = new Map<number, number>();
+    for (const r of own) {
+      const sent = r.sentAt ?? r.t;
+      const nearest = Math.round(sent / windowMs) * windowMs;
+      if (Math.abs(sent - nearest) < 1_000) counts.set(nearest, (counts.get(nearest) ?? 0) + 1);
+    }
+    for (const [b, n] of counts) if (n >= limit) boundaries.add(b);
+  }
+  return [...boundaries]
+    .sort((a, b) => a - b)
+    .map((boundary) => {
+      let before = Infinity;
+      let afterMs: number | undefined = 0;
+      for (const own of clients) {
+        const allowed = own
+          .filter((r) => r.status === ALLOWED)
+          .map((r) => r.t)
+          .sort((a, b) => a - b);
+        before = Math.min(
+          before,
+          allowed.filter((t) => t >= boundary - windowMs && t < boundary).length,
+        );
+        const next = allowed.filter((t) => t >= boundary && t < boundary + windowMs);
+        const nth = next[limit - 1];
+        afterMs =
+          nth === undefined || afterMs === undefined
+            ? undefined
+            : Math.max(afterMs, nth - boundary);
+      }
+      return { boundary, before: before === Infinity ? 0 : before, afterMs };
+    });
+}
+
 /**
  * Denials an exact sliding window would have allowed: a 429 when fewer than `limit` requests
- * were allowed for that client in the trailing window `(t − windowMs − RESOLUTION_MS, t]`. The sliding window
+ * allowed for that client could have been in its trailing window `(t − windowMs, t]`, each
+ * allowed one placed at the latest its slack allows (slackOf). The sliding window
  * log should score 0. The token and leaky buckets score high by design, since they refill
  * gradually or allow no burst: this measures distance from the exact ideal, not a bug.
  */
@@ -141,18 +251,24 @@ export function falseDenials(
 ): number {
   let count = 0;
   for (const own of byClient(records).values()) {
-    const allowed: number[] = [];
-    let oldest = 0;
     // Stable sort: requests in the same millisecond keep the order they were recorded in.
-    for (const r of [...own].sort((a, b) => a.t - b.t)) {
-      while (
-        oldest < allowed.length &&
-        (allowed[oldest] ?? 0) <= r.t - rule.windowMs - RESOLUTION_MS
-      )
-        oldest++;
-      const inWindow = allowed.length - oldest;
+    const sorted = [...own].sort((a, b) => a.t - b.t);
+    const maxSlack = maxSlackOf(sorted.filter((r) => r.status === ALLOWED).map(timed));
+    const allowed: Timed[] = [];
+    let oldest = 0;
+    for (const r of sorted) {
+      // An allowed request may still be in the denial's window if, decided at its latest, it's
+      // less than a window before the denial arrived. Past maxSlack, none can be.
+      const edge = r.t - rule.windowMs;
+      while (oldest < allowed.length && (allowed[oldest] as Timed).t <= edge - maxSlack) oldest++;
+      let inWindow = allowed.length - oldest;
+      for (let i = oldest; i < allowed.length; i++) {
+        const a = allowed[i] as Timed; // oldest <= i < length
+        if (a.t > edge) break;
+        if (a.t + a.slack <= edge) inWindow--;
+      }
       if (r.status === DENIED && inWindow < rule.limit) count++;
-      if (r.status === ALLOWED) allowed.push(r.t);
+      if (r.status === ALLOWED) allowed.push(timed(r));
     }
   }
   return count;
@@ -545,7 +661,7 @@ export function redisTable(
 export interface ChartPoint {
   /** ms since the client's first request */
   readonly t: number;
-  /** allowed in the trailing span `(t − windowMs + RESOLUTION_MS, t]`, this request included */
+  /** allowed certainly within one window ending as this request was decided, this one included */
   readonly allowed: number;
 }
 
@@ -572,12 +688,13 @@ export function chartFor(runs: readonly Run[]): AlgorithmChart {
   const { meta, records } = chosen.run;
   const own = records
     .filter((r) => r.client === chosen.client && r.status === ALLOWED)
-    .map((r) => r.t)
-    .sort((a, b) => a - b);
-  const first = own[0] ?? 0;
-  const series = own.map((t, i) => {
+    .map(timed)
+    .sort((a, b) => a.t - b.t);
+  const first = own[0]?.t ?? 0;
+  const series = own.map(({ t, slack }, i) => {
+    // Earlier requests certainly less than a window before this one was decided at its latest.
     let inWindow = 0;
-    for (let j = i; j >= 0 && (own[j] ?? 0) > t - (meta.windowMs - RESOLUTION_MS); j--) inWindow++;
+    for (let j = i; j >= 0 && (own[j]?.t ?? 0) > t + slack - meta.windowMs; j--) inWindow++;
     return { t: t - first, allowed: inWindow };
   });
   return {
@@ -691,34 +808,37 @@ export function phaseStats(
 /**
  * The most requests allowed for one client in any window that spans `at`: the overshoot when
  * Redis goes away (the fallback's buckets start full) or comes back (empty, with no persistence).
- * Spans are `windowMs − RESOLUTION_MS` long and half-open, as in peakPerWindow. A span containing
- * `at` starts in `(at − span, at]`, and the busiest one can be slid right until it starts at a
- * request or at `at` itself, so only those starts need checking.
+ * Requests count only if certainly in one window, as in peakPerWindow (maxInWindow). The
+ * busiest span containing `at` can be slid right until it starts at a request or at `at`
+ * itself, so only those starts need checking.
  */
 export function peakAround(records: readonly RequestRecord[], windowMs: number, at: number): Peak {
-  const span = windowMs - RESOLUTION_MS;
   let best: Peak = { peak: 0, client: undefined };
   for (const [client, own] of byClient(records)) {
-    const times = own
+    const sorted = own
       .filter((r) => r.status === ALLOWED)
-      .map((r) => r.t)
-      .sort((a, b) => a - b);
-    const starts = [...times.filter((t) => t > at - span && t <= at), at];
-    for (const s of starts) {
-      const count = lowerBound(times, s + span) - lowerBound(times, s);
+      .map(timed)
+      .sort((x, y) => x.t - y.t);
+    const maxSlack = maxSlackOf(sorted);
+    // Every request's slack is at least RESOLUTION_MS, so a span starting at s ends, in effect,
+    // by s + windowMs − RESOLUTION_MS: it spans `at` only if it starts after at − that.
+    const after = at - windowMs + RESOLUTION_MS;
+    const starts = [...sorted.map((p) => p.t).filter((t) => t > after && t <= at), at];
+    for (const start of starts) {
+      const count = certainlyIn(sorted, start, windowMs, maxSlack);
       if (count > best.peak) best = { peak: count, client };
     }
   }
   return best;
 }
 
-/** Index of the first value >= target in a sorted array. */
-function lowerBound(sorted: readonly number[], target: number): number {
+/** Index of the first request at or after `target` in an array sorted by `t`. */
+function lowerBound(sorted: readonly Timed[], target: number): number {
   let lo = 0;
   let hi = sorted.length;
   while (lo < hi) {
     const mid = (lo + hi) >> 1;
-    if ((sorted[mid] as number) < target) lo = mid + 1;
+    if ((sorted[mid] as Timed).t < target) lo = mid + 1;
     else hi = mid;
   }
   return lo;

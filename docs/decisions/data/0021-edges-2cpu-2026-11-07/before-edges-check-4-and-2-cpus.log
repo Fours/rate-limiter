@@ -1,0 +1,91 @@
+== cpus=4 run 1
+     fixed-window: late per burst: 0 of 217, 0 of 283
+ok   fixed-window: peak 200 per window against a limit of 100, the boundary burst
+ok   fixed-window quick run took 42s
+ok   fixed-window: re-running the analysis gives the same summary
+     sliding-window-log: each burst edge, slowest client: 100 before, under 100 after; 97 before, under 100 after
+ok   sliding-window-log: peak 100 per window, never over the limit of 100 (40s)
+ok   sliding-window-log: re-running the analysis gives the same summary
+exit 0
+== cpus=4 run 2
+     fixed-window: each burst edge, slowest client: 100 before, 100 after within 174 ms; 100 before, 100 after within 170 ms
+ok   fixed-window: peak 200 per window against a limit of 100, the boundary burst
+ok   fixed-window quick run took 40s
+ok   fixed-window: re-running the analysis gives the same summary
+     sliding-window-log: each burst edge, slowest client: 100 before, under 100 after; 97 before, under 100 after
+ok   sliding-window-log: peak 100 per window, never over the limit of 100 (39s)
+ok   sliding-window-log: re-running the analysis gives the same summary
+exit 0
+== cpus=4 run 3
+     fixed-window: each burst edge, slowest client: 100 before, 100 after within 157 ms; 100 before, 100 after within 169 ms
+ok   fixed-window: peak 200 per window against a limit of 100, the boundary burst
+ok   fixed-window quick run took 40s
+ok   fixed-window: re-running the analysis gives the same summary
+     sliding-window-log: each burst edge, slowest client: 100 before, under 100 after; 97 before, under 100 after
+ok   sliding-window-log: peak 100 per window, never over the limit of 100 (40s)
+ok   sliding-window-log: re-running the analysis gives the same summary
+exit 0
+== cpus=4 run 4
+     fixed-window: each burst edge, slowest client: 100 before, 100 after within 183 ms; 100 before, 100 after within 164 ms
+ok   fixed-window: peak 200 per window against a limit of 100, the boundary burst
+ok   fixed-window quick run took 40s
+ok   fixed-window: re-running the analysis gives the same summary
+     sliding-window-log: each burst edge, slowest client: 100 before, under 100 after; 97 before, under 100 after
+ok   sliding-window-log: peak 100 per window, never over the limit of 100 (40s)
+ok   sliding-window-log: re-running the analysis gives the same summary
+exit 0
+== cpus=4 run 5
+     fixed-window: each burst edge, slowest client: 100 before, 100 after within 183 ms; 100 before, 100 after within 182 ms
+ok   fixed-window: peak 200 per window against a limit of 100, the boundary burst
+ok   fixed-window quick run took 39s
+ok   fixed-window: re-running the analysis gives the same summary
+     sliding-window-log: each burst edge, slowest client: 100 before, under 100 after; 97 before, under 100 after
+ok   sliding-window-log: peak 100 per window, never over the limit of 100 (40s)
+ok   sliding-window-log: re-running the analysis gives the same summary
+exit 0
+== cpus=2 run 1
+     fixed-window: each burst edge, slowest client: 100 before, 100 after within 240 ms; 100 before, 100 after within 233 ms
+ok   fixed-window: peak 200 per window against a limit of 100, the boundary burst
+ok   fixed-window quick run took 40s
+ok   fixed-window: re-running the analysis gives the same summary
+     sliding-window-log: each burst edge, slowest client: 100 before, under 100 after; 97 before, under 100 after
+ok   sliding-window-log: peak 100 per window, never over the limit of 100 (40s)
+ok   sliding-window-log: re-running the analysis gives the same summary
+exit 0
+== cpus=2 run 2
+     fixed-window: each burst edge, slowest client: 100 before, 100 after within 245 ms; 100 before, 100 after within 253 ms
+ok   fixed-window: peak 200 per window against a limit of 100, the boundary burst
+ok   fixed-window quick run took 40s
+ok   fixed-window: re-running the analysis gives the same summary
+     sliding-window-log: each burst edge, slowest client: 100 before, under 100 after; 97 before, under 100 after
+ok   sliding-window-log: peak 100 per window, never over the limit of 100 (40s)
+ok   sliding-window-log: re-running the analysis gives the same summary
+exit 0
+== cpus=2 run 3
+     fixed-window: each burst edge, slowest client: 100 before, 100 after within 233 ms; 100 before, 100 after within 239 ms
+ok   fixed-window: peak 200 per window against a limit of 100, the boundary burst
+ok   fixed-window quick run took 39s
+ok   fixed-window: re-running the analysis gives the same summary
+     sliding-window-log: each burst edge, slowest client: 100 before, under 100 after; 97 before, under 100 after
+FAIL sliding-window-log: peak 101 per window, over the limit of 100 (each burst edge, slowest client: 100 before, under 100 after; 97 before, under 100 after)
+ok   sliding-window-log: re-running the analysis gives the same summary
+1 check(s) failed
+exit 1
+== cpus=2 run 4
+     fixed-window: each burst edge, slowest client: 100 before, 100 after within 233 ms; 100 before, 100 after within 251 ms
+ok   fixed-window: peak 200 per window against a limit of 100, the boundary burst
+ok   fixed-window quick run took 40s
+ok   fixed-window: re-running the analysis gives the same summary
+     sliding-window-log: each burst edge, slowest client: 100 before, under 100 after; 97 before, under 100 after
+ok   sliding-window-log: peak 100 per window, never over the limit of 100 (40s)
+ok   sliding-window-log: re-running the analysis gives the same summary
+exit 0
+== cpus=2 run 5
+     fixed-window: each burst edge, slowest client: 100 before, 100 after within 248 ms; 100 before, 100 after within 256 ms
+ok   fixed-window: peak 200 per window against a limit of 100, the boundary burst
+ok   fixed-window quick run took 40s
+ok   fixed-window: re-running the analysis gives the same summary
+     sliding-window-log: each burst edge, slowest client: 100 before, under 100 after; 97 before, under 100 after
+ok   sliding-window-log: peak 100 per window, never over the limit of 100 (40s)
+ok   sliding-window-log: re-running the analysis gives the same summary
+exit 0

@@ -52,7 +52,7 @@ rules:
 - **Validation:** a positive integer, with the same `2^53` bound as `limit * windowMs` (the token bucket keeps integer units of `burst * windowMs`). Rules files accept it. Bad values throw at startup.
 - **In the scripts** it's one more argument (`ARGV[4]`) after the test-only time override. A changed `burst` under a stored key is handled like a changed limit today: whole tokens carry over, never more than the new capacity.
 - **The fallback** scales it like the limit: `max(1, ceil(burst / instances))`.
-- **Headers:** `RateLimit-Limit` stays `limit`, and `RateLimit-Remaining` counts what can be sent now, at most `burst` ([0021](decisions/0021-burst.md), open question 1).
+- **Headers:** `RateLimit-Limit` stays `limit`, and `RateLimit-Remaining` counts what can be sent now, at most `burst` ([0022](decisions/0022-burst.md), open question 1).
 
 ### `algorithm` per rule
 
@@ -83,7 +83,7 @@ Every export gets a TSDoc comment, and the README gains a short reference: `rate
 
 ### The demo
 
-The probe before this spec ran the five shipped scripts in wasmoon (Lua 5.4 in WebAssembly) over a stand-in for the 13 Redis commands they use, and compared them with real Redis: **100,000 checks, no differences** in replies, stored state or expiry, and four deliberate breaks of the stand-in were caught. About 70 to 90 µs a check, and about 150 KB gzipped. Data and the breaks that couldn't show: [0023's probe](decisions/data/0023-wasmoon-probe-2026-11-07/results.md).
+The probe before this spec ran the five shipped scripts in wasmoon (Lua 5.4 in WebAssembly) over a stand-in for the 13 Redis commands they use, and compared them with real Redis: **100,000 checks, no differences** in replies, stored state or expiry, and four deliberate breaks of the stand-in were caught. About 70 to 90 µs a check, and about 150 KB gzipped. Data and the breaks that couldn't show: [0024's probe](decisions/data/0024-wasmoon-probe-2026-11-07/results.md).
 
 - **`demo/`** is a Vite, React and TypeScript app with plain CSS, in this repo. Its dependencies (`vite`, `react`, `wasmoon` and so on) are development dependencies of the root package: none of them ships, since `files` is `["dist"]`.
 - **It uses the repo's source, not the published package.** The Lua files aren't a public export, so the demo imports them with Vite's `?raw` and puts the prelude in front the way `loadScript` does. The fallback and the headers come from `src/` too (`createTokenBucket`, `src/headers.ts`), which use no Node modules. The demo copies none of the library's logic.
@@ -106,7 +106,7 @@ Do these in order. Each one ends with passing tests.
 
 | Task | Status | Commit |
 | --- | --- | --- |
-| T0. The edges-check failure | Not started | |
+| T0. The edges-check failure | Done | |
 | T1. `burst` | Not started | |
 | T2. `algorithm` per rule | Not started | |
 | T3. API review for 1.0 | Not started | |
@@ -118,16 +118,18 @@ Do these in order. Each one ends with passing tests.
 
 ### T0. The edges-check failure
 
-Milestone 4's close-out CI run failed `bench/edges-check.sh` once, after 88 s, so not on the 60 s limit. It has passed locally and in CI ever since, and its failures now show as annotations (`cfdd59c`). Read what that run's logs still show, then look for the cause: the fixed window's 1.8× peak check is the likeliest, since it depends on where in the window the bursts land.
+Milestone 4's close-out CI run failed `bench/edges-check.sh` once, after 88 s, so not on the 60 s limit. It has passed locally and in CI ever since, and its failures now show as annotations (`cfdd59c`). Read what that run's logs still show, then look for the cause: the fixed window's 1.8× peak check is the likeliest, since it depends on where in the window the bursts land. Write [0021](decisions/0021-per-request-timing-tolerance.md) if the measurement changes.
+
+*As built:* the fixed window wasn't the cause. Pinned to 2 CPUs with a Compose override, the check failed 1 run in 5, and every failure was the sliding window log at 101 against a limit of 100. The fixed window's windows were full on both sides of every edge, even on 2 CPUs. The log was right, and the analysis was too strict. It times requests by arrival, gave each a fixed 2 ms for Redis deciding later (0017), and on a busy machine the limiter's own time varies by more than that. Each request now gets its own tolerance from its `limiterMs`, with 2 ms as the floor ([0021](decisions/0021-per-request-timing-tolerance.md)). Over 20 rounds on 2 CPUs, the old rule read 101 once and the new one never did, and no committed summary or chart changed. `edgeFill` in `bench/analysis.ts` and `bench/edges-report.ts` make the check print how full the windows on each side of every edge got, on every run and in a failure's annotation. A finding on the way: each burst starts 400 to 650 ms before its edge, not 400, because the trickle stops at its first slot past 400. The comment now says so, and the behaviour is kept so 0008's edges data stays comparable. The milestone's planned records moved up one, to 0022 to 0025, and the wasmoon probe's data folder with them.
 
 **Done when:**
 
-- [ ] The cause is found and fixed, with a test that fails without the fix, or this section records what was ruled out and how
-- [ ] `edges-check.sh` passes 10 times in a row locally, and in CI on the task's commit
+- [x] The cause is found and fixed, with a test that fails without the fix, or this section records what was ruled out and how
+- [x] `edges-check.sh` passes 10 times in a row locally, and in CI on the task's commit
 
 ### T1. `burst`
 
-Write [0021](decisions/0021-burst.md).
+Write [0022](decisions/0022-burst.md).
 
 **Done when:**
 
@@ -142,7 +144,7 @@ Write [0021](decisions/0021-burst.md).
 
 ### T2. `algorithm` per rule
 
-Write [0022](decisions/0022-algorithm-per-rule.md).
+Write [0023](decisions/0023-algorithm-per-rule.md).
 
 **Done when:**
 
@@ -166,7 +168,7 @@ Write [0022](decisions/0022-algorithm-per-rule.md).
 
 ### T4. Release workflow and 1.0.0
 
-Write [0024](decisions/0024-publish-from-ci-with-provenance.md).
+Write [0025](decisions/0025-publish-from-ci-with-provenance.md).
 
 **Done when:**
 
@@ -178,7 +180,7 @@ Write [0024](decisions/0024-publish-from-ci-with-provenance.md).
 
 ### T5. Demo foundation
 
-Write [0023](decisions/0023-demo-runs-the-shipped-lua.md).
+Write [0024](decisions/0024-demo-runs-the-shipped-lua.md).
 
 **Done when:**
 
@@ -229,10 +231,11 @@ Write [0023](decisions/0023-demo-runs-the-shipped-lua.md).
 
 New:
 
-- [0021](decisions/0021-burst.md) (T1): what `burst` means for each bucket, its defaults, why window algorithms reject it, and the headers
-- [0022](decisions/0022-algorithm-per-rule.md) (T2): algorithms named by the caller, chosen per rule, and what moving a rule does
-- [0023](decisions/0023-demo-runs-the-shipped-lua.md) (T5): the demo runs the shipped scripts in wasmoon over a stand-in, kept honest by a parity test, rather than a hosted backend or TypeScript copies
-- [0024](decisions/0024-publish-from-ci-with-provenance.md) (T4): publishing from CI with trusted publishing and provenance, and 1.0.0 as the first version
+- [0021](decisions/0021-per-request-timing-tolerance.md) (T0): each request's own timing tolerance in the benchmark analysis, from its `limiterMs`, superseding 0017's fixed 2 ms
+- [0022](decisions/0022-burst.md) (T1): what `burst` means for each bucket, its defaults, why window algorithms reject it, and the headers
+- [0023](decisions/0023-algorithm-per-rule.md) (T2): algorithms named by the caller, chosen per rule, and what moving a rule does
+- [0024](decisions/0024-demo-runs-the-shipped-lua.md) (T5): the demo runs the shipped scripts in wasmoon over a stand-in, kept honest by a parity test, rather than a hosted backend or TypeScript copies
+- [0025](decisions/0025-publish-from-ci-with-provenance.md) (T4): publishing from CI with trusted publishing and provenance, and 1.0.0 as the first version
 
 ## Open questions
 

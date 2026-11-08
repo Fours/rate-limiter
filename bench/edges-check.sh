@@ -6,6 +6,8 @@
 #     the bursts moved mid-window, the trickle still reached 129 against 100.
 #   - a quick sliding-window-log run never goes over the limit
 #   - re-running the analysis on saved output gives the same summary
+# Each run also prints how full the fixed windows either side of each burst edge got
+# (bench/edges-report.ts), and a failure annotation carries that line (milestone 5, T0).
 # CI runs it too (T7). Needs Docker; starts the stack itself.
 set -euo pipefail
 
@@ -37,12 +39,15 @@ for algorithm in fixed-window sliding-window-log; do
   seconds=$(($(date +%s) - start))
   dir="$(ls -d "$out/$algorithm"/0008-edges-*)"
   read -r value limit <<<"$(peak "$dir")"
+  # How full the windows either side of each burst boundary got (milestone 5, T0).
+  fill="$(node --experimental-strip-types --disable-warning=ExperimentalWarning bench/edges-report.ts "$dir" | sed 's/^[^:]*: //')"
+  echo "     $algorithm: $fill"
 
   if [[ "$algorithm" == fixed-window ]]; then
     if ((value * 10 >= limit * 18)); then
       echo "ok   fixed-window: peak $value per window against a limit of $limit, the boundary burst"
     else
-      fail "fixed-window: peak $value is under 1.8× the limit of $limit, so the bursts missed the boundary"
+      fail "fixed-window: peak $value is under 1.8× the limit of $limit, so the bursts missed the boundary ($fill)"
     fi
     if ((seconds < 60)); then
       echo "ok   fixed-window quick run took ${seconds}s"
@@ -53,7 +58,7 @@ for algorithm in fixed-window sliding-window-log; do
     if ((value <= limit)); then
       echo "ok   sliding-window-log: peak $value per window, never over the limit of $limit (${seconds}s)"
     else
-      fail "sliding-window-log: peak $value per window, over the limit of $limit"
+      fail "sliding-window-log: peak $value per window, over the limit of $limit ($fill)"
     fi
   fi
 

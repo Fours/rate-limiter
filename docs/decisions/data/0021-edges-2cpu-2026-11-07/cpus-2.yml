@@ -1,0 +1,7 @@
+# Pins the whole stack to CPUs 0-1, so it shares 2 CPUs as on a CI runner. Used for decision 0021.
+services:
+  app-1: { cpuset: "0-1" }
+  app-2: { cpuset: "0-1" }
+  app-3: { cpuset: "0-1" }
+  lb: { cpuset: "0-1" }
+  redis: { cpuset: "0-1" }

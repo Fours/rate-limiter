@@ -7,6 +7,7 @@ import { analyse, loadResults } from '../../bench/analyse.ts';
 import {
   chartFor,
   cpuAtPeak,
+  edgeFill,
   peakSecond,
   secondsOf,
   spreadTable,
@@ -34,44 +35,126 @@ function rec(t: number, status: number, client = 'a', e2eMs = 10): RequestRecord
   return { client, t, status, e2eMs };
 }
 
+describe('edgeFill', () => {
+  const L = 3;
+  const B = 20_000; // a burst boundary, with W = 1000 ms windows
+  const at = (t: number, status = 200, client = 'a', sentAt = t - 1): RequestRecord => ({
+    client,
+    t,
+    sentAt,
+    status,
+    e2eMs: t - sentAt,
+  });
+  // A burst of L just before B and L just after: what the edges scenario aims for.
+  const aimed = (client: string, lateBy = 0): RequestRecord[] => [
+    ...[0, 1, 2].map((i) => at(B - 400 + i + lateBy, 200, client)),
+    ...[0, 1, 2].map((i) => at(B + 50 + i + lateBy, 200, client)),
+  ];
+
+  it('finds a full window either side of a burst that landed where it was aimed', () => {
+    expect(edgeFill(aimed('a'), W, L)).toEqual([{ boundary: B, before: L, afterMs: 52 }]);
+  });
+
+  it('reports the slowest client on each side', () => {
+    // b's bursts arrived 399 ms late: 2 of its first L landed on or after the boundary, so its
+    // first window holds 1, and its L-th allowed request in the next one came at B + 449.
+    const records = [...aimed('a'), ...aimed('b', 399)];
+    expect(edgeFill(records, W, L)).toEqual([{ boundary: B, before: 1, afterMs: 449 }]);
+  });
+
+  it('counts only allowed requests, by arrival time', () => {
+    const records = [
+      ...aimed('a'),
+      at(B - 300, 429),
+      // Sent before the boundary, arrived after it: the next window's first.
+      at(B + 5, 200, 'a', B - 10),
+    ];
+    expect(edgeFill(records, W, L)).toEqual([{ boundary: B, before: L, afterMs: 51 }]);
+  });
+
+  it('says when a client never got the limit after the boundary', () => {
+    const records = [
+      ...aimed('a'),
+      ...[0, 1, 2, 3].map((i) => at(B - 300 + i, 200, 'b')),
+      at(B + 60, 200, 'b'),
+    ];
+    expect(edgeFill(records, W, L)).toEqual([{ boundary: B, before: L, afterMs: undefined }]);
+  });
+
+  it('ignores boundaries with only a trickle, and lists burst boundaries in order', () => {
+    const records = [
+      ...aimed('a').map((r) => ({ ...r, t: r.t + 2 * W, sentAt: (r.sentAt ?? 0) + 2 * W })),
+      at(B - 500),
+      at(B + 500), // one each side of B: a trickle, not a burst
+      at(B - 30 * W + 1),
+      ...aimed('a').map((r) => ({ ...r, t: r.t - 2 * W, sentAt: (r.sentAt ?? 0) - 2 * W })),
+    ];
+    expect(edgeFill(records, W, L).map((f) => f.boundary)).toEqual([B - 2 * W, B + 2 * W]);
+  });
+});
+
 describe('maxInWindow', () => {
+  const at0 = (times: readonly number[]) => times.map((t) => ({ t, slack: 0 }));
+
   it('is the limit when requests are spread exactly at the limit', () => {
     // 2 per 1000 ms, one every 500 ms: any 1000 ms span holds exactly 2.
-    expect(maxInWindow([0, 500, 1000, 1500, 2000, 2500], W)).toBe(2);
+    expect(maxInWindow(at0([0, 500, 1000, 1500, 2000, 2500]), W)).toBe(2);
   });
 
   it('catches a 2× burst across a fixed-window boundary', () => {
     // Two allowed just before 1000 and two just after: a fixed window's worst case.
-    expect(maxInWindow([990, 995, 1000, 1005], W)).toBe(4);
+    expect(maxInWindow(at0([990, 995, 1000, 1005]), W)).toBe(4);
   });
 
   it('finds the busiest span even when it starts between grid points', () => {
     // Spans starting on a 1000 ms grid see at most 2; [300, 1300) holds all three.
     const times = [300, 800, 1200];
-    expect(maxInWindow(times, W)).toBe(3);
+    expect(maxInWindow(at0(times), W)).toBe(3);
     const onGrid = [0, 1000].map((s) => times.filter((t) => t >= s && t < s + W).length);
     expect(Math.max(...onGrid)).toBe(2);
   });
 
   it('treats the span as half-open: requests exactly windowMs apart never share one', () => {
-    expect(maxInWindow([0, 1000], W)).toBe(1);
-    expect(maxInWindow([0, 999], W)).toBe(2);
+    expect(maxInWindow(at0([0, 1000]), W)).toBe(1);
+    expect(maxInWindow(at0([0, 999]), W)).toBe(2);
+  });
+
+  it('counts a request only if it was decided before the span ends, even at its latest', () => {
+    // The third arrived 990 ms after the first, but may have been decided up to 15 ms later.
+    expect(maxInWindow([...at0([0, 500]), { t: 990, slack: 15 }], W)).toBe(2);
+    expect(maxInWindow([...at0([0, 500]), { t: 990, slack: 9 }], W)).toBe(3);
+    // The first request's own slack doesn't matter: the span starts when it arrived.
+    expect(maxInWindow([{ t: 0, slack: 500 }, ...at0([500, 999])], W)).toBe(3);
+  });
+
+  it('checks each request near the end, not just the last one', () => {
+    // A slow request before a fast one: the slow one can't be counted, the fast one can.
+    expect(maxInWindow([...at0([0]), { t: 980, slack: 30 }, ...at0([985])], W)).toBe(2);
   });
 
   it('handles unsorted input, duplicates and nothing at all', () => {
-    expect(maxInWindow([1500, 0, 1500, 600], W)).toBe(3);
-    expect(maxInWindow([], W)).toBe(0);
+    expect(maxInWindow(at0([1500, 0, 1500, 600]), W)).toBe(3);
+    expect(maxInWindow(at0([]), W)).toBe(0);
   });
 });
 
 describe('peakPerWindow', () => {
-  it('measures spans RESOLUTION_MS short of the window, the limiter clock’s resolution', () => {
+  it('gives each request at least RESOLUTION_MS of slack, the limiter clock’s resolution', () => {
     // A sliding window log rightly allows requests at Redis ms 0 and 1000 with a 1000 ms window;
     // in real time they can land up to 1 ms less than a window apart.
     const atEdge = [rec(0.6, 200), rec(500, 200), rec(999.9, 200)];
     expect(peakPerWindow(atEdge, W).peak).toBe(2);
     const inside = [rec(0, 200), rec(500, 200), rec(997.9, 200)];
     expect(peakPerWindow(inside, W).peak).toBe(3);
+  });
+
+  it('gives a request the limiter took long over that much more slack', () => {
+    // The third arrived 990 ms after the first, but the limiter spent 9.5 ms on it, so Redis
+    // may have decided it at 1000: a window after the first. Not a certain overshoot.
+    const slow = [rec(0, 200), rec(500, 200), { ...rec(990, 200), limiterMs: 9.5 }];
+    expect(peakPerWindow(slow, W).peak).toBe(2);
+    const fast = [rec(0, 200), rec(500, 200), { ...rec(990, 200), limiterMs: 8.9 }];
+    expect(peakPerWindow(fast, W).peak).toBe(3);
   });
 
   it('counts only allowed requests, per client, and names the busiest client', () => {
@@ -106,6 +189,14 @@ describe('falseDenials', () => {
     const records = [rec(0, 200), rec(100, 200), rec(1000, 429), rec(1001, 429), rec(1001.9, 429)];
     expect(RESOLUTION_MS).toBe(2);
     expect(falseDenials(records, rule)).toBe(0);
+  });
+
+  it('gives an allowed request the limiter took long over that much more benefit of the doubt', () => {
+    // The request at 100 took the limiter 20.5 ms, so it may have been decided at 120: still in
+    // the window of a denial at 1110, but certainly not of one at 1121.
+    const slow = { ...rec(100, 200), limiterMs: 20.5 };
+    expect(falseDenials([rec(0, 200), slow, rec(1110, 200), rec(1115, 429)], rule)).toBe(0);
+    expect(falseDenials([rec(0, 200), slow, rec(1110, 200), rec(1121, 429)], rule)).toBe(1);
   });
 
   it('keeps clients apart', () => {
@@ -223,6 +314,14 @@ describe('chartFor', () => {
       { t: 0, allowed: 1 },
       { t: 10, allowed: 2 },
     ]);
+  });
+
+  it('counts back from when each request may have been decided, at its latest', () => {
+    // The last arrived 995 ms after the first, but the limiter spent 7.2 ms on it, so the first
+    // may already have left its window when it was decided.
+    const meta = { algorithm: 'x', scenario: 's', run: 1, limit: 2, windowMs: W };
+    const records = [rec(0, 200), rec(500, 200), { ...rec(995, 200), limiterMs: 7.2 }];
+    expect(chartFor([{ meta, records }]).series.map((p) => p.allowed)).toEqual([1, 2, 2]);
   });
 });
 
