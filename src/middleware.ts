@@ -73,6 +73,7 @@ export type RateLimitMiddleware = RequestHandler & {
  */
 export function rateLimit(opts: RateLimitOptions): RateLimitMiddleware {
   // Checked at runtime because plain JS callers, and rules loaded from files, bypass the types.
+  rejectUnknownOptions(opts);
   const match = createMatcher(opts.rules);
   assertOptionalFunction(opts.identify, 'identify');
   assertOptionalFunction(opts.tier, 'tier');
@@ -160,6 +161,34 @@ export function rateLimit(opts: RateLimitOptions): RateLimitMiddleware {
   });
 }
 
+/** Every option `rateLimit` takes. A type test keeps this in step with RateLimitOptions. */
+export const OPTION_NAMES = [
+  'rules',
+  'algorithm',
+  'algorithms',
+  'identify',
+  'tier',
+  'timeoutMs',
+  'fallback',
+  'hooks',
+  'prefix',
+] as const satisfies readonly (keyof RateLimitOptions)[];
+
+/** A misspelt option, such as `fallbak: false`, would otherwise be ignored (decision 0032). */
+function rejectUnknownOptions(opts: unknown): void {
+  if (typeof opts !== 'object' || opts === null) {
+    throw new TypeError('rateLimit: options must be an object, like { rules }');
+  }
+  const unknown = Object.keys(opts).find(
+    (key) => !(OPTION_NAMES as readonly string[]).includes(key),
+  );
+  if (unknown !== undefined) {
+    throw new TypeError(
+      `rateLimit: unknown option ${JSON.stringify(unknown)}; options are ${OPTION_NAMES.join(', ')}`,
+    );
+  }
+}
+
 function resolveTimeout(value: unknown): number {
   if (value === undefined) return DEFAULT_TIMEOUT_MS;
   if (!isPositiveInteger(value)) {
@@ -191,6 +220,12 @@ function resolveFallback(value: unknown): Fallback | undefined {
   if (value === undefined) return createFallback(1);
   if (typeof value !== 'object' || value === null) {
     throw new TypeError('rateLimit: fallback must be { instances } or false');
+  }
+  const extra = Object.keys(value).find((key) => key !== 'instances');
+  if (extra !== undefined) {
+    throw new TypeError(
+      `rateLimit: unknown fallback option ${JSON.stringify(extra)}; it takes instances`,
+    );
   }
   const instances: unknown = 'instances' in value ? value.instances : undefined;
   if (instances === undefined) return createFallback(1);

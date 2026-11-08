@@ -17,20 +17,8 @@ const importYaml: YamlImporter = () => import('yaml');
 
 const FILE_FIELDS = ['rules'] as const;
 
-/**
- * Every field a rule in a file may have. Typed against `Rule` so a field can't
- * be listed that `Rule` lacks; a type test catches the reverse (decision 0015).
- */
-export const RULE_FIELDS = [
-  'id',
-  'limit',
-  'windowMs',
-  'burst',
-  'algorithm',
-  'method',
-  'path',
-  'tier',
-] as const satisfies readonly (keyof Rule)[];
+// Rule fields are checked by validateRules, for rules in code too (decision 0032).
+export { RULE_FIELDS } from './rules.js';
 
 const FORMATS: Readonly<Record<string, RulesFormat>> = {
   '.json': 'json',
@@ -122,7 +110,7 @@ function isModuleNotFound(error: unknown): boolean {
   );
 }
 
-/** Checks the `{ rules: [...] }` wrapper and rejects unknown fields, which validateRules allows. */
+/** Checks the `{ rules: [...] }` wrapper. validateRules checks the rules, their fields included. */
 function extractRules(document: unknown): unknown[] {
   if (!isPlainObject(document) || !('rules' in document)) {
     throw new InvalidRuleError('must be an object with a "rules" list, like { "rules": [] }');
@@ -131,13 +119,6 @@ function extractRules(document: unknown): unknown[] {
 
   const { rules } = document;
   if (!Array.isArray(rules)) throw new InvalidRuleError('"rules" must be a list');
-  rules.forEach((rule: unknown, index) => {
-    if (!isPlainObject(rule)) return; // validateRules reports the wrong type with its position
-    const position = `rules[${String(index)}]`;
-    const label =
-      typeof rule.id === 'string' ? `${position} (${JSON.stringify(rule.id)})` : position;
-    rejectUnknown(rule, RULE_FIELDS, label);
-  });
   return rules;
 }
 

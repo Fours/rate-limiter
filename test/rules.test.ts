@@ -146,6 +146,20 @@ describe('validateRules', () => {
     }).toThrow(new InvalidRuleError(`rules[0] ("a"): ${problem}`));
   });
 
+  it.each(['methd', 'limt', 'windowMS', 'paths'])(
+    'rejects an unknown field %j in rules written in code, as in files (0032)',
+    (field) => {
+      // Found by the 1.0 correctness review: `methd: 'POST'` made a POST-only rule cover every method.
+      expect(() => {
+        validateRules([{ id: 'a', ...base, [field]: 'POST' }]);
+      }).toThrow(
+        new InvalidRuleError(
+          `rules[0] ("a"): unknown field ${JSON.stringify(field)}; allowed fields are id, limit, windowMs, burst, algorithm, method, path, tier`,
+        ),
+      );
+    },
+  );
+
   it.each(['', 'GET ', 'PO-ST', 3])('rejects method %j', (method) => {
     expect(() => {
       validateRules([{ id: 'a', ...base, method }]);

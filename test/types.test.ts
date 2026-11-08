@@ -1,5 +1,6 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { Algorithm, Decision, Rule } from '../src/index.js';
+import { OPTION_NAMES, type RateLimitOptions } from '../src/middleware.js';
 import { RULE_FIELDS } from '../src/rules-file.js';
 
 // These are compile-time checks enforced by `npm run typecheck`. An unused
@@ -40,5 +41,10 @@ describe('public types', () => {
     // If Rule gains a field, rules files would reject it until RULE_FIELDS lists it too (0015).
     expectTypeOf<keyof Rule>().toEqualTypeOf<(typeof RULE_FIELDS)[number]>();
     expect(RULE_FIELDS).toHaveLength(8);
+  });
+
+  it('lists every rateLimit option as allowed', () => {
+    // If RateLimitOptions gains an option, rateLimit would reject it until OPTION_NAMES lists it (0032).
+    expectTypeOf<keyof RateLimitOptions>().toEqualTypeOf<(typeof OPTION_NAMES)[number]>();
   });
 });

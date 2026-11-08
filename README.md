@@ -58,7 +58,7 @@ Each client gets 100 requests a minute, except `POST /login`, which gets 5. A cl
 
 `close()` stops the default token bucket's cleanup timer, and the fallback's, so your process can exit cleanly. If you passed in your own `algorithm`, or any in `algorithms`, `close()` leaves them alone, because you may share them between limiters.
 
-Invalid options throw when you call `rateLimit`, never during a request. Bad rules throw an `InvalidRuleError` that names the rule.
+Invalid options throw when you call `rateLimit`, never during a request, and so do unknown ones, such as a misspelt `fallbak`. Bad rules throw an `InvalidRuleError` that names the rule, including a rule with an unknown field such as `methd`, which would otherwise make it cover every method.
 
 ### Rules
 

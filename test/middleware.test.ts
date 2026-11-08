@@ -511,3 +511,29 @@ describe('prefix (decision 0028)', () => {
     expect(() => rateLimit({ rules: [rule], prefix: prefix as string })).toThrow(/prefix must be/);
   });
 });
+
+describe('misspelt options (decision 0032)', () => {
+  it.each([
+    [
+      { fallbak: false },
+      'rateLimit: unknown option "fallbak"; options are rules, algorithm, algorithms, identify, tier, timeoutMs, fallback, hooks, prefix',
+    ],
+    [{ timeoutMS: 10 }, 'rateLimit: unknown option "timeoutMS"'],
+    [
+      { fallback: { instance: 3 } },
+      'rateLimit: unknown fallback option "instance"; it takes instances',
+    ],
+    [
+      { hooks: { onDecison: () => undefined } },
+      'rateLimit: unknown hook "onDecison"; hooks are onDecision, onFallback',
+    ],
+  ])('rejects %j at startup', (extra, message) => {
+    expect(() => rateLimit({ rules: [rule], ...(extra as object) })).toThrow(message);
+  });
+
+  it('rejects options that are not an object', () => {
+    expect(() => rateLimit(null as unknown as RateLimitOptions)).toThrow(
+      'rateLimit: options must be an object',
+    );
+  });
+});

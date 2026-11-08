@@ -23,6 +23,21 @@ interface CompiledRule {
 }
 
 /**
+ * Every field a rule may have. Typed against `Rule` so a field can't be listed that `Rule` lacks;
+ * a type test catches the reverse. Any other field throws, in code as in files (decision 0032).
+ */
+export const RULE_FIELDS = [
+  'id',
+  'limit',
+  'windowMs',
+  'burst',
+  'algorithm',
+  'method',
+  'path',
+  'tier',
+] as const satisfies readonly (keyof Rule)[];
+
+/**
  * Throws InvalidRuleError on the first problem. Checks types at runtime too,
  * because rules may come from YAML or JSON rather than typed code.
  */
@@ -70,6 +85,16 @@ function validateRule(raw: unknown, index: number, ids: Set<string>): void {
   const { id, limit, windowMs, burst, algorithm, path, method, tier } = rule;
   const label = typeof id === 'string' ? `${position} (${JSON.stringify(id)})` : position;
   const fail = (problem: string) => new InvalidRuleError(`${label}: ${problem}`);
+
+  // A typo like `methd: 'POST'` would otherwise make a rule cover every method.
+  const unknown = Object.keys(rule).find(
+    (key) => !(RULE_FIELDS as readonly string[]).includes(key),
+  );
+  if (unknown !== undefined) {
+    throw fail(
+      `unknown field ${JSON.stringify(unknown)}; allowed fields are ${RULE_FIELDS.join(', ')}`,
+    );
+  }
 
   if (typeof id !== 'string' || id === '') throw fail('id must be a non-empty string');
   if (ids.has(id)) throw fail('id is already used by an earlier rule');

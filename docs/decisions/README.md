@@ -32,7 +32,7 @@ When you change a decision, update its record in the same commit as the code.
 | [0012](0012-rate-limit-header-format.md) | Three `RateLimit-*` headers in seconds from now, `Retry-After` at least 1 | Accepted | 1 |
 | [0013](0013-bring-your-own-redis-client.md) | The caller brings their own Redis client | Accepted | 2 |
 | [0014](0014-leaky-bucket-as-gcra.md) | The leaky bucket is a burst-free GCRA | Accepted; a burst is optional from 0022 | 2 |
-| [0015](0015-rules-files.md) | Rules files: one shape, strict fields, optional YAML | Accepted | 2 |
+| [0015](0015-rules-files.md) | Rules files: one shape, strict fields, optional YAML | Accepted; extended to code by 0032 | 2 |
 | [0016](0016-switching-algorithms-starts-fresh.md) | Switching algorithms starts each client fresh | Accepted | 2 |
 | [0017](0017-how-the-benchmarks-measure.md) | How the benchmarks measure: the limiter's own cost via `Server-Timing`, three runs, no numbers in CI | Accepted; 2 ms resolution superseded by 0021 | 3 |
 | [0018](0018-timeout-and-fallback-in-the-middleware.md) | The timeout and fallback live in the middleware, around any algorithm | Accepted | 4 |
@@ -47,3 +47,4 @@ When you change a decision, update its record in the same commit as the code.
 | [0029](0029-ipv4-in-ipv6-and-non-ip-values.md) | IPv6 that carries IPv4 counts as IPv4, and a value that isn't an IP is never a client ID | Accepted | 5 |
 | [0030](0030-match-dot-dot-both-ways.md) | Match a path with `..` both as routed and as resolved | Accepted | 5 |
 | [0031](0031-two-rules-on-one-key.md) | A rule change keeps a client's progress, even when two rules share a key | Accepted | 5 |
+| [0032](0032-unknown-fields-throw-in-code-too.md) | Unknown rule fields and options throw in code too, not only in files | Accepted | 5 |

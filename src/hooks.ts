@@ -57,6 +57,14 @@ export function resolveHooks(value: unknown): ResolvedHooks {
     throw new TypeError('rateLimit: hooks must be an object of functions');
   }
   const given = value as Record<string, unknown>;
+  const unknown = Object.keys(given).find(
+    (key) => !(HOOK_NAMES as readonly string[]).includes(key),
+  );
+  if (unknown !== undefined) {
+    throw new TypeError(
+      `rateLimit: unknown hook ${JSON.stringify(unknown)}; hooks are ${HOOK_NAMES.join(', ')}`,
+    );
+  }
   for (const name of HOOK_NAMES) {
     if (given[name] !== undefined && typeof given[name] !== 'function') {
       throw new TypeError(`rateLimit: hooks.${name} must be a function`);

@@ -1,6 +1,6 @@
 # 0015. Rules files: one shape, strict fields, optional YAML
 
-- **Status:** Accepted
+- **Status:** Accepted. Rules and options in code reject unknown fields too, since [0032](0032-unknown-fields-throw-in-code-too.md).
 - **Date:** 2026-11-06
 - **Milestone:** 2
 
