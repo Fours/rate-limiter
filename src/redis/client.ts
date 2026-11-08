@@ -3,7 +3,9 @@
  * configured with their connection, TLS and auth settings (decision 0013).
  */
 export interface RedisScriptClient {
+  /** Runs a cached script by its SHA1. Must reject with Redis's `NOSCRIPT` error if it isn't cached. */
   evalsha(sha: string, keys: string[], args: string[]): Promise<unknown>;
+  /** Runs a script from its source, which also caches it for `evalsha`. */
   eval(script: string, keys: string[], args: string[]): Promise<unknown>;
 }
 
@@ -22,6 +24,12 @@ export interface NodeRedisLike {
 /** Marks clients made by the adapters, so a raw ioredis client can be told apart at startup. */
 const ADAPTED = Symbol('rate-limiter.adapted');
 
+/**
+ * Adapts an [ioredis](https://github.com/redis/ioredis) client for the Redis algorithms. The
+ * client stays yours: connect, configure and close it yourself.
+ *
+ * @throws TypeError if `client` isn't an ioredis client, for example a node-redis one.
+ */
 export function fromIoredis(client: IoredisLike): RedisScriptClient {
   // node-redis spells it evalSha, so this also catches the wrong client being passed, at startup.
   assertMethods(client, ['evalsha', 'eval'], 'fromIoredis', 'fromNodeRedis');
@@ -31,6 +39,12 @@ export function fromIoredis(client: IoredisLike): RedisScriptClient {
   });
 }
 
+/**
+ * Adapts a [node-redis](https://github.com/redis/node-redis) client for the Redis algorithms.
+ * The client stays yours: connect, configure and close it yourself.
+ *
+ * @throws TypeError if `client` isn't a node-redis client, for example an ioredis one.
+ */
 export function fromNodeRedis(client: NodeRedisLike): RedisScriptClient {
   assertMethods(client, ['evalSha', 'eval'], 'fromNodeRedis', 'fromIoredis');
   return mark({

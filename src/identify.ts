@@ -30,7 +30,11 @@ export function defaultIdentify(req: IdentifiableRequest): string {
   return 'anon';
 }
 
-/** `rl:{rule.id}:{clientId}`, for example `rl:orders:free:key_3f2a9c1e5b7d4e8a`. */
+/**
+ * The storage key for a rule and client: `rl:{rule.id}:{clientId}`, for example
+ * `rl:orders:free:key_3f2a9c1e5b7d4e8a`. The middleware builds keys this way; it's exported for
+ * tooling that inspects or clears keys in Redis.
+ */
 export function buildKey(rule: Pick<Rule, 'id'>, clientId: string): string {
   return `rl:${rule.id}:${clientId}`;
 }

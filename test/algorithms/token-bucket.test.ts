@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createTokenBucket,
+  createTokenBucketForTest,
   type TokenBucket,
   type TokenBucketOptions,
 } from '../../src/algorithms/token-bucket.js';
@@ -13,7 +14,7 @@ const open: TokenBucket[] = [];
 
 function setup(rule: Rule, opts: TokenBucketOptions = {}) {
   const clock = new FakeClock(T0);
-  const bucket = createTokenBucket({ clock, ...opts });
+  const bucket = createTokenBucketForTest({ clock, ...opts });
   open.push(bucket);
   const check = (key = 'rl:test:client', r: Rule = rule) => bucket.check(key, r);
   return { clock, bucket, check };
@@ -267,6 +268,12 @@ describe('createTokenBucket', () => {
 
   it.each([0, -1, 1.5, Number.NaN])('rejects sweepIntervalMs %s at construction', (ms) => {
     expect(() => createTokenBucket({ sweepIntervalMs: ms })).toThrow(RangeError);
+  });
+
+  it('exposes only check, close and supportsBurst, not the test-only sweep and size', () => {
+    const bucket = createTokenBucket();
+    open.push(bucket);
+    expect(Object.keys(bucket).sort()).toEqual(['check', 'close', 'supportsBurst']);
   });
 
   it('defaults to the system clock', async () => {

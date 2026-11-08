@@ -9,8 +9,8 @@ import {
 const script = loadScript('./token-bucket.lua', import.meta.url);
 
 /**
- * A token bucket in Redis, shared by every app instance that uses the same Redis. Up to `limit`
- * requests at once, refilling `limit` per `windowMs`. Each check is one atomic script that uses
+ * A token bucket in Redis, shared by every app instance that uses the same Redis. Up to `burst`
+ * requests at once (`limit` by default), refilling `limit` per `windowMs`. Each check is one atomic script that uses
  * Redis time (decisions 0006 and 0007).
  */
 export function createRedisTokenBucket(opts: RedisAlgorithmOptions): Algorithm {

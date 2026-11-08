@@ -3,6 +3,7 @@ import { assertScriptClient, type RedisScriptClient } from '../../redis/client.j
 import { defineScript, parseDecision, runScript, type LuaScript } from '../../redis/scripts.js';
 import type { Algorithm, Clock } from '../../types.js';
 
+/** Options for the five Redis algorithm factories, such as {@link createRedisTokenBucket}. */
 export interface RedisAlgorithmOptions {
   /** A client from fromIoredis or fromNodeRedis, or your own RedisScriptClient. */
   readonly client: RedisScriptClient;

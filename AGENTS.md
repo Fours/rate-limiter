@@ -38,7 +38,8 @@ npm run test:integration   # needs the test Redis
 npm run coverage    # unit + integration, so it needs the test Redis too
 npm run redis:down
 npm run build       # tsc → dist/
-npm run test:package   # builds, then tests the built package's entry points
+npm run test:package   # builds, then tests the built package: entry points, export list, TSDoc
+npm run check:package  # after a build: npm pack contents, publint, attw
 npm run example     # examples/basic
 npm run stack:up       # the benchmark stack: nginx, 3 app instances, Redis (docker-compose.yml)
 npm run stack:observe  # the same, plus Prometheus (:9090) and Grafana (:3001), with METRICS=1

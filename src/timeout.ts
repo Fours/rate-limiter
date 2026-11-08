@@ -11,6 +11,7 @@ export type Settled<T> =
 export class RateLimitTimeoutError extends Error {
   override readonly name = 'RateLimitTimeoutError';
 
+  /** @param timeoutMs The timeout the check ran out of, the middleware's `timeoutMs`. */
   constructor(readonly timeoutMs: number) {
     super(`Rate-limit check took longer than ${String(timeoutMs)} ms`);
   }

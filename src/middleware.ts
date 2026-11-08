@@ -10,6 +10,7 @@ import type { Algorithm, Decision, Rule } from './types.js';
 
 const DEFAULT_TIMEOUT_MS = 50;
 
+/** Settings for the in-memory fallback: `rateLimit`'s `fallback` option. */
 export interface FallbackOptions {
   /**
    * How many instances share the limit. Each one allows `ceil(limit / instances)` during an
@@ -18,7 +19,9 @@ export interface FallbackOptions {
   readonly instances?: number;
 }
 
+/** Options for {@link rateLimit}. Only `rules` is required. */
 export interface RateLimitOptions {
+  /** The limits. Validated at startup: a bad rule throws an {@link InvalidRuleError}. */
   readonly rules: readonly Rule[];
   /** For rules that name no algorithm. Default: an in-memory token bucket, which `close()` stops. */
   readonly algorithm?: Algorithm;
@@ -44,14 +47,21 @@ export interface RateLimitOptions {
   readonly hooks?: RateLimitHooks;
 }
 
+/** Express middleware from {@link rateLimit}, with a `close()` for shutdown. */
 export type RateLimitMiddleware = RequestHandler & {
   /** Stops the default algorithm's and the fallback's sweep timers. An algorithm passed in is left alone. */
   close(): void;
 };
 
 /**
- * Express middleware that limits matching requests. Every option is checked
- * here, so bad configuration fails at startup, never at request time.
+ * Express middleware that limits matching requests. A request over its limit gets a 429 with
+ * `{ "error": "rate_limited" }`, and every limited request gets `RateLimit-*` headers.
+ *
+ * Every option is checked here, so bad configuration fails at startup, never at request time.
+ *
+ * @throws InvalidRuleError for a bad rule, an unknown `algorithm` name, or a `burst` on a rule
+ *   whose algorithm doesn't take one.
+ * @throws TypeError or RangeError for other bad options.
  */
 export function rateLimit(opts: RateLimitOptions): RateLimitMiddleware {
   // Checked at runtime because plain JS callers, and rules loaded from files, bypass the types.

@@ -3,18 +3,29 @@ import type { Algorithm, Clock, Decision, Rule } from '../types.js';
 
 const DEFAULT_SWEEP_INTERVAL_MS = 60_000;
 
+/** Options for {@link createTokenBucket}. */
 export interface TokenBucketOptions {
+  /** Where time comes from. Default {@link systemClock}. Inject one to test against fake time. */
   clock?: Clock;
   /** How often full buckets are dropped from memory. Positive integer ms; default 60 000. */
   sweepIntervalMs?: number;
 }
 
+/** The in-memory token bucket from {@link createTokenBucket}. */
 export interface TokenBucket extends Algorithm {
-  /** Stops the sweep timer. `check` keeps working afterwards. */
+  readonly supportsBurst: true;
+  /**
+   * Stops the timer that drops full buckets from memory, so the process can exit. `check` keeps
+   * working afterwards. Safe to call more than once.
+   */
   close(): void;
-  /** Drops buckets that have refilled to full. Runs on the interval; exposed for tests. */
+}
+
+/** For tests only: the same bucket, with its sweep and size exposed. Not exported publicly. */
+export interface InspectableTokenBucket extends TokenBucket {
+  /** Drops buckets that have refilled to full. Runs on the interval. */
   sweep(): void;
-  /** Number of tracked keys. For tests and observability. */
+  /** Number of tracked keys. */
   readonly size: number;
 }
 
@@ -36,7 +47,30 @@ interface Bucket {
   burst: number;
 }
 
+/**
+ * A token bucket in this process's memory: up to `burst` requests at once (`limit` by default),
+ * refilling steadily at `limit` per `windowMs`. It's the default algorithm of {@link rateLimit}.
+ * Limits aren't shared between processes; use {@link createRedisTokenBucket} for that.
+ *
+ * Buckets that have refilled to full are dropped every `sweepIntervalMs`, so memory follows the
+ * active clients. Call `close()` on shutdown if you created it yourself.
+ *
+ * @throws RangeError if `sweepIntervalMs` isn't a positive integer.
+ */
 export function createTokenBucket(opts: TokenBucketOptions = {}): TokenBucket {
+  // A new object, so the test-only sweep and size aren't reachable from the public one.
+  const bucket = createTokenBucketForTest(opts);
+  return {
+    supportsBurst: true,
+    check: (key, rule) => bucket.check(key, rule),
+    close: () => {
+      bucket.close();
+    },
+  };
+}
+
+/** For tests only: {@link createTokenBucket}, with its sweep and size exposed. */
+export function createTokenBucketForTest(opts: TokenBucketOptions = {}): InspectableTokenBucket {
   const clock = opts.clock ?? systemClock;
   const sweepIntervalMs = opts.sweepIntervalMs ?? DEFAULT_SWEEP_INTERVAL_MS;
   if (!Number.isSafeInteger(sweepIntervalMs) || sweepIntervalMs <= 0) {

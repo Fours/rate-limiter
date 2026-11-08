@@ -1,5 +1,6 @@
 import type { Rule } from './types.js';
 
+/** Thrown at startup for an invalid rule. The message names the rule and what's wrong. */
 export class InvalidRuleError extends Error {
   override name = 'InvalidRuleError';
 }

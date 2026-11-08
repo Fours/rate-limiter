@@ -2,7 +2,7 @@
 
 Rate-limiting middleware for Express, with pluggable algorithms and standard `RateLimit-*` headers.
 
-> **Status: milestone 4 of 5.** Limits can be shared by many app instances through one Redis, with five algorithms and rules loaded from YAML or JSON. All five are [benchmarked](#benchmarks) on a load-balanced stack of three instances. If Redis fails, requests are answered from memory instead ([failure handling](#failure-handling)), and hooks report every decision, with a Prometheus adapter and a Grafana dashboard ([metrics](#metrics)). The package is not on npm yet. See the [project plan](https://claude.ai/artifact/UKY1bPShdNmagt4Tgftk1C) and the [milestone 4 spec](docs/milestone-4.md).
+> **Status: milestone 5 of 5, in progress.** Limits can be shared by many app instances through one Redis, with five algorithms, chosen per rule, and rules loaded from YAML or JSON. All five are [benchmarked](#benchmarks) on a load-balanced stack of three instances. If Redis fails, requests are answered from memory instead ([failure handling](#failure-handling)), and hooks report every decision, with a Prometheus adapter and a Grafana dashboard ([metrics](#metrics)). The API is settled for 1.0 ([API reference](#api-reference), [changelog](CHANGELOG.md)), but the package is not on npm yet. See the [project plan](https://claude.ai/artifact/UKY1bPShdNmagt4Tgftk1C) and the [milestone 5 spec](docs/milestone-5.md).
 
 ## Install
 
@@ -47,14 +47,15 @@ Each client gets 100 requests a minute, except `POST /login`, which gets 5. A cl
 | Option | Type | Default | What it does |
 | --- | --- | --- | --- |
 | `rules` | `Rule[]` | required | The limits. A request uses the most specific rule that matches it. |
-| `algorithm` | `Algorithm` | in-memory token bucket | How limits are counted. Anything with `check(key, rule): Promise<Decision>` works. |
+| `algorithm` | `Algorithm` | in-memory token bucket | How limits are counted, for rules that name no algorithm. Anything with `check(key, rule): Promise<Decision>` works. |
+| `algorithms` | `Record<string, Algorithm>` | none | Algorithms by a name you choose, for rules that set `algorithm`. See [Choosing an algorithm](#choosing-an-algorithm). |
 | `identify` | `(req) => string` | API key, then user, then IP | Who the client is. See [Identifying clients](#identifying-clients). |
 | `tier` | `(req) => string \| undefined` | no tier | The client's tier, for rules that set `tier`. |
 | `timeoutMs` | positive integer | `50` | How long a check gets before the fallback answers instead. See [Failure handling](#failure-handling). |
 | `fallback` | `{ instances?: number } \| false` | `{ instances: 1 }` | The in-memory fallback for when a check fails or times out. Set `instances` to how many app instances share each limit. `false` turns it off. |
 | `hooks` | `{ onDecision?, onFallback? }` | none | Called for every decision and every fallback, for metrics and logs. See [Metrics](#metrics). |
 
-`close()` stops the default token bucket's cleanup timer, and the fallback's, so your process can exit cleanly. If you passed in your own `algorithm`, `close()` leaves it alone, because you may share it between limiters.
+`close()` stops the default token bucket's cleanup timer, and the fallback's, so your process can exit cleanly. If you passed in your own `algorithm`, or any in `algorithms`, `close()` leaves them alone, because you may share them between limiters.
 
 Invalid options throw when you call `rateLimit`, never during a request. Bad rules throw an `InvalidRuleError` that names the rule.
 
@@ -232,8 +233,8 @@ All five use the same rules and headers. They differ in how a client's requests 
 
 | Algorithm | Create it with | A client can send | Good for | [Measured](#benchmarks) |
 | --- | --- | --- | --- | --- |
-| Token bucket | `createTokenBucket()` (memory, the default) or `createRedisTokenBucket()` | Up to `limit` at once, then refills steadily at `limit` per `windowMs` | Most APIs: short bursts are fine, the average rate is capped | [1.54× the limit at window edges; 160 B a key](#benchmarks) |
-| Leaky bucket | `createRedisLeakyBucket()` | One request every `windowMs / limit`, with no burst | Smoothing traffic to a steady rate, for example in front of a fragile backend ([0014](docs/decisions/0014-leaky-bucket-as-gcra.md)) | [Never over; denies 23% of steady traffic under the limit; 176 B a key](#benchmarks) |
+| Token bucket | `createTokenBucket()` (memory, the default) or `createRedisTokenBucket()` | Up to `burst` at once (`limit` by default), then refills steadily at `limit` per `windowMs` | Most APIs: short bursts are fine, the average rate is capped | [1.54× the limit at window edges; 160 B a key](#benchmarks) |
+| Leaky bucket | `createRedisLeakyBucket()` | One request every `windowMs / limit`, with no burst unless the rule sets `burst` | Smoothing traffic to a steady rate, for example in front of a fragile backend ([0014](docs/decisions/0014-leaky-bucket-as-gcra.md)) | [Never over; denies 23% of steady traffic under the limit; 176 B a key](#benchmarks) |
 | Fixed window | `createRedisFixedWindow()` | `limit` per window, with windows starting on the clock (each minute, for a 60 s window) | The cheapest option, and easy to explain. A client can send up to 2× `limit` across a window boundary. | [2.00× the limit at window edges; 176 B a key](#benchmarks) |
 | Sliding window log | `createRedisSlidingWindowLog()` | Exactly `limit` in any `windowMs`, measured back from now | Exact limits. Stores one entry per allowed request, so it costs the most memory. | [Never over; 400 B a key at 10 a minute, 103 KB at 1,000](#benchmarks) |
 | Sliding window counter | `createRedisSlidingWindowCounter()` | About `limit` in any `windowMs`, estimated from two counts. It never allows more than `limit` by its estimate. | Close to exact at a fixed, small cost: a good default for Redis | [1.05× the limit at window edges (at most 1.43×); 192 B a key](#benchmarks) |
@@ -342,6 +343,63 @@ Every request a rule matches gets:
 A denied request also gets `Retry-After`, in seconds, and a `429` with `{ "error": "rate_limited" }`.
 
 All times are whole seconds from now, rounded up, so a client that waits the time it's told is never early. `Retry-After` is never below 1, so a denied client is never told to retry at once. The reasons are in decisions [0003](docs/decisions/0003-reset-semantics.md) and [0012](docs/decisions/0012-rate-limit-header-format.md).
+
+## API reference
+
+Everything is imported from `@kylewillett/rate-limiter`, except `prometheusHooks`, which has its own entry point so the main one never loads `prom-client`. The package is ESM only. Every export has TSDoc, so your editor shows the details below as you type.
+
+**The middleware**
+
+| Export | What it is |
+| --- | --- |
+| `rateLimit(options)` | Express middleware with a `close()` method. See [Options](#options). Throws at startup for bad options. |
+| `RateLimitOptions`, `FallbackOptions`, `RateLimitMiddleware` | Its options, the `fallback` option, and what it returns |
+| `Rule` | One limit. See [Rules](#rules). |
+
+**Algorithms**
+
+| Export | What it is |
+| --- | --- |
+| `createTokenBucket({ clock?, sweepIntervalMs? })` | The in-memory token bucket, the default. Returns a `TokenBucket`, whose `close()` stops its cleanup timer. |
+| `createRedisTokenBucket({ client })`, `createRedisLeakyBucket`, `createRedisFixedWindow`, `createRedisSlidingWindowLog`, `createRedisSlidingWindowCounter` | The five algorithms in Redis, each taking `RedisAlgorithmOptions`. See [Choosing an algorithm](#choosing-an-algorithm). |
+| `Algorithm`, `Decision` | The interface every algorithm implements, `check(key, rule): Promise<Decision>`, with an optional `supportsBurst: true` for algorithms that take `burst`, and what `check` returns: `allowed`, `remaining` and `resetMs` |
+| `Clock`, `systemClock` | A source of time, `{ now(): number }` in epoch ms, and the real one. Inject a fake into `createTokenBucket` to test against controlled time. |
+
+**Redis clients**
+
+| Export | What it is |
+| --- | --- |
+| `fromIoredis(client)`, `fromNodeRedis(client)` | Adapt your ioredis or node-redis client. See [Using Redis](#using-redis). |
+| `RedisScriptClient`, `IoredisLike`, `NodeRedisLike` | What the algorithms need (`evalsha` and `eval`), and the parts of each client the adapters use |
+
+**Rules files**
+
+| Export | What it is |
+| --- | --- |
+| `loadRules(path)` | Reads rules from a `.json`, `.yaml` or `.yml` file. See [Loading rules from files](#loading-rules-from-files). |
+| `parseRules(text, format, source?)`, `RulesFormat` | The same for text from anywhere else, as `'json'` or `'yaml'` |
+
+**Clients and keys**
+
+| Export | What it is |
+| --- | --- |
+| `defaultIdentify(req)`, `IdentifiableRequest` | The default `identify`, to fall back on from your own. See [Identifying clients](#identifying-clients). |
+| `buildKey(rule, clientId)` | The storage key, `rl:{rule.id}:{clientId}`, for tools that inspect or clear keys in Redis |
+
+**Hooks and errors**
+
+| Export | What it is |
+| --- | --- |
+| `RateLimitHooks`, `DecisionEvent`, `FallbackEvent` | The `hooks` option and the events it receives. See [Hooks](#hooks). |
+| `InvalidRuleError` | Thrown at startup for a bad rule, naming the rule |
+| `RateLimitTimeoutError` | Sent to Express's error handler when a check times out and `fallback` is `false`. Its `timeoutMs` is the timeout. |
+
+**`@kylewillett/rate-limiter/prometheus`**
+
+| Export | What it is |
+| --- | --- |
+| `prometheusHooks({ registry?, prefix?, buckets? })`, `PrometheusHooksOptions` | Hooks that record Prometheus metrics. See [Prometheus](#prometheus). |
+| `DEFAULT_BUCKETS` | The histogram's default buckets, in seconds, to extend your own from |
 
 ## Try the demo
 
@@ -530,6 +588,8 @@ npm run redis:up          # test Redis in Docker, on port 6390
 npm run test:integration
 npm run coverage          # unit and integration together
 npm run build
+npm run test:package      # builds, then tests the built package: entry points, exports, TSDoc
+npm run check:package     # after a build: what npm would ship, publint, and attw for the types
 examples/basic/demo-check.sh   # two instances on the test Redis, every algorithm
 bench/stack-check.sh token-bucket leaky-bucket fixed-window sliding-window-log sliding-window-counter
 bench/edges-check.sh           # quick k6 edges runs, as CI does

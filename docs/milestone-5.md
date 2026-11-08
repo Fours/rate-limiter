@@ -108,8 +108,8 @@ Do these in order. Each one ends with passing tests.
 | --- | --- | --- |
 | T0. The edges-check failure | Done | 8bfc4d2 |
 | T1. `burst` | Done | 21c2da5 |
-| T2. `algorithm` per rule | Done | |
-| T3. API review for 1.0 | Not started | |
+| T2. `algorithm` per rule | Done | 2751a7e |
+| T3. API review for 1.0 | Done | |
 | T4. Release workflow and 1.0.0 | Not started | |
 | T5. Demo foundation | Not started | |
 | T6. The demo page | Not started | |
@@ -161,14 +161,16 @@ Write [0023](decisions/0023-algorithm-per-rule.md).
 
 ### T3. API review for 1.0
 
+*As built:* **Removed from the public API:** `TokenBucket.sweep()` and `TokenBucket.size`, which were there for tests. `createTokenBucket` now returns an object with only `check`, `close` and `supportsBurst`, and tests use the internal `createTokenBucketForTest`. Everything else stays, agreed in T3's plan review: `buildKey` as the key format for tooling, `DEFAULT_BUCKETS` to extend from, and `systemClock`, `defaultIdentify`, `RateLimitTimeoutError` and `IdentifiableRequest`, which pair with options that are already public. `test/package/api.test.ts` reads `dist/`'s `.d.ts` files with the TypeScript compiler API. It checks that each entry point exports exactly a written list, so the API can't change by accident, and that every export has TSDoc. `attw` runs with `--profile esm-only`: the package is ESM only, so `node10` resolution (which ignores `exports`, and fails on `/prometheus`) and `require` from CommonJS don't apply. `scripts/check-pack.js` replaces CI's `grep` checks. It reads `npm pack --dry-run --json`, fails on any file outside `dist/` other than the README, the licence, the changelog and `package.json`, and still requires the Lua scripts, both entry points and `prom-client` as an optional peer dependency. npm doesn't include a changelog on its own, so `files` lists `CHANGELOG.md`. `homepage` is the GitHub README until T8 puts the demo site up. `npm audit` reports 10 moderate advisories, all in ESLint's dependencies and all there before this task.
+
 **Done when:**
 
-- [ ] Every export from `src/index.ts` and `src/prometheus.ts` has a TSDoc comment, and anything removed from the public API is listed in this section
-- [ ] The README has an API reference section and the options table covers `burst`, `algorithm` and `algorithms`
-- [ ] `CHANGELOG.md` has a 1.0.0 entry
-- [ ] `package.json` has `description`, `keywords`, `homepage` and `bugs`, and its version is 1.0.0
-- [ ] `publint` and `attw --pack` pass, and run in CI
-- [ ] `npm pack` contents are checked in CI as today, and nothing outside `dist/`, the README, the licence and the changelog ships
+- [x] Every export from `src/index.ts` and `src/prometheus.ts` has a TSDoc comment, and anything removed from the public API is listed in this section
+- [x] The README has an API reference section and the options table covers `burst`, `algorithm` and `algorithms`
+- [x] `CHANGELOG.md` has a 1.0.0 entry
+- [x] `package.json` has `description`, `keywords`, `homepage` and `bugs`, and its version is 1.0.0
+- [x] `publint` and `attw --pack` pass, and run in CI
+- [x] `npm pack` contents are checked in CI as today, and nothing outside `dist/`, the README, the licence and the changelog ships
 
 ### T4. Release workflow and 1.0.0
 
@@ -219,7 +221,7 @@ Write [0024](decisions/0024-demo-runs-the-shipped-lua.md).
 
 - [ ] `npm run deploy` builds and publishes the site, set up the portfolio's way
 - [ ] The site is live on its subdomain, with both pages and working links
-- [ ] The README and the npm page link to the demo, and the portfolio links to it (a commit in the portfolio repo)
+- [ ] The README and the npm page link to the demo, and the portfolio links to it (a commit in the portfolio repo). `homepage` in `package.json` becomes the site.
 
 ## Definition of done
 

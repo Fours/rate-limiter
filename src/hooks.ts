@@ -11,7 +11,9 @@ export interface DecisionEvent {
   readonly limit: number;
   /** `rl:{rule.id}:{clientId}`, with API keys hashed. It can hold an IP: not a metric label. */
   readonly key: string;
+  /** What the algorithm, or the fallback, decided. */
   readonly decision: Decision;
+  /** `primary` from the configured algorithm, `fallback` from the in-memory fallback. */
   readonly source: 'primary' | 'fallback';
   /** From entering the middleware to the decision, from performance.now(). Fractional ms. */
   readonly durationMs: number;
@@ -19,17 +21,24 @@ export interface DecisionEvent {
 
 /** A check that timed out or failed, just before the fallback answers it. */
 export type FallbackEvent = {
+  /** The request as it arrived. Its headers can hold a raw API key: don't log them whole. */
   readonly req: Request;
+  /** The rule as configured. */
   readonly rule: Rule;
+  /** `rl:{rule.id}:{clientId}`, with API keys hashed. It can hold an IP: not a metric label. */
   readonly key: string;
-} & ({ readonly reason: 'timeout' } | { readonly reason: 'error'; readonly error: unknown });
+} &
+  // Why the fallback answers: the check took longer than `timeoutMs`, or it failed with `error`.
+  ({ readonly reason: 'timeout' } | { readonly reason: 'error'; readonly error: unknown });
 
 /**
  * Called synchronously, and never allowed to affect the request: a hook that throws, or returns
  * a promise that rejects, is ignored. What a hook returns is never awaited.
  */
 export interface RateLimitHooks {
+  /** Called once for every limited request, allowed or denied, after its decision. */
   readonly onDecision?: (event: DecisionEvent) => unknown;
+  /** Called when a check times out or fails, before the fallback answers it. */
   readonly onFallback?: (event: FallbackEvent) => unknown;
 }
 

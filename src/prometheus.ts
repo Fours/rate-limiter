@@ -3,6 +3,7 @@
 import { Counter, Histogram, register, type Registry } from 'prom-client';
 import type { RateLimitHooks } from './hooks.js';
 
+/** Options for {@link prometheusHooks}. */
 export interface PrometheusHooksOptions {
   /** Where the metrics are registered. Default: prom-client's global registry. */
   readonly registry?: Registry;

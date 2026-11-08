@@ -3,6 +3,7 @@ import { extname } from 'node:path';
 import { InvalidRuleError, validateRules } from './rules.js';
 import type { Rule } from './types.js';
 
+/** The formats {@link parseRules} reads. */
 export type RulesFormat = 'json' | 'yaml';
 
 /** The part of the `yaml` package we use. */
