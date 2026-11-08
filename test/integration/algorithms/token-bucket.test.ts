@@ -11,6 +11,7 @@ import type { Rule } from '../../../src/types.js';
 import { describeAlgorithm } from '../../contract/algorithm-contract.js';
 import { FakeClock } from '../../helpers/fake-clock.js';
 import {
+  burstSteps,
   comparisonSteps,
   expectTtlNear,
   runSteps,
@@ -38,6 +39,71 @@ describe('Redis token bucket', () => {
     const { algorithm, clock } = redisBucket();
     expect(await runSteps(algorithm, clock, steps)).toStrictEqual(expected);
     expect(expected.some((d) => !d.allowed)).toBe(true);
+  });
+
+  describe('burst', () => {
+    it('returns exactly the same decisions as the in-memory bucket, with bursts', async () => {
+      const steps = burstSteps();
+      const memoryClock = new FakeClock();
+      const memory = createTokenBucket({ clock: memoryClock });
+      const expected = await runSteps(memory, memoryClock, steps);
+      memory.close();
+
+      const { algorithm, clock } = redisBucket();
+      expect(await runSteps(algorithm, clock, steps)).toStrictEqual(expected);
+      expect(expected.some((d) => !d.allowed)).toBe(true);
+      expect(expected.some((d) => d.remaining > 5)).toBe(true); // a burst above the limit
+    });
+
+    it('says it takes a burst', () => {
+      expect(createRedisTokenBucket({ client: r.client }).supportsBurst).toBe(true);
+    });
+
+    it('allows burst at once, then limit per windowMs', async () => {
+      const { algorithm, clock } = redisBucket();
+      const rule: Rule = { id: uniqueRuleId('burst'), limit: 60, windowMs: 60_000, burst: 10 };
+      const key = buildKey(rule, 'c');
+      let allowed = 0;
+      while ((await algorithm.check(key, rule)).allowed) allowed++;
+      expect(allowed).toBe(10);
+      clock.advance(1_000);
+      expect(await algorithm.check(key, rule)).toMatchObject({ allowed: true, remaining: 0 });
+    });
+
+    it('reads state written before bursts existed, with no burst field', async () => {
+      const { algorithm, clock } = redisBucket();
+      const rule: Rule = { id: uniqueRuleId('old'), limit: 10, windowMs: 1_000 };
+      const key = buildKey(rule, 'c');
+      // What the script stored before this change: 3 tokens left, at the clock's current time.
+      await r.redis.hset(key, {
+        alg: 'token-bucket',
+        units: 3 * 1_000,
+        last: clock.now(),
+        limit: 10,
+        window: 1_000,
+      });
+      expect(await algorithm.check(key, rule)).toStrictEqual({
+        allowed: true,
+        remaining: 2,
+        resetMs: 800,
+      });
+      // The capacity was the limit: 10 tokens after a long wait, not more.
+      clock.advance(60_000);
+      expect(await algorithm.check(key, rule)).toMatchObject({ remaining: 9 });
+      expect(await r.redis.hexists(key, 'burst')).toBe(0);
+    });
+
+    it('stores a burst only when it differs from the limit, and removes it when it goes', async () => {
+      const { algorithm } = redisBucket();
+      const rule: Rule = { id: uniqueRuleId('field'), limit: 10, windowMs: 1_000 };
+      const key = buildKey(rule, 'c');
+      await algorithm.check(key, { ...rule, burst: 10 });
+      expect(await r.redis.hexists(key, 'burst')).toBe(0);
+      await algorithm.check(key, { ...rule, burst: 4 });
+      expect(await r.redis.hget(key, 'burst')).toBe('4');
+      await algorithm.check(key, rule);
+      expect(await r.redis.hexists(key, 'burst')).toBe(0);
+    });
   });
 
   describe('expiry', () => {

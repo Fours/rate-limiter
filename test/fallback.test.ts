@@ -18,6 +18,20 @@ describe('scaleRule', () => {
     expect(scaleRule({ ...rule, limit }, instances).limit).toBe(expected);
   });
 
+  it.each([
+    // [burst, instances, each instance's share]
+    [10, 3, 4],
+    [9, 3, 3],
+    [2, 3, 1],
+    [50, 1, 50],
+  ])('shares a burst of %i over %i instances as %i each', (burst, instances, expected) => {
+    expect(scaleRule({ ...rule, burst }, instances).burst).toBe(expected);
+  });
+
+  it('adds no burst to a rule without one', () => {
+    expect(scaleRule(rule, 3)).not.toHaveProperty('burst');
+  });
+
   it('keeps everything but the limit', () => {
     const full: Rule = { ...rule, method: 'POST', path: '/orders', tier: 'free' };
     expect(scaleRule(full, 3)).toStrictEqual({ ...full, limit: 4 });

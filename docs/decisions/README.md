@@ -31,7 +31,7 @@ When you change a decision, update its record in the same commit as the code.
 | [0011](0011-match-paths-like-express.md) | Match paths and methods the way Express routes them | Accepted | 1 |
 | [0012](0012-rate-limit-header-format.md) | Three `RateLimit-*` headers in seconds from now, `Retry-After` at least 1 | Accepted | 1 |
 | [0013](0013-bring-your-own-redis-client.md) | The caller brings their own Redis client | Accepted | 2 |
-| [0014](0014-leaky-bucket-as-gcra.md) | The leaky bucket is a burst-free GCRA | Accepted | 2 |
+| [0014](0014-leaky-bucket-as-gcra.md) | The leaky bucket is a burst-free GCRA | Accepted; a burst is optional from 0022 | 2 |
 | [0015](0015-rules-files.md) | Rules files: one shape, strict fields, optional YAML | Accepted | 2 |
 | [0016](0016-switching-algorithms-starts-fresh.md) | Switching algorithms starts each client fresh | Accepted | 2 |
 | [0017](0017-how-the-benchmarks-measure.md) | How the benchmarks measure: the limiter's own cost via `Server-Timing`, three runs, no numbers in CI | Accepted; 2 ms resolution superseded by 0021 | 3 |
@@ -39,3 +39,4 @@ When you change a decision, update its record in the same commit as the code.
 | [0019](0019-hook-events.md) | Hooks get plain events, synchronously, and can't break a request | Accepted | 4 |
 | [0020](0020-ipv6-by-64.md) | IPv6 clients are grouped by /64, and IPv4-mapped addresses count as IPv4 | Accepted | 4 |
 | [0021](0021-per-request-timing-tolerance.md) | The benchmarks give each request its own timing tolerance, from its limiter time | Accepted | 5 |
+| [0022](0022-burst.md) | An optional `burst` on rules, for the token and leaky buckets only | Accepted | 5 |

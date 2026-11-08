@@ -59,7 +59,7 @@ function validateRule(raw: unknown, index: number, ids: Set<string>): void {
     throw new InvalidRuleError(`${position}: must be an object`);
   }
   const rule = raw as Record<string, unknown>;
-  const { id, limit, windowMs, path, method, tier } = rule;
+  const { id, limit, windowMs, burst, path, method, tier } = rule;
   const label = typeof id === 'string' ? `${position} (${JSON.stringify(id)})` : position;
   const fail = (problem: string) => new InvalidRuleError(`${label}: ${problem}`);
 
@@ -72,6 +72,13 @@ function validateRule(raw: unknown, index: number, ids: Set<string>): void {
   // The token bucket counts in integer units of limit * windowMs; past this, maths stops being exact.
   if (limit * windowMs > Number.MAX_SAFE_INTEGER) {
     throw fail('limit * windowMs must not exceed Number.MAX_SAFE_INTEGER');
+  }
+  if (burst !== undefined) {
+    if (!isPositiveInteger(burst)) throw fail('burst must be a positive integer');
+    // A token bucket with a burst holds integer units of burst * windowMs (decision 0022).
+    if (burst * windowMs > Number.MAX_SAFE_INTEGER) {
+      throw fail('burst * windowMs must not exceed Number.MAX_SAFE_INTEGER');
+    }
   }
 
   if (path !== undefined) {

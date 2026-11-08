@@ -1,6 +1,6 @@
 # 0014. The leaky bucket is a burst-free GCRA
 
-- **Status:** Accepted
+- **Status:** Accepted. Burst-free is now the default: a rule's `burst` sets the tolerance, from milestone 5 ([0022](0022-burst.md)).
 - **Date:** 2026-11-06
 - **Milestone:** 2
 

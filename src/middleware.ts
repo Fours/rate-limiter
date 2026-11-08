@@ -4,7 +4,7 @@ import { createFallback, type Fallback } from './fallback.js';
 import { rateLimitHeaders, retryAfter } from './headers.js';
 import { resolveHooks, type RateLimitHooks } from './hooks.js';
 import { buildKey, defaultIdentify } from './identify.js';
-import { createMatcher } from './rules.js';
+import { createMatcher, InvalidRuleError } from './rules.js';
 import { RateLimitTimeoutError, withTimeout } from './timeout.js';
 import type { Algorithm, Decision, Rule } from './types.js';
 
@@ -56,6 +56,7 @@ export function rateLimit(opts: RateLimitOptions): RateLimitMiddleware {
   const fallback = resolveFallback(opts.fallback);
   const hooks = resolveHooks(opts.hooks);
   const { algorithm, close } = resolveAlgorithm(opts.algorithm);
+  assertBurstsSupported(opts.rules, algorithm);
   const identify = opts.identify ?? defaultIdentify;
   const tierOf = opts.tier;
 
@@ -151,6 +152,21 @@ function show(value: unknown): string {
 
 function isPositiveInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
+}
+
+/**
+ * A burst on a rule whose algorithm can't honour it would be silently ignored, so it fails at
+ * startup instead (decision 0022). The rules have already been validated by createMatcher.
+ */
+function assertBurstsSupported(rules: readonly Rule[], algorithm: Algorithm): void {
+  if (algorithm.supportsBurst === true) return;
+  const rule = rules.find((r) => r.burst !== undefined);
+  if (rule !== undefined) {
+    throw new InvalidRuleError(
+      `rateLimit: rule ${JSON.stringify(rule.id)} has a burst, but its algorithm doesn't take one. ` +
+        'Only the token bucket and the leaky bucket do; remove the burst or change the algorithm.',
+    );
+  }
 }
 
 /** Only an algorithm we created is ours to close. A caller's may be shared with other limiters. */

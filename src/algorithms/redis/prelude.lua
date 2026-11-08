@@ -6,6 +6,7 @@
 --   ARGV[1]  limit
 --   ARGV[2]  windowMs
 --   ARGV[3]  time override in ms: empty in production, set only by tests (decision 0007)
+--   ARGV[4]  burst: empty for the rule's default. Only the two buckets read it (decision 0022)
 -- and returns {allowed (0 or 1), remaining, resetMs}, all integers. Never put nil in the
 -- result: it silently shortens the reply.
 

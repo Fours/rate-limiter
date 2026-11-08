@@ -15,10 +15,10 @@ const script = loadScript('./token-bucket.lua', import.meta.url);
  */
 export function createRedisTokenBucket(opts: RedisAlgorithmOptions): Algorithm {
   // Only the client is passed on: the public factory can never opt into app time.
-  return createRedisAlgorithm(script, 'createRedisTokenBucket', { client: opts.client });
+  return createRedisAlgorithm(script, 'createRedisTokenBucket', { client: opts.client }, true);
 }
 
 /** For tests only: the same algorithm, driven by an injected clock. Not exported publicly. */
 export function createRedisTokenBucketForTest(opts: InternalRedisAlgorithmOptions): Algorithm {
-  return createRedisAlgorithm(script, 'createRedisTokenBucket', opts);
+  return createRedisAlgorithm(script, 'createRedisTokenBucket', opts, true);
 }

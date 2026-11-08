@@ -1,7 +1,9 @@
--- Leaky bucket as a burst-free GCRA (decision 0014): at most one request per interval
--- T = windowMs / limit, evenly spaced. One "theoretical arrival time" (TAT) per client: a request
--- is allowed once its slot has arrived, and each allowed request moves the TAT on by T.
--- Arguments, reply, rl_now and rl_claim: see prelude.lua.
+-- Leaky bucket as a GCRA (decision 0014): requests evenly spaced, one per interval
+-- T = windowMs / limit. One "theoretical arrival time" (TAT) per client: a request is allowed
+-- once its slot has arrived, and each allowed request moves the TAT on by T. A burst b lets a
+-- slot be taken up to (b - 1) * T early, so b requests can arrive at once (decision 0022). The
+-- default, 1, is burst-free.
+-- Arguments, reply, rl_now and rl_claim: see prelude.lua. ARGV[4] is the burst, empty for none.
 --
 -- T is rarely a whole number of ms (7 per minute is 8571.43 ms), and now * limit can exceed 2^53,
 -- so the TAT is kept as whole ms (`tat`) plus a remainder in 1/limit ms (`rem`, 0 <= rem < limit).
@@ -10,6 +12,25 @@
 local key = KEYS[1]
 local limit = tonumber(ARGV[1])
 local window = tonumber(ARGV[2])
+local burst = 1
+if ARGV[4] ~= nil and ARGV[4] ~= '' then
+  burst = tonumber(ARGV[4])
+end
+-- How early a slot may be taken, in 1/limit ms: (burst - 1) * T. Exact, since
+-- burst * windowMs <= 2^53 (rule validation).
+local tolerance = (burst - 1) * window
+
+-- floor(a / b) for integers, exact even where a / b in floating point would round to the next
+-- integer.
+local function floordiv(a, b)
+  local q = math.floor(a / b)
+  if q * b > a then
+    q = q - 1
+  elseif (q + 1) * b <= a then
+    q = q + 1
+  end
+  return q
+end
 
 local now = rl_now(ARGV[3])
 rl_claim(key, 'hash', 'leaky-bucket')
@@ -38,11 +59,13 @@ if tat < now then
   tat, rem = now, 0
 end
 
--- Allowed if this request's slot starts within the current millisecond. With a ms clock, a
--- strict "slot has fully arrived" would cap every rule at one request per ms; this way a rule
--- faster than that (10 per 4 ms) still gets its share. Denied requests don't move the TAT.
+-- Allowed if this request's slot, brought forward by the tolerance, starts within the current
+-- millisecond. With a ms clock, a strict "slot has fully arrived" would cap every rule at one
+-- request per ms; this way a rule faster than that (10 per 4 ms) still gets its share. In
+-- 1/limit ms units the slot starts at tat * limit + rem - tolerance, and this millisecond ends
+-- at (now + 1) * limit. Denied requests don't move the TAT.
 local allowed = 0
-if tat <= now then
+if (tat - now) * limit + rem - tolerance < limit then
   allowed = 1
   tat = tat + step_ms
   rem = rem + step_rem
@@ -52,12 +75,14 @@ if tat <= now then
   end
 end
 
--- How many more slots start within this millisecond: 0 unless the rule is faster than one
--- per ms. In 1/limit ms units, slot j starts at tat * limit + rem + j * window.
-local room = (now + 1 - tat) * limit - rem
+-- How many more slots start within this millisecond, brought forward by the tolerance: the
+-- burst left, plus any extra for a rule faster than one per ms. In 1/limit ms units, slot j
+-- starts at tat * limit + rem - tolerance + j * window.
+local room = (now + 1 - tat) * limit - rem + tolerance
 local remaining = 0
 if room > 0 then
-  remaining = math.ceil(room / window)
+  -- ceil(room / window), exactly: room can be as large as burst * windowMs.
+  remaining = -floordiv(-room, window)
 end
 
 -- Allowed: until fully drained, when the TAT (with its remainder) is behind us (0003).
@@ -68,7 +93,8 @@ if rem > 0 then
 end
 local resetMs = drained
 if allowed == 0 then
-  resetMs = tat - now
+  -- The first ms at which the next slot, brought forward, starts.
+  resetMs = tat + floordiv(rem - tolerance, limit) - now
 end
 
 redis.call('HSET', key, 'alg', 'leaky-bucket', 'tat', tat, 'rem', rem, 'limit', limit,

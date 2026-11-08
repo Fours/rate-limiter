@@ -32,17 +32,19 @@ export function createRedisAlgorithm(
   script: LuaScript,
   name: string,
   opts: InternalRedisAlgorithmOptions,
+  supportsBurst = false,
 ): Algorithm {
   assertScriptClient(opts.client, name);
   const { client, clock } = opts;
   return {
+    ...(supportsBurst ? { supportsBurst: true as const } : {}),
     async check(key, rule) {
       const now = clock === undefined ? '' : String(clock.now());
       const reply = await runScript(
         client,
         script,
         [key],
-        [String(rule.limit), String(rule.windowMs), now],
+        [String(rule.limit), String(rule.windowMs), now, String(rule.burst ?? '')],
       );
       return parseDecision(reply);
     },

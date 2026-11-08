@@ -75,6 +75,45 @@ export function comparisonSteps(): Step[] {
   return steps;
 }
 
+/**
+ * Like comparisonSteps, with bursts (decision 0022): below the limit, above it, at an interval
+ * that isn't a whole number of ms, raised and cut under a stored key, alongside limit and window
+ * changes, removed again, and with the clock stepping back.
+ */
+export function burstSteps(): Step[] {
+  const id = uniqueRuleId('burst');
+  const base: Rule = { id, limit: 5, windowMs: 60_000, burst: 2 };
+  const wide: Rule = { id: `${id}:wide`, limit: 5, windowMs: 60_000, burst: 12 };
+  const odd: Rule = { id: `${id}:odd`, limit: 7, windowMs: 60_000, burst: 3 };
+  const daily: Rule = { id: `${id}:daily`, limit: 48, windowMs: 86_400_000, burst: 5 };
+  const steps: Step[] = [];
+  for (const gap of [0, 0, 0, 1, 11_999, 1, 0, 12_000, 0, 0, 36_000, 0, 0, 0]) {
+    steps.push([gap, base, 'a'], [0, base, 'b']);
+  }
+  for (const gap of [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5_000, 0, 24_000, 0, 0, 0, 0]) {
+    steps.push([gap, wide, 'c']);
+  }
+  for (const gap of [0, 0, 0, 0, 8_571, 0, 1, 0, 17_143, 0, 0, 0]) steps.push([gap, odd, 'd']);
+  // The burst raised, then cut, under a stored key; then a limit and a window change with it.
+  steps.push([0, { ...base, burst: 8 }, 'a'], [0, { ...base, burst: 8 }, 'a']);
+  steps.push([0, { ...base, burst: 8 }, 'a'], [3_000, { ...base, burst: 3 }, 'a']);
+  steps.push([0, { ...base, burst: 3 }, 'a'], [0, { ...base, burst: 1 }, 'a']);
+  steps.push(
+    [0, { ...base, limit: 9, burst: 4 }, 'a'],
+    [4_321, { ...base, limit: 9, burst: 4 }, 'a'],
+  );
+  steps.push(
+    [0, { ...base, windowMs: 120_000 }, 'b'],
+    [17_777, { ...base, windowMs: 120_000 }, 'b'],
+  );
+  // The burst removed again, and the clock stepping back and returning.
+  const plain: Rule = { id, limit: base.limit, windowMs: base.windowMs };
+  steps.push([0, plain, 'a'], [0, plain, 'a'], [-3_600_000, base, 'a'], [3_600_000, base, 'a']);
+  for (const gap of [0, 0, 0, 0, 0, 0, 1_799_999, 1, 1_800_000, 0, 1])
+    steps.push([gap, daily, 'e']);
+  return steps;
+}
+
 export async function runSteps(
   algorithm: Algorithm,
   clock: FakeClock,

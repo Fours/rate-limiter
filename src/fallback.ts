@@ -3,12 +3,18 @@ import type { Clock, Decision, Rule } from './types.js';
 
 /**
  * Each instance's share of a rule during an outage (decision 0010). Round robin spreads a client
- * over the instances, so the shares add up to about `limit`. Never below 1, so a rule with fewer
- * requests than instances still lets something through.
+ * over the instances, so the shares add up to about `limit`, and a burst is shared the same way
+ * (decision 0022). Never below 1, so a rule with fewer requests than instances still lets
+ * something through.
  */
 export function scaleRule(rule: Rule, instances: number): Rule {
   if (instances === 1) return rule;
-  return { ...rule, limit: Math.max(1, Math.ceil(rule.limit / instances)) };
+  const share = (n: number) => Math.max(1, Math.ceil(n / instances));
+  return {
+    ...rule,
+    limit: share(rule.limit),
+    ...(rule.burst === undefined ? {} : { burst: share(rule.burst) }),
+  };
 }
 
 export interface Fallback {

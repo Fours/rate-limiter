@@ -65,11 +65,14 @@ Invalid options throw when you call `rateLimit`, never during a request. Bad rul
 | `id` | `string` | Unique. Used in the storage key. |
 | `limit` | positive integer | Requests allowed per window |
 | `windowMs` | positive integer | The window, in ms. For the token bucket, the time a used-up limit takes to refill completely. |
+| `burst` | positive integer, optional | How many requests can arrive at once. Token bucket and leaky bucket only: see below. |
 | `method` | `string`, optional | For example `POST`. Any method when absent. |
 | `path` | `string`, optional | Exact, like `/orders`, or a prefix, like `/orders/*`. Any path when absent. |
 | `tier` | `string`, optional | Matches the value from `options.tier`. Any tier when absent. |
 
 The default algorithm is a token bucket: requests are refilled steadily, at `limit` per `windowMs`, rather than all at once when a window ends.
+
+`burst` separates the steady rate from how many requests can arrive at once. `{ limit: 100, windowMs: 60_000, burst: 10 }` allows 100 a minute, but at most 10 at a time. For the token bucket it's the bucket's size, `limit` by default. For the leaky bucket it's how many slots a client can use early, 1 by default, so no burst. It can be larger than `limit`, for example 10 a second with bursts of 50; then `RateLimit-Remaining` can be higher than `RateLimit-Limit`, which stays the steady rate. Raising a rule's burst lets the token bucket refill to the new size at the steady rate, while the leaky bucket gives the extra room at once. The window algorithms have no burst to set, so `rateLimit()` throws at startup if a rule with one is checked by them ([0022](docs/decisions/0022-burst.md)).
 
 Paths and methods match the way Express routes them, so clients can't get around a rule by changing case, adding a trailing slash or sending `HEAD` instead of `GET`. `/orders/*` matches `/orders` itself and anything under it. When several rules match, the most specific wins: exact path, then wildcard path (longest first), then no path; then a rule with `tier` set; then a rule with `method` set; then the one declared first. A request that matches no rule isn't limited and gets no headers. The [spec](docs/milestone-1.md#rule-matching) has the full rules.
 
@@ -234,7 +237,7 @@ All five use the same rules and headers. They differ in how a client's requests 
 | Sliding window log | `createRedisSlidingWindowLog()` | Exactly `limit` in any `windowMs`, measured back from now | Exact limits. Stores one entry per allowed request, so it costs the most memory. | [Never over; 400 B a key at 10 a minute, 103 KB at 1,000](#benchmarks) |
 | Sliding window counter | `createRedisSlidingWindowCounter()` | About `limit` in any `windowMs`, estimated from two counts. It never allows more than `limit` by its estimate. | Close to exact at a fixed, small cost: a good default for Redis | [1.05× the limit at window edges (at most 1.43×); 192 B a key](#benchmarks) |
 
-The leaky bucket surprises people: with `limit: 10, windowMs: 60_000` it allows one request every 6 seconds, so a client that sends 10 at once gets 1 through and 9 `429`s. That's the point of it: no bursts. If you want bursts, use one of the others.
+The leaky bucket surprises people: with `limit: 10, windowMs: 60_000` it allows one request every 6 seconds, so a client that sends 10 at once gets 1 through and 9 `429`s. That's the point of it: no bursts. If you want a few, set `burst` on the rule; for many, use one of the others.
 
 The milestone 2 spec has the [exact maths and storage of each](docs/milestone-2.md#algorithms).
 

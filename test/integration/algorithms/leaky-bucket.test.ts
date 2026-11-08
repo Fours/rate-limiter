@@ -13,6 +13,7 @@ import type { Algorithm, Decision, Rule } from '../../../src/types.js';
 import { describeAlgorithm } from '../../contract/algorithm-contract.js';
 import { FakeClock } from '../../helpers/fake-clock.js';
 import {
+  burstSteps,
   comparisonSteps,
   expectTtlNear,
   runSteps,
@@ -34,7 +35,7 @@ describeAlgorithm('Redis leaky bucket', redisLeaky, {
 /**
  * The same rules as leaky-bucket.lua, but with the TAT as one exact fraction (a BigInt count of
  * 1/limit ms) instead of whole ms plus a remainder, so the script's carrying is checked
- * independently.
+ * independently. A burst b lets a slot be taken (b - 1) * windowMs of those units early.
  */
 function referenceModel(clock: FakeClock): Algorithm {
   const state = new Map<string, { n: bigint; limit: bigint; window: bigint; last: number }>();
@@ -56,13 +57,15 @@ function referenceModel(clock: FakeClock): Algorithm {
       }
       if (floorDiv(n, limit) < BigInt(now)) n = nowN;
 
-      const allowed = floorDiv(n, limit) <= BigInt(now);
+      const tolerance = BigInt((rule.burst ?? 1) - 1) * window;
+      const allowed = n - tolerance < BigInt(now + 1) * limit;
       if (allowed) n += window;
       state.set(key, { n, limit, window, last: now });
 
-      const room = BigInt(now + 1) * limit - n;
+      const room = BigInt(now + 1) * limit - n + tolerance;
       const remaining = room > 0n ? Number(ceilDiv(room, window)) : 0;
-      const resetMs = Number(allowed ? ceilDiv(n, limit) : floorDiv(n, limit)) - now;
+      // Denied: n - tolerance >= (now + 1) * limit > 0, so floorDiv's operands are positive.
+      const resetMs = Number(allowed ? ceilDiv(n, limit) : floorDiv(n - tolerance, limit)) - now;
       return Promise.resolve({ allowed, remaining, resetMs });
     },
   };
@@ -93,6 +96,69 @@ describe('Redis leaky bucket', () => {
     const { algorithm, clock } = redisLeaky();
     expect(await runSteps(algorithm, clock, steps)).toStrictEqual(expected);
     expect(expected.some((d) => !d.allowed)).toBe(true);
+  });
+
+  it('returns exactly the same decisions as the reference model, with bursts', async () => {
+    const steps = burstSteps();
+    const modelClock = new FakeClock();
+    const expected = await runSteps(referenceModel(modelClock), modelClock, steps);
+    const { algorithm, clock } = redisLeaky();
+    expect(await runSteps(algorithm, clock, steps)).toStrictEqual(expected);
+    expect(expected.some((d) => !d.allowed)).toBe(true);
+    expect(expected.some((d) => d.remaining > 5)).toBe(true); // a burst above the limit
+  });
+
+  it('says it takes a burst', () => {
+    expect(createRedisLeakyBucket({ client: r.client }).supportsBurst).toBe(true);
+  });
+
+  it('with a burst, allows that many at once, then one every interval', async () => {
+    const { algorithm, clock } = redisLeaky();
+    // 4 per minute, 3 at once: then one every 15 s.
+    const rule = freshRule({ burst: 3 });
+    const key = buildKey(rule, 'c');
+    expect(await algorithm.check(key, rule)).toStrictEqual({
+      allowed: true,
+      remaining: 2,
+      resetMs: 15_000,
+    });
+    expect(await algorithm.check(key, rule)).toMatchObject({ allowed: true, remaining: 1 });
+    expect(await algorithm.check(key, rule)).toMatchObject({ allowed: true, remaining: 0 });
+    // Fully drained 45 s from now; the next slot, brought forward by 30 s, starts in 15 s.
+    expect(await algorithm.check(key, rule)).toStrictEqual({
+      allowed: false,
+      remaining: 0,
+      resetMs: 15_000,
+    });
+    clock.advance(14_999);
+    expect((await algorithm.check(key, rule)).allowed).toBe(false);
+    clock.advance(1);
+    expect(await algorithm.check(key, rule)).toMatchObject({ allowed: true, remaining: 0 });
+  });
+
+  it('with a burst, keeps slots exact when the interval is not a whole number of ms', async () => {
+    const { algorithm, clock } = redisLeaky();
+    // 7 per minute, 2 at once: two at 0, then one every 8571.43 ms after the second slot.
+    expect(
+      await allowedTimes(algorithm, clock, freshRule({ limit: 7, burst: 2 }), 6),
+    ).toStrictEqual([0, 0, 8_571, 17_142, 25_714, 34_285]);
+  });
+
+  it('never allows more than the new burst when it changes under a stored key', async () => {
+    const { algorithm, clock } = redisLeaky();
+    const rule = freshRule({ limit: 60, burst: 5 }); // one a second, 5 at once
+    const key = buildKey(rule, 'c');
+    for (let i = 0; i < 5; i++) await algorithm.check(key, rule);
+    // Cut to 2 while 5 slots ahead: nothing until the debt is down to 1 slot, 4 s from now.
+    const cut = { ...rule, burst: 2 };
+    expect(await algorithm.check(key, cut)).toMatchObject({ allowed: false, resetMs: 4_000 });
+    // Raised to 8: the debt is kept, so 3 more at once, and no more than 8 in all.
+    const raised = { ...rule, burst: 8 };
+    expect(await algorithm.check(key, raised)).toMatchObject({ allowed: true, remaining: 2 });
+    clock.advance(3_600_000);
+    let allowed = 0;
+    while ((await algorithm.check(key, raised)).allowed) allowed++;
+    expect(allowed).toBe(8);
   });
 
   it('spaces requests evenly: 4 per minute, asked every second, gets one every 15 s', async () => {

@@ -121,6 +121,22 @@ describe('timeout and fallback', () => {
     expect(denied.headers['retry-after']).toBeDefined();
   });
 
+  it('shares a burst between instances like the limit', async () => {
+    // limit 6, burst 9 over 3 instances: each allows ceil(9 / 3) = 3 at once, at 2 an hour.
+    const algorithm: Algorithm = { supportsBurst: true, check: () => Promise.reject(failure) };
+    const { app } = harness({
+      rules: [{ ...rule, burst: 9 }],
+      algorithm,
+      fallback: { instances: 3 },
+    });
+    const first = await request(app).get('/');
+    expect(first.headers['ratelimit-limit']).toBe('2');
+    expect(first.headers['ratelimit-remaining']).toBe('2');
+    expect((await request(app).get('/')).status).toBe(200);
+    expect((await request(app).get('/')).status).toBe(200);
+    expect((await request(app).get('/')).status).toBe(429);
+  });
+
   it('allows the full limit with the default of one instance', async () => {
     const { app } = harness({ algorithm: rejecting });
     const statuses = [];

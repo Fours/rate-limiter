@@ -76,7 +76,7 @@ describe('loadRules', () => {
     const error = await rejection(loadRules(path));
     expect(error).toBeInstanceOf(InvalidRuleError);
     expect(error.message).toBe(
-      `${path}: rules[1] ("orders"): unknown field "limt"; allowed fields are id, limit, windowMs, method, path, tier`,
+      `${path}: rules[1] ("orders"): unknown field "limt"; allowed fields are id, limit, windowMs, burst, method, path, tier`,
     );
   });
 
@@ -138,6 +138,19 @@ describe('parseRules errors', () => {
     const error = await rejection(parseRules(text, 'json', src));
     expect(error).toBeInstanceOf(InvalidRuleError);
     expect(error.message).toContain(`${src}: ${message}`);
+  });
+
+  it('reads a burst, and rejects a bad one with the source and position', async () => {
+    await expect(
+      parseRules('rules:\n  - { id: a, limit: 100, windowMs: 60000, burst: 10 }', 'yaml'),
+    ).resolves.toEqual([{ id: 'a', limit: 100, windowMs: 60_000, burst: 10 }]);
+    await expect(
+      parseRules(
+        '{"rules":[{"id":"a","limit":100,"windowMs":60000,"burst":"10"}]}',
+        'json',
+        'r.json',
+      ),
+    ).rejects.toThrow('r.json: rules[0] ("a"): burst must be a positive integer');
   });
 
   it('leaves the source out when none is given', async () => {

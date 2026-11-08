@@ -83,7 +83,7 @@ Every export gets a TSDoc comment, and the README gains a short reference: `rate
 
 ### The demo
 
-The probe before this spec ran the five shipped scripts in wasmoon (Lua 5.4 in WebAssembly) over a stand-in for the 13 Redis commands they use, and compared them with real Redis: **100,000 checks, no differences** in replies, stored state or expiry, and four deliberate breaks of the stand-in were caught. About 70 to 90 µs a check, and about 150 KB gzipped. Data and the breaks that couldn't show: [0024's probe](decisions/data/0024-wasmoon-probe-2026-11-07/results.md).
+The probe before this spec ran the five shipped scripts in wasmoon (Lua 5.4 in WebAssembly) over a stand-in for the 13 Redis commands they used then (14 since T1 added `HDEL`), and compared them with real Redis: **100,000 checks, no differences** in replies, stored state or expiry, and four deliberate breaks of the stand-in were caught. About 70 to 90 µs a check, and about 150 KB gzipped. Data and the breaks that couldn't show: [0024's probe](decisions/data/0024-wasmoon-probe-2026-11-07/results.md).
 
 - **`demo/`** is a Vite, React and TypeScript app with plain CSS, in this repo. Its dependencies (`vite`, `react`, `wasmoon` and so on) are development dependencies of the root package: none of them ships, since `files` is `["dist"]`.
 - **It uses the repo's source, not the published package.** The Lua files aren't a public export, so the demo imports them with Vite's `?raw` and puts the prelude in front the way `loadScript` does. The fallback and the headers come from `src/` too (`createTokenBucket`, `src/headers.ts`), which use no Node modules. The demo copies none of the library's logic.
@@ -106,8 +106,8 @@ Do these in order. Each one ends with passing tests.
 
 | Task | Status | Commit |
 | --- | --- | --- |
-| T0. The edges-check failure | Done | |
-| T1. `burst` | Not started | |
+| T0. The edges-check failure | Done | 8bfc4d2 |
+| T1. `burst` | Done | |
 | T2. `algorithm` per rule | Not started | |
 | T3. API review for 1.0 | Not started | |
 | T4. Release workflow and 1.0.0 | Not started | |
@@ -131,16 +131,18 @@ Milestone 4's close-out CI run failed `bench/edges-check.sh` once, after 88 s, s
 
 Write [0022](decisions/0022-burst.md).
 
+*As built:* `supportsBurst` is set by `createTokenBucket`, `createRedisTokenBucket` and `createRedisLeakyBucket`, and `rateLimit` checks every rule against the algorithm at startup. The leaky bucket's tolerance is `(burst − 1) × windowMs` in its 1/limit ms units, with exact integer division for `remaining` and a denial's `resetMs`. When a burst changes under a stored key, the token bucket keeps whole tokens, capped at the new burst. The leaky bucket keeps its schedule, so a raised burst gives the extra room at once (agreed in T1's plan review). The token bucket stores a `burst` field only when it differs from `limit`, and deletes it with `HDEL` when they match again, so state without a burst is byte for byte what it was. That makes the token script's commands 14, which the T5 stand-in needs. `burst` may be larger than `limit`, and the README says `RateLimit-Remaining` can then exceed `RateLimit-Limit`.
+
 **Done when:**
 
-- [ ] With `burst` set, the token bucket allows `burst` at once and then `limit` per `windowMs`, in memory and in Redis, tested with `FakeClock`
-- [ ] With `burst` set, the leaky bucket allows `burst` at once and then one every `windowMs / limit`, tested the same way
-- [ ] Without `burst`, both behave exactly as before, and state stored before this task still reads correctly
-- [ ] A changed `burst` under a stored key never grants more than the new capacity
-- [ ] `burst` on a rule checked by a window algorithm throws at startup, and so do bad values, from code and from rules files
-- [ ] The fallback scales `burst` by `instances`
-- [ ] The headers follow the answer to open question 1, tested through supertest
-- [ ] Break checks: removing the cap on a changed burst, and ignoring `burst` in one script, each fail a test
+- [x] With `burst` set, the token bucket allows `burst` at once and then `limit` per `windowMs`, in memory and in Redis, tested with `FakeClock`
+- [x] With `burst` set, the leaky bucket allows `burst` at once and then one every `windowMs / limit`, tested the same way
+- [x] Without `burst`, both behave exactly as before, and state stored before this task still reads correctly
+- [x] A changed `burst` under a stored key never grants more than the new capacity
+- [x] `burst` on a rule checked by a window algorithm throws at startup, and so do bad values, from code and from rules files
+- [x] The fallback scales `burst` by `instances`
+- [x] The headers follow the answer to open question 1, tested through supertest
+- [x] Break checks: removing the cap on a changed burst, and ignoring `burst` in one script, each fail a test
 
 ### T2. `algorithm` per rule
 
@@ -185,7 +187,7 @@ Write [0024](decisions/0024-demo-runs-the-shipped-lua.md).
 **Done when:**
 
 - [ ] `npm run demo:dev` and `npm run demo:build` work, and lint and typecheck cover `demo/`
-- [ ] The stand-in has unit tests for each of its 13 commands, including `WRONGTYPE` and expiry on simulated time
+- [ ] The stand-in has unit tests for each of its 14 commands, including `WRONGTYPE` and expiry on simulated time
 - [ ] The parity test runs at least 10,000 checks across the five scripts against the test Redis and finds no differences, and breaking the stand-in makes it fail
 - [ ] A built page runs a check in a real browser, so wasmoon's `.wasm` loads through Vite, as a Playwright smoke test (Chromium only) in CI (open question 6)
 - [ ] Nothing in `demo/` reaches the npm package, checked by the existing `npm pack` check

@@ -15,10 +15,10 @@ const script = loadScript('./leaky-bucket.lua', import.meta.url);
  */
 export function createRedisLeakyBucket(opts: RedisAlgorithmOptions): Algorithm {
   // Only the client is passed on: the public factory can never opt into app time (0007).
-  return createRedisAlgorithm(script, 'createRedisLeakyBucket', { client: opts.client });
+  return createRedisAlgorithm(script, 'createRedisLeakyBucket', { client: opts.client }, true);
 }
 
 /** For tests only: the same algorithm, driven by an injected clock. Not exported publicly. */
 export function createRedisLeakyBucketForTest(opts: InternalRedisAlgorithmOptions): Algorithm {
-  return createRedisAlgorithm(script, 'createRedisLeakyBucket', opts);
+  return createRedisAlgorithm(script, 'createRedisLeakyBucket', opts, true);
 }

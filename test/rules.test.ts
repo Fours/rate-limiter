@@ -79,6 +79,39 @@ describe('validateRules', () => {
     }).toThrow(new InvalidRuleError('rules[0] ("a"): windowMs must be a positive integer'));
   });
 
+  it('accepts a burst below, equal to or above the limit', () => {
+    expect(() => {
+      validateRules([
+        { id: 'a', ...base, burst: 1 },
+        { id: 'b', ...base, burst: 10 },
+        { id: 'c', ...base, burst: 50 },
+      ]);
+    }).not.toThrow();
+  });
+
+  it.each([0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, '5', null])(
+    'rejects burst %s',
+    (burst) => {
+      expect(() => {
+        validateRules([{ ...base, id: 'a', burst }]);
+      }).toThrow(new InvalidRuleError('rules[0] ("a"): burst must be a positive integer'));
+    },
+  );
+
+  it('rejects burst * windowMs above Number.MAX_SAFE_INTEGER, and accepts it at the edge', () => {
+    // MAX_SAFE_INTEGER = 2^53 - 1 = 6361 * 69431 * 20394401
+    expect(() => {
+      validateRules([{ id: 'edge', limit: 1, burst: 6_361 * 69_431, windowMs: 20_394_401 }]);
+    }).not.toThrow();
+    expect(() => {
+      validateRules([{ id: 'big', limit: 1, burst: 1_000_000, windowMs: 10_000_000_000 }]);
+    }).toThrow(
+      new InvalidRuleError(
+        'rules[0] ("big"): burst * windowMs must not exceed Number.MAX_SAFE_INTEGER',
+      ),
+    );
+  });
+
   it('rejects limit * windowMs above Number.MAX_SAFE_INTEGER, and accepts it at the edge', () => {
     // MAX_SAFE_INTEGER = 2^53 - 1 = 6361 * 69431 * 20394401
     expect(() => {

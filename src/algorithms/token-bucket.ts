@@ -23,8 +23,9 @@ export interface TokenBucket extends Algorithm {
  * the bucket refills `limit` units per ms. That is the spec's float maths scaled
  * by `windowMs`, so every value stays an exact integer: after a denial, waiting
  * exactly `resetMs` always yields one token, with no 0.999… rounding misses.
- * Requires `limit * windowMs <= Number.MAX_SAFE_INTEGER`, which rule validation
- * checks at startup.
+ * It holds up to `burst` tokens, `limit` unless the rule says otherwise. Requires
+ * `limit * windowMs` and `burst * windowMs <= Number.MAX_SAFE_INTEGER`, which
+ * rule validation checks at startup.
  */
 interface Bucket {
   units: number;
@@ -32,6 +33,7 @@ interface Bucket {
   lastRefillMs: number;
   limit: number;
   windowMs: number;
+  burst: number;
 }
 
 export function createTokenBucket(opts: TokenBucketOptions = {}): TokenBucket {
@@ -59,6 +61,7 @@ export function createTokenBucket(opts: TokenBucketOptions = {}): TokenBucket {
   timer.unref();
 
   return {
+    supportsBurst: true,
     check(key: string, rule: Rule): Promise<Decision> {
       // Read, decide and write with no await in between, so concurrent checks can't interleave.
       const now = clock.now();
@@ -80,25 +83,34 @@ export function createTokenBucket(opts: TokenBucketOptions = {}): TokenBucket {
 }
 
 function bucketFor(buckets: Map<string, Bucket>, key: string, rule: Rule, now: number): Bucket {
+  const burst = rule.burst ?? rule.limit;
   const existing = buckets.get(key);
   if (existing === undefined) {
+    // A new bucket starts full.
     const bucket: Bucket = {
-      units: rule.limit * rule.windowMs,
+      units: burst * rule.windowMs,
       lastRefillMs: now,
       limit: rule.limit,
       windowMs: rule.windowMs,
+      burst,
     };
     buckets.set(key, bucket);
     return bucket;
   }
-  if (existing.limit !== rule.limit || existing.windowMs !== rule.windowMs) {
+  if (
+    existing.limit !== rule.limit ||
+    existing.windowMs !== rule.windowMs ||
+    existing.burst !== burst
+  ) {
     // The rule changed under this key (e.g. config reload). Carry over whole tokens only,
-    // rounding down, so a change never grants more than the client already had.
+    // rounding down and capped at the new burst, so a change never grants more than the client
+    // already had, nor more than the new rule holds.
     refill(existing, now);
-    const tokens = Math.min(rule.limit, Math.floor(existing.units / existing.windowMs));
+    const tokens = Math.min(burst, Math.floor(existing.units / existing.windowMs));
     existing.units = tokens * rule.windowMs;
     existing.limit = rule.limit;
     existing.windowMs = rule.windowMs;
+    existing.burst = burst;
   }
   return existing;
 }
@@ -110,7 +122,7 @@ function refill(bucket: Bucket, now: number): void {
 }
 
 function capacity(bucket: Bucket): number {
-  return bucket.limit * bucket.windowMs;
+  return bucket.burst * bucket.windowMs;
 }
 
 function decide(bucket: Bucket, allowed: boolean): Decision {

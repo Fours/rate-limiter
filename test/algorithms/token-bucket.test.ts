@@ -30,6 +30,57 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+describe('burst', () => {
+  it('says it takes a burst', () => {
+    expect(setup({ id: 'r', limit: 1, windowMs: 1 }).bucket.supportsBurst).toBe(true);
+  });
+
+  it('allows burst at once, then limit per windowMs', async () => {
+    // 60 a minute, at most 10 at once: one token a second.
+    const { clock, check } = setup({ id: 'r', limit: 60, windowMs: 60_000, burst: 10 });
+    expect(await check()).toStrictEqual({ allowed: true, remaining: 9, resetMs: 1_000 });
+    expect(await countAllowed(check)).toBe(9);
+    expect(await check()).toStrictEqual({ allowed: false, remaining: 0, resetMs: 1_000 });
+    clock.advance(1_000);
+    expect(await check()).toMatchObject({ allowed: true, remaining: 0 });
+    // A long wait refills to the burst, not to the limit.
+    clock.advance(3_600_000);
+    expect(await countAllowed(check)).toBe(10);
+  });
+
+  it('can be larger than the limit', async () => {
+    const { clock, check } = setup({ id: 'r', limit: 2, windowMs: 1_000, burst: 5 });
+    expect(await countAllowed(check)).toBe(5);
+    clock.advance(500);
+    expect(await countAllowed(check)).toBe(1);
+  });
+
+  it('carries whole tokens over when the burst changes, never more than the new one', async () => {
+    const rule: Rule = { id: 'r', limit: 60, windowMs: 60_000, burst: 10 };
+    const { clock, check } = setup(rule);
+    for (let i = 0; i < 2; i++) await check(); // 8 left
+    // Cut to 5: the 8 tokens become 5.
+    expect(await check(undefined, { ...rule, burst: 5 })).toMatchObject({ remaining: 4 });
+    // Raised to 20: the 4 carry over, with no free refill.
+    const raised = { ...rule, burst: 20 };
+    expect(await check(undefined, raised)).toMatchObject({ remaining: 3 });
+    // And it refills to the new burst, one a second.
+    clock.advance(17_000);
+    expect(await countAllowed(() => check(undefined, raised))).toBe(20);
+  });
+
+  it('treats a burst equal to the limit as no burst at all', async () => {
+    const rule: Rule = { id: 'r', limit: 5, windowMs: 1_000 };
+    const plain = setup(rule);
+    const same = setup({ ...rule, burst: 5 });
+    for (let i = 0; i < 8; i++) {
+      expect(await same.check()).toStrictEqual(await plain.check());
+      plain.clock.advance(150);
+      same.clock.advance(150);
+    }
+  });
+});
+
 describe('createTokenBucket', () => {
   it('allows exactly limit requests for a new key, then denies', async () => {
     const { check } = setup({ id: 'r', limit: 5, windowMs: 1_000 });

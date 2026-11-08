@@ -2,6 +2,11 @@ import type { Server } from 'node:http';
 import express, { type ErrorRequestHandler, type Express } from 'express';
 import request from 'supertest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createRedisFixedWindow } from '../src/algorithms/redis/fixed-window.js';
+import { createRedisLeakyBucket } from '../src/algorithms/redis/leaky-bucket.js';
+import { createRedisSlidingWindowCounter } from '../src/algorithms/redis/sliding-window-counter.js';
+import { createRedisSlidingWindowLog } from '../src/algorithms/redis/sliding-window-log.js';
+import { createRedisTokenBucket } from '../src/algorithms/redis/token-bucket.js';
 import { createTokenBucket } from '../src/algorithms/token-bucket.js';
 import { rateLimit, type RateLimitOptions } from '../src/middleware.js';
 import { InvalidRuleError } from '../src/rules.js';
@@ -250,5 +255,74 @@ describe('rateLimit middleware', () => {
       expect(vi.getTimerCount()).toBe(1);
       bucket.close();
     });
+  });
+});
+
+describe('burst', () => {
+  // Never called: these algorithms only need to exist for the startup check.
+  const client = {
+    evalsha: () => Promise.resolve([1, 0, 0]),
+    eval: () => Promise.resolve([1, 0, 0]),
+  };
+  const bursty: Rule = { id: 'bursty', limit: 10, windowMs: 1_000, burst: 3 };
+
+  it.each([
+    ['the fixed window', createRedisFixedWindow({ client })],
+    ['the sliding window log', createRedisSlidingWindowLog({ client })],
+    ['the sliding window counter', createRedisSlidingWindowCounter({ client })],
+    [
+      'an algorithm of your own',
+      { check: () => Promise.resolve({ allowed: true, remaining: 0, resetMs: 0 }) },
+    ],
+  ])('refuses a rule with a burst at startup for %s', (_name, algorithm: Algorithm) => {
+    expect(() => rateLimit({ rules: [rule, bursty], algorithm })).toThrow(
+      new InvalidRuleError(
+        'rateLimit: rule "bursty" has a burst, but its algorithm doesn\'t take one. Only the token ' +
+          'bucket and the leaky bucket do; remove the burst or change the algorithm.',
+      ),
+    );
+    // Without the burst, the same algorithm is fine.
+    expect(() => rateLimit({ rules: [rule], algorithm })).not.toThrow();
+  });
+
+  it.each([
+    ['the in-memory token bucket', undefined],
+    ['the Redis token bucket', createRedisTokenBucket({ client })],
+    ['the Redis leaky bucket', createRedisLeakyBucket({ client })],
+    [
+      'an algorithm of your own that says so',
+      {
+        supportsBurst: true as const,
+        check: () => Promise.resolve({ allowed: true, remaining: 0, resetMs: 0 }),
+      },
+    ],
+  ])('accepts a burst for %s', (_name, algorithm: Algorithm | undefined) => {
+    const limiter = rateLimit({
+      rules: [bursty],
+      ...(algorithm === undefined ? {} : { algorithm }),
+    });
+    limiter.close();
+  });
+
+  it('reports the limit as RateLimit-Limit, and the burst left as RateLimit-Remaining', async () => {
+    const { app } = harness({ rules: [bursty] });
+    const first = await request(app).get('/');
+    expect(first.headers['ratelimit-limit']).toBe('10');
+    expect(first.headers['ratelimit-remaining']).toBe('2');
+    await request(app).get('/');
+    await request(app).get('/');
+    const denied = await request(app).get('/');
+    expect(denied.status).toBe(429);
+    expect(denied.headers['ratelimit-limit']).toBe('10');
+    expect(denied.headers['ratelimit-remaining']).toBe('0');
+    // One token every 100 ms: Retry-After rounds up to 1 s.
+    expect(denied.headers['retry-after']).toBe('1');
+  });
+
+  it('can report more remaining than the limit when the burst is larger', async () => {
+    const { app } = harness({ rules: [{ ...bursty, limit: 2, burst: 5 }] });
+    const res = await request(app).get('/');
+    expect(res.headers['ratelimit-limit']).toBe('2');
+    expect(res.headers['ratelimit-remaining']).toBe('4');
   });
 });

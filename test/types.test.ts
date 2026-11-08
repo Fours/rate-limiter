@@ -39,6 +39,6 @@ describe('public types', () => {
   it('lists every Rule field as allowed in rules files', () => {
     // If Rule gains a field, rules files would reject it until RULE_FIELDS lists it too (0015).
     expectTypeOf<keyof Rule>().toEqualTypeOf<(typeof RULE_FIELDS)[number]>();
-    expect(RULE_FIELDS).toHaveLength(6);
+    expect(RULE_FIELDS).toHaveLength(7);
   });
 });
