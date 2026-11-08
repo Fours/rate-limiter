@@ -1,6 +1,6 @@
 # 0027. Match paths the way a decoding handler reads them
 
-- **Status:** Accepted. Supersedes [0011](0011-match-paths-like-express.md).
+- **Status:** Superseded by [0030](0030-match-dot-dot-both-ways.md), which also reads a request's path with `..` kept, as Express's routes and mounts do. Decoding, `//` and `.` here still hold. Supersedes [0011](0011-match-paths-like-express.md).
 - **Date:** 2026-11-08
 - **Milestone:** 5
 

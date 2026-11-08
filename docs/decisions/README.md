@@ -42,6 +42,7 @@ When you change a decision, update its record in the same commit as the code.
 | [0022](0022-burst.md) | An optional `burst` on rules, for the token and leaky buckets only | Accepted | 5 |
 | [0023](0023-algorithm-per-rule.md) | Rules can name their algorithm, from names the caller chooses | Accepted; across limiters, see 0028 | 5 |
 | [0026](0026-no-unverified-api-keys.md) | The default identity never trusts an unverified API key | Accepted | 5 |
-| [0027](0027-match-paths-as-handlers-read-them.md) | Match paths the way a decoding handler reads them | Accepted | 5 |
+| [0027](0027-match-paths-as-handlers-read-them.md) | Match paths the way a decoding handler reads them | Superseded by 0030 | 5 |
 | [0028](0028-key-prefix-per-limiter.md) | Each limiter sharing a Redis gets its own key prefix | Accepted | 5 |
 | [0029](0029-ipv4-in-ipv6-and-non-ip-values.md) | IPv6 that carries IPv4 counts as IPv4, and a value that isn't an IP is never a client ID | Accepted | 5 |
+| [0030](0030-match-dot-dot-both-ways.md) | Match a path with `..` both as routed and as resolved | Accepted | 5 |

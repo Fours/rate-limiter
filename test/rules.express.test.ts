@@ -130,3 +130,47 @@ describe('spellings a decoding handler serves the same (0027)', () => {
     expect(res.status).toBe(429);
   });
 });
+
+// Express's routing and mounts keep ".." as an ordinary segment, unlike express.static, so a
+// request can reach /admin handlers while resolving to a path outside /admin/* (decision 0030).
+describe('dot-dot paths Express routes without resolving (0030)', () => {
+  function adminApp() {
+    const app = express();
+    app.use(
+      rateLimit({
+        rules: [{ id: 'admin', limit: 1, windowMs: 60_000, path: '/admin/*' }],
+        algorithm: createTokenBucket({ clock: new FakeClock() }),
+      }),
+    );
+    app.get('/admin/:name', (req, res) => {
+      res.send(`admin ${req.params.name}`);
+    });
+    app.use('/admin', (_req, res) => {
+      res.send('admin mount');
+    });
+    return app;
+  }
+
+  const spellings = ['/admin/..', '/admin/%2E%2E', '/admin/..%2Fx', '/admin/x/../../y'];
+
+  it.each(spellings)('limits %s once the admin limit is used up', async (spelling) => {
+    const app = adminApp();
+    expect((await request(app).get('/admin/first')).status).toBe(200);
+    const res = await request(app).get(spelling);
+    expect(res.status).toBe(429);
+    expect(res.headers['ratelimit-limit']).toBe('1');
+  });
+
+  it('reaches an admin handler for each spelling, so the test above is a real bypass when unlimited', async () => {
+    const app = express();
+    app.get('/admin/:name', (req, res) => {
+      res.send(`admin ${req.params.name}`);
+    });
+    app.use('/admin', (_req, res) => {
+      res.send('admin mount');
+    });
+    for (const spelling of spellings) {
+      expect((await request(app).get(spelling)).text).toMatch(/^admin /);
+    }
+  });
+});

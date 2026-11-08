@@ -244,7 +244,27 @@ describe('createMatcher', () => {
       const wild: Rule[] = [{ id: 'wild', ...base, path: '/downloads/*' }];
       expect(pick(wild, req('GET', '/%64ownloads/big.zip'))).toBe('wild');
       expect(pick(wild, req('GET', '/downloads%2fbig.zip'))).toBe('wild');
-      expect(pick(wild, req('GET', '/downloads/../other'))).toBeUndefined();
+      expect(pick(wild, req('GET', '/downloads/../other'))).toBe('wild');
+    });
+
+    it.each([
+      ['a dot-dot route parameter', '/admin/..'],
+      ['an encoded dot-dot', '/admin/%2e%2e'],
+      ['an encoded slash before dot-dot', '/admin/..%2fx'],
+      ['dot-dot that climbs out', '/admin/x/../../y'],
+    ])('matches %s by the routing reading, which keeps ".." (0030)', (_label, path) => {
+      const admin: Rule[] = [{ id: 'admin', ...base, path: '/admin/*' }];
+      expect(pick(admin, req('GET', path))).toBe('admin');
+    });
+
+    it('picks the most specific rule that either reading matches (0030)', () => {
+      const rules: Rule[] = [
+        { id: 'x', ...base, path: '/x/*' },
+        { id: 'downloads', ...base, path: '/downloads/*' },
+      ];
+      // Routed, it's under /x; resolved, under /downloads. The longer prefix wins, as usual.
+      expect(pick(rules, req('GET', '/x/../downloads/f'))).toBe('downloads');
+      expect(pick(rules, req('GET', '/x/../y'))).toBe('x');
     });
 
     it('joins baseUrl and path, so rules work inside mounted routers', () => {

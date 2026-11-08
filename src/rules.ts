@@ -37,8 +37,8 @@ export function validateRules(rules: unknown): asserts rules is readonly Rule[] 
 /**
  * Validates the rules, then returns a function that picks the most specific
  * matching rule for a request. Paths and methods match the way Express routes
- * them (decisions 0011 and 0027), so case, a trailing slash, an encoding, `//`, `.`, `..` or
- * HEAD can't dodge a rule.
+ * them (decisions 0011, 0027 and 0030), so case, a trailing slash, an encoding, `//`, `.`,
+ * `..` or HEAD can't dodge a rule.
  */
 export function createMatcher(rules: readonly Rule[]): Matcher {
   validateRules(rules);
@@ -46,9 +46,15 @@ export function createMatcher(rules: readonly Rule[]): Matcher {
   const ranked = rules.map(compileRule).sort(bySpecificity);
 
   return (req, tier) => {
-    const path = normalisePath(req.baseUrl + req.path);
+    // Express's routing keeps ".." as a segment, while express.static resolves it, so either
+    // reading may be the one a handler serves (decision 0030).
+    const segments = pathSegments(req.baseUrl + req.path);
+    const routed = join(segments);
+    const resolved = join(resolveDots(segments));
     const method = req.method.toUpperCase();
-    return ranked.find((c) => matches(c, path, method, tier))?.rule;
+    return ranked.find(
+      (c) => (matchesPath(c, routed) || matchesPath(c, resolved)) && matchesRest(c, method, tier),
+    )?.rule;
   };
 }
 
@@ -125,23 +131,39 @@ function compileRule(rule: Rule, index: number): CompiledRule {
 }
 
 /**
- * The path a handler may end up serving, so that writing it another way can't dodge a rule
- * (decision 0027). Express routes case-insensitively and ignores a trailing slash. Handlers that
- * decode the path, such as `express.static` or a route with a `:param`, also treat `%64` as `d`,
- * `%2F` as `/`, `//` as `/` and resolve `.` and `..`. So this decodes once, drops empty and `.`
- * segments, resolves `..`, and lower-cases. Each step can only make more requests match a rule,
- * which errs towards limiting.
+ * A rule's path, read the way `express.static` reads a request's (decision 0027), so that
+ * `/downloads/./*` and `/downloads/*` are the same rule.
  */
 function normalisePath(path: string): string {
   // "/*" compiles to the empty prefix, which matches every path.
   if (path === '') return '';
-  const segments: string[] = [];
-  for (const segment of decodePath(path).split('/')) {
-    if (segment === '' || segment === '.') continue;
-    if (segment === '..') segments.pop();
-    else segments.push(segment);
+  return join(resolveDots(pathSegments(path)));
+}
+
+/**
+ * A path's segments as a decoding handler reads them (decision 0027): decoded once, with empty
+ * and `.` segments dropped, and lower-cased, since Express routes case-insensitively. Each step
+ * can only make more requests match a rule. `..` is kept: see {@link resolveDots}.
+ */
+function pathSegments(path: string): string[] {
+  return decodePath(path)
+    .toLowerCase()
+    .split('/')
+    .filter((segment) => segment !== '' && segment !== '.');
+}
+
+/** Resolves `..` as `express.static` does. Above the root, it stays at the root. */
+function resolveDots(segments: readonly string[]): string[] {
+  const out: string[] = [];
+  for (const segment of segments) {
+    if (segment === '..') out.pop();
+    else out.push(segment);
   }
-  return `/${segments.join('/')}`.toLowerCase();
+  return out;
+}
+
+function join(segments: readonly string[]): string {
+  return `/${segments.join('/')}`;
 }
 
 /** Decodes percent-escapes once, as a handler would. A malformed escape is left as it is. */
@@ -169,11 +191,13 @@ function bySpecificity(a: CompiledRule, b: CompiledRule): number {
   );
 }
 
-function matches(c: CompiledRule, path: string, method: string, tier: string | undefined): boolean {
-  if (c.exactPath !== undefined && path !== c.exactPath) return false;
-  if (c.prefix !== undefined && path !== c.prefix && !path.startsWith(c.prefix + '/')) {
-    return false;
-  }
+function matchesPath(c: CompiledRule, path: string): boolean {
+  if (c.exactPath !== undefined) return path === c.exactPath;
+  if (c.prefix !== undefined) return path === c.prefix || path.startsWith(c.prefix + '/');
+  return true;
+}
+
+function matchesRest(c: CompiledRule, method: string, tier: string | undefined): boolean {
   // Express runs GET handlers for HEAD requests, so a GET limit has to cover HEAD too.
   if (c.method !== undefined && method !== c.method && !(method === 'HEAD' && c.method === 'GET')) {
     return false;
