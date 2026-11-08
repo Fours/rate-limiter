@@ -29,12 +29,13 @@ export function defaultIdentify(req: IdentifiableRequest): string {
 }
 
 /**
- * The storage key for a rule and client: `rl:{rule.id}:{clientId}`, for example
- * `rl:orders:free:user_42`. The middleware builds keys this way; it's exported for
- * tooling that inspects or clears keys in Redis.
+ * The storage key for a rule and client: `{prefix}:{rule.id}:{clientId}`, for example
+ * `rl:orders:free:user_42`. `prefix` is `rateLimit`'s `prefix` option, `rl` by default. The
+ * middleware builds keys this way; it's exported for tooling that inspects or clears keys in
+ * Redis.
  */
-export function buildKey(rule: Pick<Rule, 'id'>, clientId: string): string {
-  return `rl:${rule.id}:${clientId}`;
+export function buildKey(rule: Pick<Rule, 'id'>, clientId: string, prefix = 'rl'): string {
+  return `${prefix}:${rule.id}:${clientId}`;
 }
 
 function readUserId(user: unknown): string | undefined {

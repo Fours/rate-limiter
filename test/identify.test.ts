@@ -109,6 +109,10 @@ describe('buildKey', () => {
     );
   });
 
+  it('starts with the given prefix instead of rl (0028)', () => {
+    expect(buildKey({ id: 'global' }, 'ip_10.0.0.1', 'preauth')).toBe('preauth:global:ip_10.0.0.1');
+  });
+
   it('passes IPv6 client IDs through unchanged', () => {
     expect(buildKey({ id: 'global' }, 'ip_::1')).toBe('rl:global:ip_::1');
   });

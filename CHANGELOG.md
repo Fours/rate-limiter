@@ -23,6 +23,7 @@ The first published version.
 
 ### Redis
 
+- A `prefix` option, `rl` by default, starts every storage key, so two limiters sharing a Redis can't write each other's keys.
 - Many instances share one limit through one Redis. Each check is a single atomic Lua script run with `EVALSHA`, using Redis's own time. Redis 7 or later.
 - Bring your own client, through `fromIoredis` or `fromNodeRedis`, or anything with `evalsha` and `eval`.
 - Each check gets `timeoutMs` (50 ms by default). If Redis fails or is slow, an in-memory token bucket answers instead, splitting the limit across `fallback.instances`. `fallback: false` fails closed.

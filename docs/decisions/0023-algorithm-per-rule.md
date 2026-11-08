@@ -1,6 +1,6 @@
 # 0023. Rules can name their algorithm, from names the caller chooses
 
-- **Status:** Accepted
+- **Status:** Accepted. Rule IDs are unique only within one limiter: two limiters on one Redis need their own prefixes ([0028](0028-key-prefix-per-limiter.md)).
 - **Date:** 2026-11-08
 - **Milestone:** 5
 

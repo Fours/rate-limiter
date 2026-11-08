@@ -486,3 +486,28 @@ describe('made-up API keys (decision 0026)', () => {
     expect(handled()).toBe(2);
   });
 });
+
+describe('prefix (decision 0028)', () => {
+  function keysSeen(prefix?: string): Promise<string[]> {
+    const seen: string[] = [];
+    const algorithm: Algorithm = {
+      check: (key) => {
+        seen.push(key);
+        return Promise.resolve({ allowed: true, remaining: 1, resetMs: 1 });
+      },
+    };
+    const { app } = harness({ algorithm, ...(prefix !== undefined && { prefix }) });
+    return request(app)
+      .get('/')
+      .then(() => seen);
+  }
+
+  it('starts every key with rl by default, and with the prefix when given', async () => {
+    expect(await keysSeen()).toStrictEqual(['rl:global:ip_127.0.0.1']);
+    expect(await keysSeen('preauth')).toStrictEqual(['preauth:global:ip_127.0.0.1']);
+  });
+
+  it.each(['', 'a:b', '{tag}', 'with space', 5, null])('rejects prefix %j at startup', (prefix) => {
+    expect(() => rateLimit({ rules: [rule], prefix: prefix as string })).toThrow(/prefix must be/);
+  });
+});

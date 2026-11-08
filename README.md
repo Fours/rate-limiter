@@ -54,6 +54,7 @@ Each client gets 100 requests a minute, except `POST /login`, which gets 5. A cl
 | `timeoutMs` | positive integer | `50` | How long a check gets before the fallback answers instead. See [Failure handling](#failure-handling). |
 | `fallback` | `{ instances?: number } \| false` | `{ instances: 1 }` | The in-memory fallback for when a check fails or times out. Set `instances` to how many app instances share each limit. `false` turns it off. |
 | `hooks` | `{ onDecision?, onFallback? }` | none | Called for every decision and every fallback, for metrics and logs. See [Metrics](#metrics). |
+| `prefix` | letters, digits, `_` and `-` | `rl` | Starts every storage key. Give each limiter that shares a Redis with another its own. See [Using Redis](#using-redis). |
 
 `close()` stops the default token bucket's cleanup timer, and the fallback's, so your process can exit cleanly. If you passed in your own `algorithm`, or any in `algorithms`, `close()` leaves them alone, because you may share them between limiters.
 
@@ -110,6 +111,7 @@ How it stays correct with many instances:
 - **One round trip, atomic.** Each check is a single Lua script run with `EVALSHA`, so two instances can't both take a client's last request ([0006](docs/decisions/0006-atomic-lua-checks.md)).
 - **One clock.** Scripts use Redis's own time, so instances whose clocks disagree still agree on the limit ([0007](docs/decisions/0007-redis-server-time.md)).
 - **One key per client and rule,** `rl:{rule.id}:{clientId}`, with a TTL, so idle clients cost nothing. Switching algorithms on a live Redis starts each client fresh instead of misreading the old algorithm's state ([0016](docs/decisions/0016-switching-algorithms-starts-fresh.md)).
+- **One prefix per limiter.** If two limiters share a Redis, for example one before auth and one after, give each its own `prefix`, such as `prefix: 'preauth'`. Otherwise two rules with the same `id` write the same keys: on two algorithms each check deletes the other's state, and nobody is limited ([0028](docs/decisions/0028-key-prefix-per-limiter.md)).
 
 If Redis goes down, requests are still answered. See [Failure handling](#failure-handling), including the client settings to use.
 
@@ -311,7 +313,13 @@ app.use(rateLimit({ rules }));
 
 Each account then gets its own limit, and requests without a key are limited by IP. Use an account ID, not the key, as `req.user.id`: the ID goes into storage keys, and a raw key must never reach Redis or your logs. [The example](examples/basic/server.ts) does this with a stand-in for real auth.
 
-To limit unauthenticated traffic before auth runs too, mount a second limiter in front of it, which counts by IP.
+To limit unauthenticated traffic before auth runs too, mount a second limiter in front of it, which counts by IP. If both use one Redis, give one of them its own `prefix` ([0028](docs/decisions/0028-key-prefix-per-limiter.md)):
+
+```ts
+app.use(rateLimit({ rules: preAuthRules, algorithm, prefix: 'preauth' }));
+app.use(authenticate);
+app.use(rateLimit({ rules, algorithm }));
+```
 
 IPs are grouped so one client can't escape its limit by changing address ([0020](docs/decisions/0020-ipv6-by-64.md)):
 
@@ -396,7 +404,7 @@ Everything is imported from `@kylewillett/rate-limiter`, except `prometheusHooks
 | Export | What it is |
 | --- | --- |
 | `defaultIdentify(req)`, `IdentifiableRequest` | The default `identify`, to fall back on from your own. See [Identifying clients](#identifying-clients). |
-| `buildKey(rule, clientId)` | The storage key, `rl:{rule.id}:{clientId}`, for tools that inspect or clear keys in Redis |
+| `buildKey(rule, clientId, prefix?)` | The storage key, `{prefix}:{rule.id}:{clientId}` with `rl` as the default prefix, for tools that inspect or clear keys in Redis |
 
 **Hooks and errors**
 

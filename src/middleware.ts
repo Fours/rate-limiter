@@ -45,6 +45,12 @@ export interface RateLimitOptions {
   readonly fallback?: FallbackOptions | false;
   /** Called for each decision and each fallback, for metrics and logs (decision 0019). */
   readonly hooks?: RateLimitHooks;
+  /**
+   * Starts every storage key, `{prefix}:{rule.id}:{clientId}`. Default `rl`. Give each limiter
+   * that shares a Redis with another its own, so their rules can't write the same keys
+   * (decision 0028). Letters, digits, `_` and `-` only.
+   */
+  readonly prefix?: string;
 }
 
 /** Express middleware from {@link rateLimit}, with a `close()` for shutdown. */
@@ -71,6 +77,7 @@ export function rateLimit(opts: RateLimitOptions): RateLimitMiddleware {
   const timeoutMs = resolveTimeout(opts.timeoutMs);
   const fallback = resolveFallback(opts.fallback);
   const hooks = resolveHooks(opts.hooks);
+  const prefix = resolvePrefix(opts.prefix);
   const { algorithm, close } = resolveAlgorithm(opts.algorithm);
   const algorithmFor = resolveRuleAlgorithms(opts.rules, algorithm, opts.algorithms);
   const identify = opts.identify ?? defaultIdentify;
@@ -89,7 +96,7 @@ export function rateLimit(opts: RateLimitOptions): RateLimitMiddleware {
         next();
         return;
       }
-      const key = buildKey(rule, identify(req));
+      const key = buildKey(rule, identify(req), prefix);
       // Every rule was resolved at startup, so a missing entry can't happen; the default is a
       // safe answer if it ever did.
       const checker = algorithmFor.get(rule.id) ?? algorithm;
@@ -141,6 +148,18 @@ function resolveTimeout(value: unknown): number {
   if (value === undefined) return DEFAULT_TIMEOUT_MS;
   if (!isPositiveInteger(value)) {
     throw new RangeError(`rateLimit: timeoutMs must be a positive integer, got ${show(value)}`);
+  }
+  return value;
+}
+
+function resolvePrefix(value: unknown): string {
+  if (value === undefined) return 'rl';
+  // No ":", so two different prefixes can never produce the same key, whatever the rule IDs. No
+  // braces either, which Redis Cluster would read as a hash tag.
+  if (typeof value !== 'string' || !/^[A-Za-z0-9_-]+$/.test(value)) {
+    throw new TypeError(
+      `rateLimit: prefix must be a non-empty string of letters, digits, _ and -, got ${show(value)}`,
+    );
   }
   return value;
 }
