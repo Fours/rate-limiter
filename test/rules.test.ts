@@ -19,6 +19,12 @@ function pick(rules: Rule[], request: MatchableRequest, tier?: string): string |
 }
 
 describe('validateRules', () => {
+  it('throws an InvalidRuleError by that name, for logs and instanceof alike', () => {
+    expect(() => {
+      validateRules('x');
+    }).toThrow(expect.objectContaining({ name: 'InvalidRuleError' }) as Error);
+  });
+
   it('accepts valid rules, including an empty list', () => {
     expect(() => {
       validateRules([
@@ -327,6 +333,8 @@ describe('createMatcher', () => {
     it('does not match other methods', () => {
       expect(pick(rules, req('POST', '/'))).toBeUndefined();
       expect(pick([{ id: 'head', ...base, method: 'HEAD' }], req('GET', '/'))).toBeUndefined();
+      // Only a GET rule: HEAD doesn't run POST handlers.
+      expect(pick([{ id: 'post', ...base, method: 'POST' }], req('HEAD', '/'))).toBeUndefined();
     });
   });
 
@@ -402,6 +410,20 @@ describe('createMatcher', () => {
       const second: Rule = { id: 'second', ...base, path: '/orders/*', method: 'post' };
       expect(pick([first, second], r)).toBe('first');
       expect(pick([second, first], r)).toBe('second');
+    });
+
+    it('keeps declaration order among many tied rules, after more specific ones', () => {
+      // Found by mutation testing: with two rules, a comparator that ignored order still
+      // happened to sort them right.
+      const tied = ['a', 'b', 'c', 'd', 'e'].map((id): Rule => ({
+        id,
+        ...base,
+        path: '/orders/*',
+      }));
+      const exact: Rule = { id: 'exact', ...base, path: '/orders/7' };
+      expect(pick([...tied, exact], req('POST', '/orders/7'))).toBe('exact');
+      expect(pick([...tied, exact], req('POST', '/orders/8'))).toBe('a');
+      expect(pick([...tied].reverse(), req('POST', '/orders/8'))).toBe('e');
     });
   });
 

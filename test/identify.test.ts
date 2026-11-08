@@ -35,6 +35,14 @@ describe('defaultIdentify', () => {
     it('skips an empty IP', () => {
       expect(defaultIdentify(req({ ip: '' }))).toBe('anon');
     });
+
+    it("uses the connection's address when req.ip is empty or missing", () => {
+      const socket = { remoteAddress: '203.0.113.9' };
+      expect(defaultIdentify({ ip: '', socket })).toBe('ip_203.0.113.9');
+      expect(defaultIdentify({ socket })).toBe('ip_203.0.113.9');
+      // A plain JS caller can pass anything: it's not an IP either.
+      expect(defaultIdentify({ ip: 42 as unknown as string, socket })).toBe('ip_203.0.113.9');
+    });
   });
 
   it('accepts a numeric user ID', () => {
@@ -71,6 +79,9 @@ describe('defaultIdentify', () => {
       expect(id('fe80::1%en0')).toBe('ip_fe80::/64');
       expect(id('2001:db8:0:0:1::')).toBe('ip_2001:db8::/64');
       expect(id('1:0:2:0::')).toBe('ip_1:0:2::/64');
+      // Leading zeros stay written out: the trailing run is longer, so it's the one compressed.
+      expect(id('0:0:1:0:5::')).toBe('ip_0:0:1::/64');
+      expect(id('0:0:0:1::5')).toBe('ip_0:0:0:1::/64');
       // An IPv4 tail outside the prefixes that carry IPv4 is just more IPv6 bits.
       expect(id('2001:db8::198.51.100.7')).toBe('ip_2001:db8::/64');
       expect(id('64:ff9b:1::198.51.100.7')).toBe('ip_64:ff9b:1::/64');
@@ -84,6 +95,30 @@ describe('defaultIdentify', () => {
     ])('gives an address that carries IPv4, %s, its IPv4 ID (0029)', (_label, ip) => {
       expect(id(ip)).toBe('ip_198.51.100.7');
     });
+
+    it.each([
+      ['a NAT64-like prefix one group off', '65:ff9b::198.51.100.7', 'ip_65:ff9b::/64'],
+      ['the second NAT64 group off', '64:ff9c::198.51.100.7', 'ip_64:ff9c::/64'],
+      ['a nonzero third group', '64:ff9b:1::198.51.100.7', 'ip_64:ff9b:1::/64'],
+      ['a nonzero fourth group', '64:ff9b:0:1::c633:6407', 'ip_64:ff9b:0:1::/64'],
+      ['a nonzero fifth group', '64:ff9b:0:0:1:0:c633:6407', 'ip_64:ff9b::/64'],
+      ['a nonzero sixth group', '64:ff9b::1:c633:6407', 'ip_64:ff9b::/64'],
+      ['ffff in the fifth group without a zero sixth', '::ffff:1:c633:6407', 'ip_::/64'],
+      ['a nonzero fifth group before ffff', '::1:ffff:c633:6407', 'ip_::/64'],
+      ['a nonzero first group before ffff', '1::ffff:c633:6407', 'ip_1::/64'],
+    ])("doesn't read IPv4 into %s", (_label, ip, expected) => {
+      // Found by mutation testing: no test held each group of each prefix to its value.
+      expect(id(ip)).toBe(expected);
+    });
+
+    it.each(['[2001:db8::1', '2001:db8::1]', '[::1', '[]'])(
+      'treats unbalanced or empty brackets, %s, as not an IP',
+      (ip) => {
+        expect(defaultIdentify({ ip, socket: { remoteAddress: '203.0.113.9' } })).toBe(
+          'ip_203.0.113.9',
+        );
+      },
+    );
 
     it('keeps two IPv4 clients behind one NAT64 translator apart (0029)', () => {
       expect(id('64:ff9b::198.51.100.1')).not.toBe(id('64:ff9b::198.51.100.2'));

@@ -24,6 +24,30 @@ describe('fromIoredis', () => {
   });
 });
 
+describe('fromIoredis replies', () => {
+  function replying(reply: unknown) {
+    const client: IoredisLike = {
+      evalsha: () => Promise.resolve(reply),
+      eval: () => Promise.resolve(reply),
+    };
+    return fromIoredis(client);
+  }
+
+  it('turns decimal integer strings back into numbers, for stringNumbers: true', async () => {
+    expect(await replying(['1', '0', '-3', '12000']).evalsha('s', [], [])).toStrictEqual([
+      1, 0, -3, 12_000,
+    ]);
+    expect(await replying(['1', '4', '60']).eval('s', [], [])).toStrictEqual([1, 4, 60]);
+  });
+
+  it('leaves anything else for the reply check to reject', async () => {
+    // Found by mutation testing: without the end anchor, "12abc" or "1e3" would be read as numbers.
+    const odd = ['12abc', '1e3', '007', '1.5', '', 'x', 5, null];
+    expect(await replying(odd).evalsha('s', [], [])).toStrictEqual(odd);
+    expect(await replying('OK').evalsha('s', [], [])).toBe('OK');
+  });
+});
+
 describe('fromNodeRedis', () => {
   it('passes keys and args as an options object', async () => {
     const calls: unknown[][] = [];
@@ -47,7 +71,13 @@ describe('adapter checks at startup', () => {
 
   it('points to fromNodeRedis when given a node-redis client', () => {
     expect(() => fromIoredis(nodeRedisShaped as unknown as IoredisLike)).toThrow(
-      /fromIoredis.*use fromNodeRedis/,
+      'fromIoredis: expected a client with evalsha and eval methods. For the other Redis library, use fromNodeRedis.',
+    );
+  });
+
+  it.each([null, 'redis', 5])('rejects %j with the same message', (value) => {
+    expect(() => fromIoredis(value as unknown as IoredisLike)).toThrow(
+      'fromIoredis: expected a client with evalsha and eval methods',
     );
   });
 

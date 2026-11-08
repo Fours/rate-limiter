@@ -156,6 +156,47 @@ describe('Redis token bucket', () => {
       expect(tiny).toMatchObject({ allowed: true, remaining: 3 });
     });
 
+    it('refills at the new rate when only the limit changes, under a fixed burst', async () => {
+      // Found by mutation testing: with an explicit burst, nothing checked a change to the limit
+      // alone, and a script that missed it refilled at the old rate.
+      const { algorithm, clock } = redisBucket();
+      const slow: Rule = { id: uniqueRuleId('rate'), limit: 1, windowMs: 1_000, burst: 5 };
+      const key = buildKey(slow, 'c');
+      for (let i = 0; i < 5; i++) await algorithm.check(key, slow);
+      clock.advance(1_000);
+      const fast: Rule = { ...slow, limit: 10 };
+      // The second spent at the old rate refilled 1; the next at 10 a second refills all 5.
+      expect(await algorithm.check(key, fast)).toMatchObject({ allowed: true, remaining: 0 });
+      clock.advance(1_000);
+      expect(await algorithm.check(key, fast)).toMatchObject({ allowed: true, remaining: 4 });
+    });
+
+    it('carries the fraction of a token across windows of different lengths, rounding down', async () => {
+      const { algorithm, clock } = redisBucket();
+      const rule: Rule = { id: uniqueRuleId('fraction'), limit: 1, windowMs: 3_000 };
+      const key = buildKey(rule, 'c');
+      await algorithm.check(key, rule);
+      clock.advance(1_000); // a third of a token
+      // 2.33 units of a 7 ms token, rounded down to 2: 5 ms to go. Rounded up, 4; dropped, 7.
+      expect(await algorithm.check(key, { ...rule, windowMs: 7 })).toStrictEqual({
+        allowed: false,
+        remaining: 0,
+        resetMs: 5,
+      });
+    });
+
+    it('drops the fraction when the two windows multiplied pass 2^53, as in memory', async () => {
+      const { algorithm, clock } = redisBucket();
+      const rule: Rule = { id: uniqueRuleId('huge'), limit: 1, windowMs: 2 ** 30 };
+      const key = buildKey(rule, 'c');
+      await algorithm.check(key, rule);
+      clock.advance(2 ** 29);
+      expect(await algorithm.check(key, { ...rule, windowMs: 2 ** 30 + 1 })).toMatchObject({
+        allowed: false,
+        resetMs: 2 ** 30 + 1,
+      });
+    });
+
     it('gives a full bucket the raised burst at once, as an expired key gets it', async () => {
       // Found by the 1.0 correctness review: at its TTL, a kept key allowed 2 under a burst
       // raised to 10, and an expired one 10. Redis TTLs run on real time, so a DEL stands in.

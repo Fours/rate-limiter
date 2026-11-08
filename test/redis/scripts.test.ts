@@ -92,6 +92,11 @@ describe('parseDecision', () => {
     expect(() => parseDecision(reply)).toThrow(/Unexpected reply from a rate-limit script/);
   });
 
+  it('shows the reply as JSON, so a string reads differently from a number', () => {
+    expect(() => parseDecision([1, '2', 3])).toThrow(/got \[1,"2",3\]$/);
+    expect(() => parseDecision(undefined)).toThrow(/got undefined$/);
+  });
+
   it('still describes a reply JSON.stringify cannot handle, such as BigInts', () => {
     // node-redis can be configured to map integers to BigInt, which JSON.stringify rejects.
     expect(() => parseDecision([1n, 2n, 3n])).toThrow(/got 1,2,3/);

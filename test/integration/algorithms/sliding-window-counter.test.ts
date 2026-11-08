@@ -43,17 +43,15 @@ function referenceModel(clock: FakeClock): Algorithm {
       const w = rule.windowMs;
       const stored = state.get(key);
       const now = Math.max(clock.now(), stored?.last ?? Number.NEGATIVE_INFINITY);
-      const start = Math.floor(now / w) * w;
+      let start = Math.floor(now / w) * w;
       let curr = 0;
       let prev = 0;
       if (stored !== undefined) {
-        if (stored.window !== w) {
-          if (now < stored.start + 2 * stored.window) curr = stored.curr + stored.prev;
-        } else if (stored.start === start) {
-          ({ curr, prev } = stored);
-        } else if (stored.start === start - w) {
-          prev = stored.curr;
-        }
+        // Windows go on from the stored one's start, whatever its length (0031).
+        const k = Math.floor((now - stored.start) / w);
+        start = stored.start + k * w;
+        if (k === 0) ({ curr, prev } = stored);
+        else if (k === 1) prev = stored.curr;
       }
       const fits = (p: number, c: number, e: number) => p * (w - e) + (c + 1) * w <= rule.limit * w;
       const e = now - start;
@@ -173,6 +171,44 @@ describe('Redis sliding window counter', () => {
       });
     });
 
+    it('waits all but the last ms of the next window when only that far in fits', async () => {
+      // Found by mutation testing: fits = 1 only happens after the limit shrinks below a large
+      // count, which no other test reached. Limit 8 on a 10 ms window, 6 requests at its start,
+      // then the limit cut to 2. In the next window, at 9 ms in, 6 * 1/10 + 1 = 1.6 fits under
+      // 2; at 8 ms in, 6 * 2/10 + 1 = 2.2 doesn't. So 10 + 9 = 19 ms, not 20.
+      const { algorithm, clock } = redisCounter();
+      const rule = freshRule({ limit: 8, windowMs: 10 });
+      const key = buildKey(rule, 'c');
+      clock.set(Math.ceil(clock.now() / 10) * 10);
+      for (let i = 0; i < 6; i++) await algorithm.check(key, rule);
+      expect(await algorithm.check(key, { ...rule, limit: 2 })).toStrictEqual({
+        allowed: false,
+        remaining: 0,
+        resetMs: 19,
+      });
+    });
+
+    it('looks past this window only with this window as the previous one, after a cut', async () => {
+      // Found by mutation testing: nothing held case 1 to this window. Limit 8 on a 10 ms
+      // window: 2 in the previous window, 4 at this one's start, then the limit cut to 4 at
+      // 5 ms in. The next window counts this one's 4: 4 * (10 - 3)/10 + 1 = 3.8 fits at 3 ms in,
+      // so 5 + 3 = 8 ms. Case 1's formula, run past the window with the old previous count of
+      // 2, would say 10.
+      const { algorithm, clock } = redisCounter();
+      const rule = freshRule({ limit: 8, windowMs: 10 });
+      const key = buildKey(rule, 'c');
+      clock.set(Math.ceil(clock.now() / 10) * 10 + 9);
+      for (let i = 0; i < 2; i++) await algorithm.check(key, rule);
+      clock.advance(1);
+      for (let i = 0; i < 4; i++) await algorithm.check(key, rule);
+      clock.advance(5);
+      expect(await algorithm.check(key, { ...rule, limit: 4 })).toStrictEqual({
+        allowed: false,
+        remaining: 0,
+        resetMs: 8,
+      });
+    });
+
     it('after the limit shrinks below the current count', async () => {
       const { algorithm, clock } = redisCounter();
       const rule = freshRule({ limit: 6 });
@@ -186,6 +222,38 @@ describe('Redis sliding window counter', () => {
         remaining: 0,
         resetMs: 80_000,
       });
+    });
+
+    it('matches the brute-force model on every check of 60 seeded random histories', async () => {
+      // Found by mutation testing: the fixed comparison steps never reached most of the denied
+      // cases, so changes to their formulas went unnoticed. Short windows and many checks reach
+      // each case often, including ties and the window edges.
+      const random = mulberry32(20261108);
+      const pick = (n: number) => Math.floor(random() * n);
+      const cases = new Set<number>();
+      for (let run = 0; run < 60; run++) {
+        const w = [7, 10, 16][run % 3] ?? 10;
+        const rule = freshRule({ limit: 1 + pick(5), windowMs: w });
+        const shorter: Rule = { ...rule, windowMs: w + 1 };
+        const key = buildKey(rule, 'c');
+        const { algorithm, clock } = redisCounter();
+        const modelClock = new FakeClock(clock.now());
+        const model = referenceModel(modelClock);
+        for (let i = 0; i < 120; i++) {
+          const step = pick(4) === 0 ? pick(2 * w) : pick(3);
+          clock.advance(step);
+          modelClock.advance(step);
+          // Now and then a second rule on the key, as in 0031.
+          const r = pick(10) === 0 ? shorter : rule;
+          const got = await algorithm.check(key, r);
+          expect(got, `run ${String(run)}, check ${String(i)}`).toStrictEqual(
+            await model.check(key, r),
+          );
+          if (!got.allowed) cases.add(Math.sign(got.resetMs - (w - (clock.now() % w))));
+        }
+      }
+      // Waits both inside this window and past it were seen.
+      expect(cases.size).toBeGreaterThan(1);
     });
 
     it('is tight across 40 seeded random histories: denied 1 ms before, allowed at it', async () => {

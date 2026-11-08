@@ -310,6 +310,16 @@ describe('options', () => {
     expect(() => rateLimit({ rules: [rule], timeoutMs: {} as unknown as number })).toThrow(
       'got object',
     );
+    // Numbers, booleans, null and undefined as written, not by type.
+    for (const [value, shown] of [
+      [1.5, '1.5'],
+      [true, 'true'],
+      [null, 'null'],
+    ] as const) {
+      expect(() => rateLimit({ rules: [rule], timeoutMs: value as unknown as number })).toThrow(
+        `rateLimit: timeoutMs must be a positive integer, got ${shown}`,
+      );
+    }
   });
 
   it('accepts an empty fallback object as one instance', () => {

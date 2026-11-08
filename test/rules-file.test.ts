@@ -153,6 +153,30 @@ describe('parseRules errors', () => {
     ).rejects.toThrow('r.json: rules[0] ("a"): burst must be a positive integer');
   });
 
+  it('keeps the original error as the cause when it adds the source', async () => {
+    const error = await rejection(parseRules(json([{ ...good, limt: 1 }]), 'json', src));
+    expect(error.cause).toBeInstanceOf(InvalidRuleError);
+    expect((error.cause as Error).message).toMatch(/^rules\[0\] \("orders"\): unknown field/);
+  });
+
+  it.each(['"rules"', '7', 'null', 'true'])(
+    'rejects a document that is %s, not an object',
+    async (text) => {
+      // Found by mutation testing: a string document reached `"rules" in "rules"`, a TypeError.
+      const error = await rejection(parseRules(text, 'json', src));
+      expect(error).toBeInstanceOf(InvalidRuleError);
+      expect(error.message).toBe(
+        `${src}: must be an object with a "rules" list, like { "rules": [] }`,
+      );
+    },
+  );
+
+  it('names the allowed top-level fields', async () => {
+    await expect(parseRules(JSON.stringify({ rules: [], rule: [] }), 'json')).rejects.toThrow(
+      'top level: unknown field "rule"; allowed fields are rules',
+    );
+  });
+
   it('leaves the source out when none is given', async () => {
     await expect(parseRules(json([{ ...good, limt: 1 }]), 'json')).rejects.toThrow(
       /^rules\[0\] \("orders"\): unknown field "limt"/,
@@ -192,5 +216,17 @@ describe('without the yaml package', () => {
       parseRulesWith(() => Promise.reject(broken), 'rules: []', 'yaml'),
     );
     expect(error).toBe(broken);
+  });
+
+  it.each([
+    ['a string', 'ERR_MODULE_NOT_FOUND'],
+    ['null', null],
+    ['an object with another code', { code: 'EACCES' }],
+    ['an object with no code', { message: 'ERR_MODULE_NOT_FOUND' }],
+  ])('passes a rejection that is %s through unchanged', async (_label, thrown) => {
+    // Found by mutation testing: nothing checked each part of the "not installed" test.
+    // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- the point of the test
+    const importer = () => Promise.reject(thrown);
+    await expect(parseRulesWith(importer, 'rules: []', 'yaml')).rejects.toBe(thrown);
   });
 });

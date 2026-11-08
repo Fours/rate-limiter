@@ -27,12 +27,11 @@ export function defaultIdentify(req: IdentifiableRequest): string {
   const userId = readUserId(req.user);
   if (userId !== undefined) return `user_${userId}`;
 
-  if (typeof req.ip === 'string' && req.ip !== '') {
-    // Not the raw value: any string a client sent would be a new client, and a long one a long key.
-    const ip = normalizeIp(req.ip) ?? normalizeIp(req.socket?.remoteAddress ?? '');
-    if (ip !== undefined) return `ip_${ip}`;
-  }
-  return 'anon';
+  // Not the raw value: any string a client sent would be a new client, and a long one a long key.
+  // A missing or empty req.ip gives way to the connection's address too, as any non-IP does.
+  const given = typeof req.ip === 'string' ? req.ip : '';
+  const ip = normalizeIp(given) ?? normalizeIp(req.socket?.remoteAddress ?? '');
+  return ip === undefined ? 'anon' : `ip_${ip}`;
 }
 
 /**

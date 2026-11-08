@@ -434,6 +434,7 @@ describe('algorithm per rule', () => {
   it.each([
     ['not an object', 'exact', 'rateLimit: algorithms must be an object of algorithms by name'],
     ['an array', [], 'rateLimit: algorithms must be an object of algorithms by name'],
+    ['null', null, 'rateLimit: algorithms must be an object of algorithms by name'],
     [
       'a value without check',
       { exact: {} },
@@ -544,8 +545,8 @@ describe('misspelt options (decision 0032)', () => {
     expect(() => rateLimit({ rules: [rule], ...(extra as object) })).toThrow(message);
   });
 
-  it('rejects options that are not an object', () => {
-    expect(() => rateLimit(null as unknown as RateLimitOptions)).toThrow(
+  it.each([null, 5, 'rules'])('rejects options that are %j', (opts) => {
+    expect(() => rateLimit(opts as unknown as RateLimitOptions)).toThrow(
       'rateLimit: options must be an object',
     );
   });

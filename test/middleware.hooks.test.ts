@@ -160,6 +160,8 @@ describe('onDecision', () => {
     const duration = r.decisions[0]?.durationMs;
     expect(Number.isFinite(duration)).toBe(true);
     expect(duration).toBeGreaterThanOrEqual(0);
+    // Found by mutation testing: now + start, not now - start, passed the checks above.
+    expect(duration).toBeLessThan(60_000);
   });
 });
 

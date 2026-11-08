@@ -191,6 +191,31 @@ describe('createTokenBucket', () => {
     expect(await countAllowed(check)).toBe(1);
   });
 
+  it('refills at the new rate when only the limit changes, under a fixed burst', async () => {
+    // Found by mutation testing: with an explicit burst, a change to the limit alone went
+    // unnoticed, so the bucket went on refilling at the old rate.
+    const slow: Rule = { id: 'r', limit: 1, windowMs: 1_000, burst: 5 };
+    const { clock, check } = setup(slow);
+    await countAllowed(check);
+    clock.advance(1_000);
+    // At 10 a second, 1 s refills all 5; at the old 1 a second, only 1.
+    const fast: Rule = { ...slow, limit: 10 };
+    expect(await countAllowed(() => check(undefined, fast))).toBe(1);
+    clock.advance(1_000);
+    expect(await countAllowed(() => check(undefined, fast))).toBe(5);
+  });
+
+  it('drops the fraction of a token when the two windows multiplied pass 2^53', async () => {
+    // Found by mutation testing: nothing reached the branch for windows this long.
+    const long: Rule = { id: 'r', limit: 1, windowMs: 2 ** 30 };
+    const { clock, check } = setup(long);
+    await check(); // empty
+    clock.advance(2 ** 29); // half a token
+    // 2^30 * (2^30 + 1) is past 2^53, so the half token isn't carried: a whole new one is due.
+    const longer: Rule = { id: 'r', limit: 1, windowMs: 2 ** 30 + 1 };
+    expect(await check(undefined, longer)).toMatchObject({ allowed: false, resetMs: 2 ** 30 + 1 });
+  });
+
   it('gives the same answer after a rule change whether or not the sweep ran', async () => {
     // Found by the 1.0 correctness review: a full bucket kept its old size through a raised
     // limit, while a swept one started at the new size.
@@ -317,6 +342,25 @@ describe('createTokenBucket', () => {
       expect(() => createTokenBucket({ sweepIntervalMs: ms })).toThrow(RangeError);
     },
   );
+
+  it('says what was wrong with sweepIntervalMs', () => {
+    expect(() => createTokenBucket({ sweepIntervalMs: 1.5 })).toThrow(
+      'sweepIntervalMs must be a positive integer, got 1.5',
+    );
+    expect(() => createTokenBucket({ sweepIntervalMs: 2 ** 31 })).toThrow(
+      'sweepIntervalMs must be at most 2147483647, got 2147483648',
+    );
+  });
+
+  it("doesn't keep the process alive with its sweep timer", () => {
+    // Found by mutation testing: nothing checked the unref, so a process with a bucket it
+    // never closed would never exit.
+    const timers = () => process.getActiveResourcesInfo().filter((r) => r === 'Timeout').length;
+    const before = timers();
+    const bucket = createTokenBucket();
+    open.push(bucket);
+    expect(timers()).toBe(before);
+  });
 
   it('accepts the longest sweepIntervalMs a Node timer holds', () => {
     const bucket = createTokenBucket({ sweepIntervalMs: 2_147_483_647 });

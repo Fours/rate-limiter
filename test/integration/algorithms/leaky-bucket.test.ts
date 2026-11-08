@@ -260,6 +260,44 @@ describe('Redis leaky bucket', () => {
     });
   });
 
+  it('matches the exact model on every check of 60 seeded random histories', async () => {
+    // Found by mutation testing: the fixed steps never reached a remainder of exactly 1 on a
+    // rule change, or exactly 1 unit of room, so changes at those edges went unnoticed.
+    let seed = 20261108;
+    const random = () => {
+      seed = (seed * 1_103_515_245 + 12_345) % 2_147_483_648;
+      return seed / 2_147_483_648;
+    };
+    const pick = (n: number) => Math.floor(random() * n);
+    for (let run = 0; run < 60; run++) {
+      const windowMs = [1, 3, 7, 10][run % 4] ?? 10;
+      const id = uniqueRuleId('leaky-dense');
+      const randomRule = (): Rule => ({
+        id,
+        limit: 1 + pick(12),
+        windowMs,
+        ...(pick(2) === 0 ? {} : { burst: 1 + pick(4) }),
+      });
+      // A second rule on the same key, now and then, as in 0031.
+      const rule = randomRule();
+      const other = randomRule();
+      const key = buildKey(rule, 'c');
+      const { algorithm, clock } = redisLeaky();
+      const modelClock = new FakeClock(clock.now());
+      const model = referenceModel(modelClock);
+      for (let i = 0; i < 120; i++) {
+        const step = pick(4) === 0 ? pick(3 * windowMs) : pick(2);
+        clock.advance(step);
+        modelClock.advance(step);
+        const r = pick(8) === 0 ? other : rule;
+        expect(
+          await algorithm.check(key, r),
+          `run ${String(run)}, check ${String(i)}`,
+        ).toStrictEqual(await model.check(key, r));
+      }
+    }
+  });
+
   it('never brings the next slot earlier when the rule changes', async () => {
     const { algorithm } = redisLeaky();
     const rule = freshRule({ limit: 7 });

@@ -212,6 +212,8 @@ describe('prometheusHooks: options', () => {
     ['a dash', 'rate-limit_'],
     ['a leading digit', '9rl_'],
     ['a space', 'rl '],
+    // Would pass the pattern once turned into a string.
+    ['an array', ['rl_']],
   ])('throws at startup for a prefix with %s', (_, prefix) => {
     expect(() => prometheusHooks({ registry: new Registry(), prefix: prefix as string })).toThrow(
       /prometheusHooks: prefix/,
@@ -238,6 +240,9 @@ describe('prometheusHooks: options', () => {
     ['null', null],
     ['a string', 'registry'],
     ['an object without the methods', {}],
+    // Found by mutation testing: each method has to be a function, not just present.
+    ['getSingleMetric not a function', { getSingleMetric: 1, registerMetric: () => undefined }],
+    ['registerMetric not a function', { getSingleMetric: () => undefined, registerMetric: 1 }],
   ])('throws at startup for a registry that is %s', (_, registry) => {
     expect(() => prometheusHooks({ registry: registry as unknown as Registry })).toThrow(
       /prometheusHooks: registry must be a prom-client Registry/,
