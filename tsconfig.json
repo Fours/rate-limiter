@@ -24,5 +24,14 @@
       "@kylewillett/rate-limiter/prometheus": ["./src/prometheus.ts"]
     }
   },
-  "include": ["src", "test", "examples", "bench", "scripts", "*.config.ts"]
+  "include": [
+    "src",
+    "test",
+    "examples",
+    "bench",
+    "scripts",
+    "e2e",
+    "demo/vite.config.ts",
+    "*.config.ts"
+  ]
 }

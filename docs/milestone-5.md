@@ -110,8 +110,8 @@ Do these in order. Each one ends with passing tests.
 | T1. `burst` | Done | 21c2da5 |
 | T2. `algorithm` per rule | Done | 2751a7e |
 | T3. API review for 1.0 | Done | 0e66a25 |
-| T4. Release workflow and 1.0.0 | Done | |
-| T5. Demo foundation | Not started | |
+| T4. Release workflow and 1.0.0 | Done | 12a246a |
+| T5. Demo foundation | Done | |
 | T6. The demo page | Not started | |
 | T7. The write-up | Not started | |
 | T8. Deploy and link | Not started | |
@@ -190,13 +190,15 @@ Write [0025](decisions/0025-publish-from-ci-with-provenance.md).
 
 Write [0024](decisions/0024-demo-runs-the-shipped-lua.md).
 
+*As built:* to run the library's own `createRedisAlgorithm`, `runScript` and `parseDecision` in the browser rather than copies of them, the Node-only parts moved out of `src/`: `defineScript` and `loadScript` now live in `src/algorithms/redis/load-script.ts`, with no change in behaviour, and `test/browser-safe.test.ts` keeps the modules the demo uses free of Node built-ins (agreed in T5's plan review). The stand-in is a `RedisScriptClient` with a script cache, so `EVALSHA`, `NOSCRIPT` and the retry happen as in Redis, with SHA-1s from Web Crypto. Taking it down fails every command; bringing it back keeps the data and empties the script cache, like a restart with persistence. wasmoon fetches its `.wasm` from a CDN in a browser unless told otherwise, so `demo/src/store.ts` passes Vite's asset URL, and the smoke test blocks every other origin. The parity test is a fast-check property (`FC_SEED`, `FC_RUNS`): about 12,500 checks a run in 4 s, no differences. It counts an error on either side as a difference. Of its break checks, "replies not truncated" can no longer show, since every script now replies with whole numbers (0024). The T5 page is one button running the token bucket; T6 replaces it. Playwright runs in its own CI job; `npx playwright install chromium` once locally.
+
 **Done when:**
 
-- [ ] `npm run demo:dev` and `npm run demo:build` work, and lint and typecheck cover `demo/`
-- [ ] The stand-in has unit tests for each of its 14 commands, including `WRONGTYPE` and expiry on simulated time
-- [ ] The parity test runs at least 10,000 checks across the five scripts against the test Redis and finds no differences, and breaking the stand-in makes it fail
-- [ ] A built page runs a check in a real browser, so wasmoon's `.wasm` loads through Vite, as a Playwright smoke test (Chromium only) in CI (open question 6)
-- [ ] Nothing in `demo/` reaches the npm package, checked by the existing `npm pack` check
+- [x] `npm run demo:dev` and `npm run demo:build` work, and lint and typecheck cover `demo/`
+- [x] The stand-in has unit tests for each of its 14 commands, including `WRONGTYPE` and expiry on simulated time
+- [x] The parity test runs at least 10,000 checks across the five scripts against the test Redis and finds no differences, and breaking the stand-in makes it fail
+- [x] A built page runs a check in a real browser, so wasmoon's `.wasm` loads through Vite, as a Playwright smoke test (Chromium only) in CI (open question 6)
+- [x] Nothing in `demo/` reaches the npm package, checked by the existing `npm pack` check
 
 ### T6. The demo page
 

@@ -2,10 +2,10 @@ import type { Algorithm } from '../../types.js';
 import { withDefaultBurst } from '../default-burst.js';
 import {
   createRedisAlgorithm,
-  loadScript,
   type InternalRedisAlgorithmOptions,
   type RedisAlgorithmOptions,
 } from './factory.js';
+import { loadScript } from './load-script.js';
 
 const script = loadScript('./leaky-bucket.lua', import.meta.url);
 

@@ -1,10 +1,10 @@
 import type { Algorithm } from '../../types.js';
 import {
   createRedisAlgorithm,
-  loadScript,
   type InternalRedisAlgorithmOptions,
   type RedisAlgorithmOptions,
 } from './factory.js';
+import { loadScript } from './load-script.js';
 
 const script = loadScript('./fixed-window.lua', import.meta.url);
 

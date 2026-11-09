@@ -1,5 +1,6 @@
 import js from '@eslint/js';
 import prettier from 'eslint-config-prettier';
+import reactHooks from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
@@ -7,6 +8,9 @@ export default tseslint.config(
   {
     ignores: [
       'dist/',
+      'demo/dist/',
+      'test-results/',
+      'playwright-report/',
       'coverage/',
       'node_modules/',
       'docs/decisions/data/',
@@ -37,6 +41,11 @@ export default tseslint.config(
         { object: 'Date', property: 'now', message: 'Use the injected Clock instead.' },
       ],
     },
+  },
+  {
+    // The demo's React code: the rules of hooks, and effects that list what they depend on.
+    files: ['demo/**/*.tsx'],
+    ...reactHooks.configs.flat.recommended,
   },
   {
     files: ['**/*.js'],

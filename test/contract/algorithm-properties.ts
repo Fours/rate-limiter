@@ -200,7 +200,7 @@ async function using<T>(
  * FC_SEED replays a failure: fast-check prints the seed. FC_RUNS multiplies every numRuns, for a
  * longer search than CI's, as in FC_RUNS=20 npm run test:integration.
  */
-function runParameters(numRuns: number): fc.Parameters<unknown> {
+export function runParameters(numRuns: number): fc.Parameters<unknown> {
   const seed = process.env.FC_SEED;
   const scale = Number(process.env.FC_RUNS ?? 1);
   return {

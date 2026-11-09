@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { RedisScriptClient } from '../../src/redis/client.js';
-import { defineScript, parseDecision, runScript } from '../../src/redis/scripts.js';
+import { defineScript } from '../../src/algorithms/redis/load-script.js';
+import { parseDecision, runScript } from '../../src/redis/scripts.js';
 
 const script = defineScript('return {1, 2, 3}');
 

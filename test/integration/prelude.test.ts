@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loadScript } from '../../src/algorithms/redis/factory.js';
+import { loadScript } from '../../src/algorithms/redis/load-script.js';
 import { runScript } from '../../src/redis/scripts.js';
 import { useRedis } from './helpers/algorithms.js';
 

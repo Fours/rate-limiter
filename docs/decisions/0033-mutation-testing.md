@@ -79,7 +79,7 @@ Scores count killed and timed-out mutants against all valid ones. The totals fel
 
 ### Survivors left, and why each can't change behaviour
 
-Stryker, 30:
+Stryker, 32:
 
 - **`hooks.ts`, 11:** in `callHook` and `isThenable`, every change either does the same thing or throws inside the hook's `try`, where errors are ignored by design (0019).
 - **`rules-file.ts`, 5:**
@@ -94,7 +94,8 @@ Stryker, 30:
   - A product of windows exactly 2^53 is two powers of two, whose fraction is exact either way.
 - **One each, values that can't occur:**
   - `default-burst.ts`: undefined either way.
-  - `factory.ts`: an encoding of `''` still decodes the file.
+  - `load-script.ts` (`factory.ts` until T5 moved the file reads, 0024): an encoding of `''` still decodes the file, and the prelude: 2.
+  - `redis/scripts.ts`: `isNonNegativeSafeInteger`'s `typeof` check, which `Number.isSafeInteger` already makes.
   - `fallback.ts`: `{ clock: undefined }` defaults the same way as `{}`.
   - `middleware.ts`: `isPositiveInteger`'s `typeof` check, which `Number.isSafeInteger` already makes, and a checker that is always defined.
   - `prometheus.ts`: `Number.isFinite` already rejects strings.

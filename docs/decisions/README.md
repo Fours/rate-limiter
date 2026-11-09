@@ -41,6 +41,7 @@ When you change a decision, update its record in the same commit as the code.
 | [0021](0021-per-request-timing-tolerance.md) | The benchmarks give each request its own timing tolerance, from its limiter time | Accepted | 5 |
 | [0022](0022-burst.md) | An optional `burst` on rules, for the token and leaky buckets only | Accepted; whole tokens superseded by 0031 | 5 |
 | [0023](0023-algorithm-per-rule.md) | Rules can name their algorithm, from names the caller chooses | Accepted; across limiters, see 0028 | 5 |
+| [0024](0024-demo-runs-the-shipped-lua.md) | The demo runs the shipped Lua in wasmoon, over a stand-in kept honest by a parity test | Accepted | 5 |
 | [0025](0025-publish-from-ci-with-provenance.md) | Publish from CI with trusted publishing and provenance, starting at 1.0.0 | Accepted | 5 |
 | [0026](0026-no-unverified-api-keys.md) | The default identity never trusts an unverified API key | Accepted | 5 |
 | [0027](0027-match-paths-as-handlers-read-them.md) | Match paths the way a decoding handler reads them | Superseded by 0030 | 5 |

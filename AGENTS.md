@@ -43,6 +43,9 @@ npm run build       # tsc → dist/
 npm run test:package   # builds, then tests the built package: entry points, export list, TSDoc
 npm run check:package  # after a build: npm pack contents, publint, attw
 npm run example     # examples/basic
+npm run demo:dev    # the demo site (demo/), on Vite's dev server
+npm run demo:build  # → demo/dist/
+npm run test:e2e    # builds the demo, then Playwright on Chromium (npx playwright install chromium once)
 scripts/smoke-published.sh [version|tarball]  # README quick start against the npm package, in Docker, on both Node versions
 npm run stack:up       # the benchmark stack: nginx, 3 app instances, Redis (docker-compose.yml)
 npm run stack:observe  # the same, plus Prometheus (:9090) and Grafana (:3001), with METRICS=1
@@ -68,6 +71,8 @@ src/
   middleware.ts
 test/                   mirrors src/; helpers/ holds FakeClock; package/ runs against dist/
 examples/basic/         runnable demo app
+demo/                   the public demo site: Vite, React, the shipped Lua in wasmoon over a stand-in Redis (0024)
+e2e/                    Playwright smoke test of the built demo
 docs/                   milestone specs and design notes
 ```
 

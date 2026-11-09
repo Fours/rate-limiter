@@ -16,3 +16,7 @@ docs/decisions/data/*-steady-15000rps-*/*/run-*/requests.jsonl.gz
 # Mutation testing (npm run mutate): reports and Stryker's sandbox.
 reports/
 .stryker-tmp/
+# The demo's build (npm run demo:build) and Playwright's output (npm run test:e2e).
+demo/dist/
+test-results/
+playwright-report/

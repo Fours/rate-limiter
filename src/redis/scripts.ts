@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import type { Decision } from '../types.js';
 import type { RedisScriptClient } from './client.js';
 
@@ -6,10 +5,6 @@ export interface LuaScript {
   readonly source: string;
   /** SHA-1 of the source: the same id Redis gives it, so there's no SCRIPT LOAD at startup. */
   readonly sha: string;
-}
-
-export function defineScript(source: string): LuaScript {
-  return { source, sha: createHash('sha1').update(source).digest('hex') };
 }
 
 /**

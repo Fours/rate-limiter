@@ -7,7 +7,7 @@ import {
 } from '../../../src/algorithms/redis/factory.js';
 import { buildKey } from '../../../src/identify.js';
 import { fromIoredis, type RedisScriptClient } from '../../../src/redis/client.js';
-import { defineScript } from '../../../src/redis/scripts.js';
+import { defineScript } from '../../../src/algorithms/redis/load-script.js';
 import type { Algorithm, Decision, Rule } from '../../../src/types.js';
 import type { AlgorithmUnderTest } from '../../contract/algorithm-contract.js';
 import { FakeClock } from '../../helpers/fake-clock.js';

@@ -40,6 +40,9 @@ jobs:
       # Runs unit and integration together, and enforces the 90% line threshold.
       - run: npm run coverage
       - run: npm run build
+      # The demo builds from this checkout's src/ and Lua (decision 0024). Its browser test runs in
+      # the demo job, once.
+      - run: npm run demo:build
       # What npm users get: only dist/, the README, the licence and the changelog ship, with the
       # Lua scripts and both entry points (scripts/check-pack.js); package.json and exports are
       # valid (publint); and both entry points' types resolve for ESM consumers (attw).
@@ -62,6 +65,21 @@ jobs:
         env:
           REDIS_URL: redis://localhost:6390
         run: examples/basic/demo-check.sh
+
+  # The demo in a real browser: Playwright on Chromium loads the built site and runs a check
+  # through the shipped Lua in wasmoon. A job of its own so Chromium installs once, not once per
+  # Node version.
+  demo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.4
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
 
   # Smoke-tests the milestone 3 stack: nginx, three app instances and Redis, from
   # docker-compose.yml. A job of its own so the image builds once, not once per Node version.
