@@ -1,6 +1,6 @@
 # 0025. Publish from CI with trusted publishing and provenance, starting at 1.0.0
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-08
 - **Milestone:** 5
 
@@ -32,12 +32,14 @@ The package goes on npm for the first time in milestone 5. Publishing from a lap
 
 ## Evidence
 
-Proposed until 1.0.0 is published. What will prove it, in T4:
+1.0.0 was published on 2026-11-09 by [release run 42644068127](https://github.com/Fours/rate-limiter/actions/runs/42644068127), from the tag `v1.0.0` on `37f7492`.
 
-- The release run for `v1.0.0` passes every CI job before the publish job starts.
-- npm shows provenance for 1.0.0, linked to the tagged commit and the release run, and `npm audit signatures` verifies it.
-- The workflow and repository hold no npm token.
-- `scripts/check-release-tag.ts` has unit tests for matching, mismatched and prerelease tags.
+- **CI first:** the run's three CI jobs (`check` on Node 22.23.4 and 24.22.1, and `stack`) passed before `publish` started, which needs them.
+- **Provenance:** npm's attestation for 1.0.0 is a SLSA v1 provenance statement naming `.github/workflows/release.yml` at `refs/tags/v1.0.0`, commit `37f7492a385d2754a219607c1f5cd11312502d48`, and run 42644068127. In an empty project, `npm audit signatures` after installing 1.0.0 reports verified registry signatures for all 66 packages and verified attestations for 5, this package's among them.
+- **No token:** nothing in `.github/` reads `NPM_TOKEN`, `NODE_AUTH_TOKEN` or any secret, and the repository has none.
+- **Tag check:** `test/scripts/check-release-tag.test.ts` covers a matching tag, seven mismatched ones, a prerelease, and the script's exit codes. Matching by prefix instead of exactly failed two of them, and dropping the prerelease guard failed one.
+- **What users get:** `scripts/smoke-published.sh 1.0.0` installed 1.0.0 from npm into an empty folder and ran the README's quick start on Node 22.23.4 and 24.22.1: `POST /login` answered `200` five times, then `429`.
+- **Timing:** the `npm publish` step finished at 15:28:55 UTC, and the registry records 1.0.0 at 15:30:31. For about a minute and a half after the run went green, npm still showed only the placeholder. Check the registry a few minutes after a release before deciding it failed.
 
 ## Consequences
 
@@ -45,4 +47,4 @@ Proposed until 1.0.0 is published. What will prove it, in T4:
 - A release takes as long as CI with the stack checks, about 10 minutes.
 - The trusted publisher's settings on npmjs.com must match exactly: owner `Fours`, repository `rate-limiter`, workflow `release.yml`, environment `npm`. Renaming any of them stops publishing until it's set up again.
 - Prereleases need a change to the workflow first, to publish them under another dist-tag.
-- The `0.0.0-placeholder.0` version stays on npm, deprecated, and never under `latest`, so nobody installs it by accident.
+- `0.0.0-placeholder.0` stays on npm. npm made it `latest` as the package's first version, until 1.0.0 replaced it. It should be deprecated, so nobody installs it by accident. npm also shows a `0.0.0-stage` stub, created with the package.

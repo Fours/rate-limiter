@@ -110,7 +110,7 @@ Do these in order. Each one ends with passing tests.
 | T1. `burst` | Done | 21c2da5 |
 | T2. `algorithm` per rule | Done | 2751a7e |
 | T3. API review for 1.0 | Done | 0e66a25 |
-| T4. Release workflow and 1.0.0 | In progress | |
+| T4. Release workflow and 1.0.0 | Done | |
 | T5. Demo foundation | Not started | |
 | T6. The demo page | Not started | |
 | T7. The write-up | Not started | |
@@ -176,13 +176,15 @@ Write [0023](decisions/0023-algorithm-per-rule.md).
 
 Write [0025](decisions/0025-publish-from-ci-with-provenance.md).
 
+*As built:* `release.yml` runs on a `v*` tag. It reuses `ci.yml` whole, the stack job included, which now runs on branch pushes only so a tag doesn't run it twice. Then a `publish` job in the protected `npm` environment (only `v*` tags may deploy to it) checks that npm is at least 11.5.1, that the tag is exactly `v` plus `package.json`'s version and not a prerelease (`scripts/check-release-tag.ts`), and that the commit is on `main`, then builds and runs `npm publish` with OIDC, on Node 24.22.1 for its npm 11. The package didn't exist, and npm sets up trusted publishing in a package's settings, so you published `0.0.0-placeholder.0` by hand first. No GitHub Release (agreed in T4's plan review). The README and changelog ship in the tarball, so they said "published" in the commit before the tag. `scripts/smoke-published.sh` runs the README's quick start in Docker against a version on npm or an `npm pack` tarball. 1.0.0 was published from `37f7492` with SLSA provenance.
+
 **Done when:**
 
-- [ ] `release.yml` publishes on a `v*` tag only after every CI check passes, and refuses a tag that doesn't match the version
-- [ ] Trusted publishing is set up on npmjs.com (by you), and the workflow has no npm token
-- [ ] After your approval in chat, `v1.0.0` is tagged and published, and npm shows its provenance
-- [ ] In an empty folder, installing the published package and running the README's quick start works, on Node 22.23.4 and 24.22.1
-- [ ] AGENTS.md and the README no longer say the package is unpublished
+- [x] `release.yml` publishes on a `v*` tag only after every CI check passes, and refuses a tag that doesn't match the version
+- [x] Trusted publishing is set up on npmjs.com (by you), and the workflow has no npm token
+- [x] After your approval in chat, `v1.0.0` is tagged and published, and npm shows its provenance
+- [x] In an empty folder, installing the published package and running the README's quick start works, on Node 22.23.4 and 24.22.1
+- [x] AGENTS.md and the README no longer say the package is unpublished
 
 ### T5. Demo foundation
 
