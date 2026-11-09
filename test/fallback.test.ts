@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createFallback, scaleRule } from '../src/fallback.js';
+import { withDefaultBurst } from '../src/algorithms/default-burst.js';
+import { createFallback, fallbackRule, scaleRule } from '../src/fallback.js';
 import type { Rule } from '../src/types.js';
 import { FakeClock } from './helpers/fake-clock.js';
 
@@ -39,6 +40,25 @@ describe('scaleRule', () => {
 
   it('returns the rule itself for one instance', () => {
     expect(scaleRule(rule, 1)).toBe(rule);
+  });
+});
+
+describe('fallbackRule', () => {
+  const plain = () => ({
+    check: () => Promise.resolve({ allowed: true, remaining: 0, resetMs: 0 }),
+  });
+
+  it("gives the rule its algorithm's default burst, where that isn't the limit", () => {
+    expect(fallbackRule(rule, withDefaultBurst(plain(), 1))).toStrictEqual({ ...rule, burst: 1 });
+  });
+
+  it("keeps the rule's own burst", () => {
+    const own = { ...rule, burst: 4 };
+    expect(fallbackRule(own, withDefaultBurst(plain(), 1))).toBe(own);
+  });
+
+  it('leaves the rule alone for an algorithm without a default burst', () => {
+    expect(fallbackRule(rule, plain())).toBe(rule);
   });
 });
 

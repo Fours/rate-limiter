@@ -7,6 +7,7 @@ import {
 } from '../../demo/src/redis/lua.ts';
 import { ALGORITHMS, createAlgorithms, SCRIPT_SOURCES } from '../../demo/src/redis/scripts.ts';
 import { StandInRedis } from '../../demo/src/redis/stand-in.ts';
+import { defaultBurstOf } from '../../src/algorithms/default-burst.js';
 import { defineScript, loadScript } from '../../src/algorithms/redis/load-script.js';
 import type { Rule } from '../../src/types.js';
 import { FakeClock } from '../helpers/fake-clock.js';
@@ -116,6 +117,17 @@ describe('the five algorithms over the stand-in', () => {
     expect(ALGORITHMS.filter((name) => algorithms[name].supportsBurst === true)).toEqual([
       'token-bucket',
       'leaky-bucket',
+    ]);
+  });
+
+  it("marks the leaky bucket's default burst of 1, as createRedisLeakyBucket does", async () => {
+    const algorithms = await createAlgorithms(standInClient(redis, runner));
+    expect(ALGORITHMS.map((name) => defaultBurstOf(algorithms[name]))).toEqual([
+      undefined,
+      1,
+      undefined,
+      undefined,
+      undefined,
     ]);
   });
 

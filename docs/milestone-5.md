@@ -111,8 +111,8 @@ Do these in order. Each one ends with passing tests.
 | T2. `algorithm` per rule | Done | 2751a7e |
 | T3. API review for 1.0 | Done | 0e66a25 |
 | T4. Release workflow and 1.0.0 | Done | 12a246a |
-| T5. Demo foundation | Done | |
-| T6. The demo page | Not started | |
+| T5. Demo foundation | Done | fc20464 |
+| T6. The demo page | In progress | |
 | T7. The write-up | Not started | |
 | T8. Deploy and link | Not started | |
 
@@ -202,12 +202,14 @@ Write [0024](decisions/0024-demo-runs-the-shipped-lua.md).
 
 ### T6. The demo page
 
+*As built:* the simulation is in `demo/src/sim/`: a `SimClock` shared by the stand-in and the fallbacks, and a cluster that sends each request round robin to one of three instances, where it goes through what the middleware does with a check, using the library's own `withTimeout`, `createFallback`, `rateLimitHeaders` and `retryAfter`. The middleware's fallback rule (the leaky bucket keeps its burst of 1, 0022) moved into `src/fallback.ts` as `fallbackRule`, with no change in behaviour, so the demo uses it rather than a copy; the demo's leaky bucket now carries that default, as `createRedisLeakyBucket`'s does. The key is spelled out in `cluster.ts`, since `buildKey` lives in `identify.ts`, which needs `node:net`. The rule is 6 per 10 s, so each instance's share during an outage is exactly 2. Time runs at normal speed, a quarter, or paused. The side-by-side view sends every request to both algorithms on the same instance, and "Burst across the edge" brings in a new visitor and skips ahead to half a second before the next window. Running the token bucket in a browser found a bug: it called `unref()` on its sweep timer, which a browser's timer doesn't have, so the fallback threw on first use. It's fixed in `src/`, with a test, and in the changelog. Playwright now covers the page: all five algorithms, holding by mouse and by Space, Redis down and back, the edge burst, 375 px, and the keyboard alone.
+
 **Done when:**
 
-- [ ] The simulation has unit tests: round robin over three instances, a shared limit across them, each instance's own fallback while Redis is killed, and the shared count back once Redis returns
-- [ ] A visitor can pick any of the five algorithms, send one request or hold for a stream, and see each response's instance, status and headers
-- [ ] The side-by-side view shows the fixed window going over the limit at an edge and the sliding window log not, from the same requests
-- [ ] The page works at 375 px wide and from the keyboard
+- [x] The simulation has unit tests: round robin over three instances, a shared limit across them, each instance's own fallback while Redis is killed, and the shared count back once Redis returns
+- [x] A visitor can pick any of the five algorithms, send one request or hold for a stream, and see each response's instance, status and headers
+- [x] The side-by-side view shows the fixed window going over the limit at an edge and the sliding window log not, from the same requests
+- [x] The page works at 375 px wide and from the keyboard
 - [ ] Someone non-technical can say what it shows without help (you check this)
 
 ### T7. The write-up

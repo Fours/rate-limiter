@@ -96,9 +96,8 @@ export function createTokenBucketForTest(opts: TokenBucketOptions = {}): Inspect
     }
   }
 
-  // unref() so an idle limiter never keeps the process alive.
-  let timer: NodeJS.Timeout | undefined = setInterval(sweep, sweepIntervalMs);
-  timer.unref();
+  let timer: ReturnType<typeof setInterval> | undefined = setInterval(sweep, sweepIntervalMs);
+  unref(timer);
 
   return {
     supportsBurst: true,
@@ -196,4 +195,14 @@ function decide(bucket: Bucket, allowed: boolean): Decision {
     remaining: Math.floor(bucket.units / bucket.windowMs),
     resetMs: Math.ceil(missingUnits / bucket.limit),
   };
+}
+
+/**
+ * unref() so an idle limiter never keeps a Node process alive. A browser's timer is a number with
+ * no unref, and the demo runs this bucket in one as each instance's fallback (decision 0024).
+ */
+function unref(timer: unknown): void {
+  if (typeof timer === 'object' && timer !== null && 'unref' in timer) {
+    (timer as { unref(): void }).unref();
+  }
 }

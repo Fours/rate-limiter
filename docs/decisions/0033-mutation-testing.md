@@ -79,7 +79,7 @@ Scores count killed and timed-out mutants against all valid ones. The totals fel
 
 ### Survivors left, and why each can't change behaviour
 
-Stryker, 32:
+Stryker, 33:
 
 - **`hooks.ts`, 11:** in `callHook` and `isThenable`, every change either does the same thing or throws inside the hook's `try`, where errors are ignored by design (0019).
 - **`rules-file.ts`, 5:**
@@ -89,9 +89,10 @@ Stryker, 32:
   - Replacing `''` with any other string that isn't an IP gives the same result: 2 survivors.
   - `Number.isFinite` already rejects non-numbers: 1.
   - In `formatPrefix64`, a group array of four never empties before a nonzero group: 2.
-- **`token-bucket.ts`, 2:**
+- **`token-bucket.ts`, 3:**
   - Converting units when the rule hasn't changed is the identity.
   - A product of windows exactly 2^53 is two powers of two, whose fraction is exact either way.
+  - `unref`'s `timer !== null` (added in milestone 5's T6, for timers in a browser): `setInterval` never returns `null`.
 - **One each, values that can't occur:**
   - `default-burst.ts`: undefined either way.
   - `load-script.ts` (`factory.ts` until T5 moved the file reads, 0024): an encoding of `''` still decodes the file, and the prelude: 2.

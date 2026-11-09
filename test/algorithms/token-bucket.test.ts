@@ -362,6 +362,18 @@ describe('createTokenBucket', () => {
     expect(timers()).toBe(before);
   });
 
+  it('runs where timers are numbers with no unref, as in a browser', async () => {
+    // The demo runs this bucket in a browser as each instance's fallback (decision 0024).
+    vi.stubGlobal('setInterval', () => 1);
+    try {
+      const bucket = createTokenBucket();
+      open.push(bucket);
+      expect((await bucket.check('k', { id: 'r', limit: 1, windowMs: 1_000 })).allowed).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('accepts the longest sweepIntervalMs a Node timer holds', () => {
     const bucket = createTokenBucket({ sweepIntervalMs: 2_147_483_647 });
     open.push(bucket);

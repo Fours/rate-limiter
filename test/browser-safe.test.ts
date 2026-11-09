@@ -13,6 +13,8 @@ const BROWSER_SAFE = [
   'src/redis/client.ts',
   'src/algorithms/token-bucket.ts',
   'src/headers.ts',
+  'src/fallback.ts',
+  'src/timeout.ts',
 ];
 
 function importsOf(file: string): string[] {

@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 // The five shipped scripts, read from src/ as text and put together the way loadScript does, so
 // the demo runs exactly what the package runs (decision 0024). Nothing here copies their logic.
+import { withDefaultBurst } from '../../../src/algorithms/default-burst.ts';
 import { createRedisAlgorithm } from '../../../src/algorithms/redis/factory.ts';
 import fixedWindow from '../../../src/algorithms/redis/fixed-window.lua?raw';
 import leakyBucket from '../../../src/algorithms/redis/leaky-bucket.lua?raw';
@@ -60,7 +61,8 @@ export async function createAlgorithms(
         { client },
         SUPPORTS_BURST.has(name),
       );
-      return [name, algorithm] as const;
+      // As createRedisLeakyBucket does, so the fallback keeps the leaky bucket's burst of 1.
+      return [name, name === 'leaky-bucket' ? withDefaultBurst(algorithm, 1) : algorithm] as const;
     }),
   );
   return Object.fromEntries(entries) as Record<AlgorithmName, Algorithm>;

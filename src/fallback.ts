@@ -1,5 +1,6 @@
+import { defaultBurstOf } from './algorithms/default-burst.js';
 import { createTokenBucket, type TokenBucket } from './algorithms/token-bucket.js';
-import type { Clock, Decision, Rule } from './types.js';
+import type { Algorithm, Clock, Decision, Rule } from './types.js';
 
 /**
  * Each instance's share of a rule during an outage (decision 0010). Round robin spreads a client
@@ -15,6 +16,17 @@ export function scaleRule(rule: Rule, instances: number): Rule {
     limit: share(rule.limit),
     ...(rule.burst === undefined ? {} : { burst: share(rule.burst) }),
   };
+}
+
+/**
+ * The rule the fallback checks in place of `rule` while `algorithm` is failing. The fallback is a
+ * token bucket, whose default burst is `limit`, so an algorithm with another default (the leaky
+ * bucket's is 1, decision 0022) passes it on: a rule meant to smooth traffic doesn't take its
+ * whole limit at once during an outage. Unchanged otherwise.
+ */
+export function fallbackRule(rule: Rule, algorithm: Algorithm): Rule {
+  const burst = defaultBurstOf(algorithm);
+  return rule.burst === undefined && burst !== undefined ? { ...rule, burst } : rule;
 }
 
 export interface Fallback {

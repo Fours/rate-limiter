@@ -2,6 +2,12 @@
 
 This project follows [Semantic Versioning](https://semver.org/). Each design choice behind these entries has a record in [docs/decisions](https://github.com/Fours/rate-limiter/tree/main/docs/decisions).
 
+## Unreleased
+
+### Fixed
+
+- `createTokenBucket` works where timers have no `unref()`, such as a browser. It threw when created there, and so did the middleware's fallback on its first use.
+
 ## 1.0.0 (2026-11-09)
 
 The first published version.

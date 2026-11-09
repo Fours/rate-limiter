@@ -1,7 +1,6 @@
 import type { Request, RequestHandler } from 'express';
 import { createTokenBucket } from './algorithms/token-bucket.js';
-import { defaultBurstOf } from './algorithms/default-burst.js';
-import { createFallback, type Fallback } from './fallback.js';
+import { createFallback, fallbackRule, type Fallback } from './fallback.js';
 import { rateLimitHeaders, retryAfter } from './headers.js';
 import { resolveHooks, type RateLimitHooks } from './hooks.js';
 import { MAX_TIMER_MS } from './clock.js';
@@ -283,8 +282,8 @@ function fallbackRules(
   const out = new Map<string, Rule>();
   for (const rule of rules) {
     const checker = algorithmFor.get(rule.id);
-    const burst = checker === undefined ? undefined : defaultBurstOf(checker);
-    if (rule.burst === undefined && burst !== undefined) out.set(rule.id, { ...rule, burst });
+    const replaced = checker === undefined ? rule : fallbackRule(rule, checker);
+    if (replaced !== rule) out.set(rule.id, replaced);
   }
   return out;
 }
