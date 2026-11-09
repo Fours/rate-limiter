@@ -2,11 +2,9 @@
 
 Rate-limiting middleware for Express, with pluggable algorithms and standard `RateLimit-*` headers.
 
-> **Status: milestone 5 of 5, in progress.** Limits can be shared by many app instances through one Redis, with five algorithms, chosen per rule, and rules loaded from YAML or JSON. All five are [benchmarked](#benchmarks) on a load-balanced stack of three instances. If Redis fails, requests are answered from memory instead ([failure handling](#failure-handling)), and hooks report every decision, with a Prometheus adapter and a Grafana dashboard ([metrics](#metrics)). The API is settled for 1.0 ([API reference](#api-reference), [changelog](CHANGELOG.md)), but the package is not on npm yet. See the [project plan](https://claude.ai/artifact/UKY1bPShdNmagt4Tgftk1C) and the [milestone 5 spec](docs/milestone-5.md).
+> **Status: milestone 5 of 5, in progress.** Limits can be shared by many app instances through one Redis, with five algorithms, chosen per rule, and rules loaded from YAML or JSON. All five are [benchmarked](#benchmarks) on a load-balanced stack of three instances. If Redis fails, requests are answered from memory instead ([failure handling](#failure-handling)), and hooks report every decision, with a Prometheus adapter and a Grafana dashboard ([metrics](#metrics)). The API is settled for 1.0 ([API reference](#api-reference), [changelog](CHANGELOG.md)), and 1.0.0 is on npm, published from CI with [provenance](https://docs.npmjs.com/generating-provenance-statements). See the [project plan](https://claude.ai/artifact/UKY1bPShdNmagt4Tgftk1C) and the [milestone 5 spec](docs/milestone-5.md).
 
 ## Install
-
-Once published:
 
 ```bash
 npm install @kylewillett/rate-limiter express

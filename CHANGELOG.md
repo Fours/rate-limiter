@@ -2,7 +2,7 @@
 
 This project follows [Semantic Versioning](https://semver.org/). Each design choice behind these entries has a record in [docs/decisions](https://github.com/Fours/rate-limiter/tree/main/docs/decisions).
 
-## 1.0.0 (unreleased)
+## 1.0.0 (2026-11-09)
 
 The first published version.
 
