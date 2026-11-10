@@ -96,6 +96,8 @@ The probe before this spec ran the five shipped scripts in wasmoon (Lua 5.4 in W
 
 A second page on the demo site. It tells the story in the order a reader needs it, not in record order: why limit in the app, keeping instances in step (atomic Lua and Redis time), choosing an algorithm (accuracy against cost), what Redis costs per request, what happens when Redis goes away, and how the numbers were measured. Each claim links to its decision record. Charts are built from `docs/decisions/data/` at build time, so they can't drift from the data. It opens with a short summary a non-engineer can read on its own.
 
+It's its own page in the demo's Vite build, a second HTML entry, and not a view over the dashboard like `#fixed-window`. It shares the demo's styles and app bar, and a menu item in the app bar links to it (agreed on 2026-11-10). That gives it a URL worth sharing, with its own title and link preview. It doesn't load wasmoon or start the simulation. Its long, scrolling layout stays apart from the full-screen dashboard. And PostHog counts its pageviews separately, which answers whether reviewers reach it.
+
 ### Deploying
 
 `npm run deploy` the portfolio's way (`/add-s3-deploy`): build `demo/`, sync to `s3://kylewillett.com/<prefix>/`, and invalidate the site's own CloudFront distribution. You create the distribution and the DNS record, and `CLOUDFRONT_DISTRIBUTION_ID` goes in the gitignored `scripts/deploy.config.local`.
@@ -112,7 +114,7 @@ Do these in order. Each one ends with passing tests.
 | T3. API review for 1.0 | Done | 0e66a25 |
 | T4. Release workflow and 1.0.0 | Done | 12a246a |
 | T5. Demo foundation | Done | fc20464 |
-| T6. The demo page | In progress | |
+| T6. The demo page | Done | |
 | T7. The write-up | Not started | |
 | T8. Deploy and link | Not started | |
 
@@ -210,7 +212,7 @@ Write [0024](decisions/0024-demo-runs-the-shipped-lua.md).
 - [x] A visitor can pick any of the five algorithms, send one request or hold for a stream, and see each response's instance, status and headers
 - [x] The side-by-side view shows the fixed window going over the limit at an edge and the sliding window log not, from the same requests
 - [x] The page works at 375 px wide and from the keyboard
-- [ ] Someone non-technical can say what it shows without help (you check this)
+- [x] Someone non-technical can say what it shows without help (you check this)
 
 ### T7. The write-up
 
