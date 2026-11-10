@@ -116,7 +116,7 @@ Do these in order. Each one ends with passing tests.
 | T5. Demo foundation | Done | fc20464 |
 | T6. The demo page | Done | f9df472 |
 | T7. The write-up | Done | 1438b6e |
-| T8. Deploy and link | Done | |
+| T8. Deploy and link | Done | 99ad6c9 |
 
 ### T0. The edges-check failure
 
