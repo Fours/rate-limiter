@@ -1,0 +1,30 @@
+{
+  "date": "2026-11-07",
+  "note": "Setup for the files at this level: the edges-check logs, the peaks and near-miss outputs, and the scripts that made them. Each round-N/ run has its own setup.json, written by the benchmark. Transcribed from decision 0021's Evidence section, which is the source; added in milestone 5's close-out.",
+  "command": "bench/edges-check.sh, repeated (before-edges-check-4-and-2-cpus.log on 4 and 2 CPUs, after-edges-check-unlimited.log on all 18); the 2-CPU runs with COMPOSE_FILE=docker-compose.yml:docs/decisions/data/0021-edges-2cpu-2026-11-07/cpus-2.yml. Then peaks.ts on each sliding-window-log round, and near-misses.mjs for the before rounds.",
+  "git": {
+    "commit": "7b07d1181b6e74b8c74b621da6e676bb17378864",
+    "uncommittedChanges": true
+  },
+  "host": {
+    "os": "Darwin 25.4.0 arm64",
+    "cpu": "Apple M5 Pro",
+    "cores": 18,
+    "memoryGiB": 24
+  },
+  "docker": {
+    "version": "29.4.1",
+    "cpus": 18,
+    "memoryGiB": 8
+  },
+  "versions": {
+    "node": "v22.23.4",
+    "redis": "7.4.12",
+    "nginx": "1.31.8",
+    "k6": "2.3.0"
+  },
+  "stack": {
+    "instances": 3,
+    "cpuset": "0-1 for the 2-CPU runs (cpus-2.yml), unpinned otherwise"
+  }
+}

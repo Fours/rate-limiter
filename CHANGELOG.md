@@ -2,11 +2,15 @@
 
 This project follows [Semantic Versioning](https://semver.org/). Each design choice behind these entries has a record in [docs/decisions](https://github.com/Fours/rate-limiter/tree/main/docs/decisions).
 
-## Unreleased
+## 1.0.1 (2026-11-10)
 
 ### Fixed
 
 - `createTokenBucket` works where timers have no `unref()`, such as a browser. It threw when created there, and so did the middleware's fallback on its first use.
+
+### Changed
+
+- The package's homepage is now the [live demo](https://rate-limiter.kylewillett.com/), and the README links to it and to the design write-up, [How three servers share one rate limit](https://rate-limiter.kylewillett.com/how-it-works/).
 
 ## 1.0.0 (2026-11-09)
 

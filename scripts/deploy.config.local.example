@@ -1,0 +1,12 @@
+# Copy this file to `deploy.config.local` (which is gitignored) and fill in
+# your values. The deploy script sources it automatically.
+#
+#   cp scripts/deploy.config.local.example scripts/deploy.config.local
+#
+# Required:
+CLOUDFRONT_DISTRIBUTION_ID="EXXXXXXXXXXXXX"
+
+# Optional overrides (defaults shown):
+# DEPLOY_BUCKET="kylewillett.com"
+# DEPLOY_PREFIX="rate-limiter"
+# DEPLOY_REGION="us-east-1"

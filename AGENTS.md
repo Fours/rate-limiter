@@ -17,7 +17,7 @@ This is a distributed rate limiter, shipped as a TypeScript middleware package f
 | 2 | Redis store and all five algorithms (Lua via `EVALSHA`), rules from YAML or JSON | Done — [spec](docs/milestone-2.md) |
 | 3 | Docker Compose (load balancer, 3 instances, Redis), k6 load tests, benchmarks | Done — [spec](docs/milestone-3.md) |
 | 4 | 50 ms timeout and in-memory fallback, hooks, `prometheusHooks()`, Grafana, chaos test | Done — [spec](docs/milestone-4.md) |
-| 5 | `burst` and per-rule `algorithm`, npm publish (1.0.0), demo site, design write-up | In progress — [spec](docs/milestone-5.md) |
+| 5 | `burst` and per-rule `algorithm`, npm publish (1.0.0), demo site, design write-up | Done — [spec](docs/milestone-5.md) |
 
 ## Stack
 
@@ -46,6 +46,7 @@ npm run example     # examples/basic
 npm run demo:dev    # the demo site (demo/), on Vite's dev server
 npm run demo:build  # → demo/dist/
 npm run test:e2e    # builds the demo, then Playwright on Chromium (npx playwright install chromium once)
+npm run deploy      # builds the demo and publishes it to rate-limiter.kylewillett.com (DEPLOY.md)
 scripts/smoke-published.sh [version|tarball]  # README quick start against the npm package, in Docker, on both Node versions
 npm run stack:up       # the benchmark stack: nginx, 3 app instances, Redis (docker-compose.yml)
 npm run stack:observe  # the same, plus Prometheus (:9090) and Grafana (:3001), with METRICS=1
@@ -74,6 +75,7 @@ examples/basic/         runnable demo app
 demo/                   the public demo site: Vite, React, the shipped Lua in wasmoon over a stand-in Redis (0024)
   src/writeup/           the design write-up, the site's how-it-works/ page; build/ reads its chart data
 e2e/                    Playwright smoke test of the built demo
+deploy/                 the site's CloudFront Function (0035) and the deployer's IAM policy; see DEPLOY.md
 docs/                   milestone specs and design notes
 ```
 

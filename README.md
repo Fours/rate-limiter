@@ -2,7 +2,9 @@
 
 Rate-limiting middleware for Express, with pluggable algorithms and standard `RateLimit-*` headers.
 
-> **Status: milestone 5 of 5, in progress.** Limits can be shared by many app instances through one Redis, with five algorithms, chosen per rule, and rules loaded from YAML or JSON. All five are [benchmarked](#benchmarks) on a load-balanced stack of three instances. If Redis fails, requests are answered from memory instead ([failure handling](#failure-handling)), and hooks report every decision, with a Prometheus adapter and a Grafana dashboard ([metrics](#metrics)). The API is settled for 1.0 ([API reference](#api-reference), [changelog](CHANGELOG.md)), and 1.0.0 is on npm, published from CI with [provenance](https://docs.npmjs.com/generating-provenance-statements). See the [project plan](https://claude.ai/artifact/UKY1bPShdNmagt4Tgftk1C) and the [milestone 5 spec](docs/milestone-5.md).
+**[Try the live demo](https://rate-limiter.kylewillett.com/)**: three servers share one limit in your browser, running the same Lua scripts this package runs in Redis. Then read **[how it works](https://rate-limiter.kylewillett.com/how-it-works/)**, the design write-up.
+
+> **Status: milestone 5 of 5, done.** Limits can be shared by many app instances through one Redis, with five algorithms, chosen per rule, and rules loaded from YAML or JSON. All five are [benchmarked](#benchmarks) on a load-balanced stack of three instances. If Redis fails, requests are answered from memory instead ([failure handling](#failure-handling)), and hooks report every decision, with a Prometheus adapter and a Grafana dashboard ([metrics](#metrics)). The API is settled for 1.0 ([API reference](#api-reference), [changelog](CHANGELOG.md)), and it's on npm, published from CI with [provenance](https://docs.npmjs.com/generating-provenance-statements). See the [project plan](https://claude.ai/artifact/UKY1bPShdNmagt4Tgftk1C) and the [milestone 5 spec](docs/milestone-5.md).
 
 ## Install
 
@@ -594,7 +596,7 @@ Full runs write to `docs/decisions/data/`, quick runs to `bench/results/`. The r
 
 ## Design
 
-**[How three servers share one rate limit](demo/src/writeup/WriteUp.tsx)** is the design write-up: the decision records told as one story, from why the limit lives in the app to what happens when Redis goes away, with the benchmark numbers above as charts. It opens with a summary for readers who aren't engineers. It's the second page of the demo site, `how-it-works/`, and its charts are built from `docs/decisions/data/` when the site builds. Until the site is online, run `npm run demo:dev` and open `/how-it-works/`.
+**[How three servers share one rate limit](https://rate-limiter.kylewillett.com/how-it-works/)** is the design write-up: the decision records told as one story, from why the limit lives in the app to what happens when Redis goes away, with the benchmark numbers above as charts. It opens with a summary for readers who aren't engineers. It's the second page of the [demo site](https://rate-limiter.kylewillett.com/), and its source is [demo/src/writeup/](demo/src/writeup/WriteUp.tsx). Its charts are built from `docs/decisions/data/` when the site builds. To work on it, run `npm run demo:dev` and open `/how-it-works/`.
 
 Each design choice is recorded in [docs/decisions](docs/decisions/README.md), with the alternatives and the evidence: why every algorithm sits behind one async interface, why the limiter never trusts an API key it can't verify, what the reset times mean, and more.
 

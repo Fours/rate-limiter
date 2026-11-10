@@ -2,7 +2,7 @@
 
 Each file here records one design choice: the choice itself, the alternatives, and the evidence for it. Write them for a reader, not just as notes to yourself.
 
-**The public write-up** is [How three servers share one rate limit](../../demo/src/writeup/WriteUp.tsx), the demo site's `how-it-works/` page. It tells these records as one story and links each claim to its record. Its charts are read from `data/` when the site builds (`demo/build/writeup-data.ts`, which lists every file it reads), so renaming or removing one of those files fails the build and `test/demo/writeup-data.test.ts`. When a record's conclusion changes, update the write-up in the same commit.
+**The public write-up** is [How three servers share one rate limit](https://rate-limiter.kylewillett.com/how-it-works/), the demo site's second page, built from [demo/src/writeup/](../../demo/src/writeup/WriteUp.tsx). It tells these records as one story and links each claim to its record. Its charts are read from `data/` when the site builds (`demo/build/writeup-data.ts`, which lists every file it reads), so renaming or removing one of those files fails the build and `test/demo/writeup-data.test.ts`. When a record's conclusion changes, update the write-up in the same commit.
 
 ## How to add one
 
@@ -54,3 +54,4 @@ When you change a decision, update its record in the same commit as the code.
 | [0032](0032-unknown-fields-throw-in-code-too.md) | Unknown rule fields and options throw in code too, not only in files | Accepted | 5 |
 | [0033](0033-mutation-testing.md) | Mutation testing, with Stryker for the TypeScript and a mutator of our own for the Lua | Accepted | 5 |
 | [0034](0034-property-tests.md) | Property tests for every algorithm, with fast-check | Accepted | 5 |
+| [0035](0035-folder-urls-with-a-cloudfront-function.md) | The demo site serves folder URLs with a CloudFront Function | Accepted | 5 |

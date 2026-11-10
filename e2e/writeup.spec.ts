@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
+import { SITE_HOST } from './site.ts';
 
 // The write-up (spec T7), built: reached from the dashboard, nothing leaves the site, every
 // section cites a decision record that exists, and the charts render.
@@ -17,7 +18,7 @@ test.beforeEach(async ({ page }) => {
   errors.length = 0;
   requested.length = 0;
   await page.route(
-    (url) => url.hostname !== 'localhost',
+    (url) => url.hostname !== SITE_HOST,
     async (route) => {
       offsite.push(route.request().url());
       await route.abort();

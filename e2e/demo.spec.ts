@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { SITE_HOST } from './site.ts';
 
 // The built demo in a real browser. Tests that count exactly use the fixed window: the
 // dashboard's clock starts on a block edge, and no test runs for its 10 s, so nothing resets
@@ -13,7 +14,7 @@ test.beforeEach(async ({ page }) => {
   // wasmoon fetches its .wasm from a CDN unless told otherwise. Block every other origin, and
   // record any attempt, so a test fails if anything leaves the site.
   await page.route(
-    (url) => url.hostname !== 'localhost',
+    (url) => url.hostname !== SITE_HOST,
     async (route) => {
       offsite.push(route.request().url());
       await route.abort();

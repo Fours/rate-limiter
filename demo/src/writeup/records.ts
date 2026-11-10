@@ -38,6 +38,7 @@ export const RECORDS = {
   '0032': '0032-unknown-fields-throw-in-code-too',
   '0033': '0033-mutation-testing',
   '0034': '0034-property-tests',
+  '0035': '0035-folder-urls-with-a-cloudfront-function',
 } as const;
 
 export type RecordId = keyof typeof RECORDS;

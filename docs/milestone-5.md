@@ -115,8 +115,8 @@ Do these in order. Each one ends with passing tests.
 | T4. Release workflow and 1.0.0 | Done | 12a246a |
 | T5. Demo foundation | Done | fc20464 |
 | T6. The demo page | Done | f9df472 |
-| T7. The write-up | Done | |
-| T8. Deploy and link | Not started | |
+| T7. The write-up | Done | 1438b6e |
+| T8. Deploy and link | Done | |
 
 ### T0. The edges-check failure
 
@@ -227,23 +227,25 @@ Write [0024](decisions/0024-demo-runs-the-shipped-lua.md).
 
 ### T8. Deploy and link
 
+*As built:* the site is live at https://rate-limiter.kylewillett.com/, with the write-up at `/how-it-works/` (open question 4). `npm run deploy` is the portfolio's `scripts/deploy.sh` with the prefix `rate-limiter`, building `demo/` and uploading both HTML pages with `no-cache`, not just `index.html`. Every other file in the build has a content hash, the `.wasm` and fonts included. It refuses to run without `demo/.env.local`, so a deploy can't quietly drop PostHog. The portfolio's distribution had nothing for folder URLs, being one page, so a CloudFront Function on viewer request serves `/how-it-works/` from its `index.html` and sends `/how-it-works` to it with a 301, keeping the query string ([0035](decisions/0035-folder-urls-with-a-cloudfront-function.md)). It lives in `deploy/` with a unit test, and `DEPLOY.md` covers the one-time console setup. Testing it in the console found that CloudFront's runtime rejects `for...of`, which Node runs, so the test now checks the source for it. Checked live: both pages 200 with `no-cache`, assets with a year's immutable cache, the redirect with its query string, and the Playwright suite passing against the live site (`E2E_BASE_URL`, new here). Both pages have `og:url` and a canonical link. `homepage` is the site, and a package test checks it and the README's two links. 1.0.1 carries those links to the npm page, with the `unref()` fix that was waiting in the changelog. The portfolio's Rate Limiter card links to the demo (portfolio commit 18ac1a6, deployed).
+
 *Found in T7, for this task:* the write-up is served from `how-it-works/index.html`. CloudFront in front of an S3 REST origin serves `index.html` only at the root, not for a folder such as `/how-it-works/`, so check how the portfolio's distribution handles that (a CloudFront Function, or the S3 website endpoint). Both pages link to each other relatively, so they work under any path. The README's and `docs/decisions/README.md`'s links to the write-up point at its source until the site is up, and move to the site here. Deploys need `demo/.env.local` for PostHog.
 
 **Done when:**
 
-- [ ] `npm run deploy` builds and publishes the site, set up the portfolio's way
-- [ ] The site is live on its subdomain, with both pages and working links
-- [ ] The README and the npm page link to the demo, and the portfolio links to it (a commit in the portfolio repo). `homepage` in `package.json` becomes the site.
+- [x] `npm run deploy` builds and publishes the site, set up the portfolio's way
+- [x] The site is live on its subdomain, with both pages and working links
+- [x] The README and the npm page link to the demo, and the portfolio links to it (a commit in the portfolio repo). `homepage` in `package.json` becomes the site.
 
 ## Definition of done
 
-- [ ] T0 to T8 are complete.
-- [ ] `npm run lint`, `typecheck`, `test`, `test:integration` and `build` all pass, locally and in CI, and the CI stack checks pass.
-- [ ] Line coverage is still at least 90% for `src/`.
-- [ ] Still no runtime dependencies other than the Express peer dependency. `prom-client` is an optional peer dependency.
-- [ ] `@kylewillett/rate-limiter` 1.0.0 is on npm with provenance.
-- [ ] The demo and the write-up are live and linked from the portfolio.
-- [ ] Every results directory in `docs/decisions/data/` has a `setup.json`.
+- [x] T0 to T8 are complete.
+- [x] `npm run lint`, `typecheck`, `test`, `test:integration` and `build` all pass, locally and in CI, and the CI stack checks pass.
+- [x] Line coverage is still at least 90% for `src/`.
+- [x] Still no runtime dependencies other than the Express peer dependency. `prom-client` is an optional peer dependency.
+- [x] `@kylewillett/rate-limiter` 1.0.0 is on npm with provenance.
+- [x] The demo and the write-up are live and linked from the portfolio.
+- [x] Every results directory in `docs/decisions/data/` has a `setup.json`.
 
 ## Decision records
 
@@ -262,6 +264,8 @@ New:
 - [0031](decisions/0031-two-rules-on-one-key.md) (after T3): a rule change keeps a client's progress, even when two rules share a key
 - [0032](decisions/0032-unknown-fields-throw-in-code-too.md) (after T3): unknown rule fields and options throw in code too
 - [0033](decisions/0033-mutation-testing.md) (after T3): mutation testing, with Stryker for `src/` and our own mutator for the Lua
+- [0034](decisions/0034-property-tests.md) (after T3): property tests for every algorithm, with fast-check
+- [0035](decisions/0035-folder-urls-with-a-cloudfront-function.md) (T8): the demo site serves folder URLs such as `/how-it-works/` with a CloudFront Function
 
 ## Open questions
 
@@ -279,7 +283,7 @@ New:
 
 4. **The subdomain.** For example `ratelimiter.kylewillett.com` or `rate-limiter.kylewillett.com`.
 
-   *Still open. Needed by T8.*
+   *Answer (T8 plan review, 2026-11-10): `rate-limiter.kylewillett.com`, with the S3 prefix `rate-limiter`, matching the repo and the package name.*
 
 5. **Analytics.** PostHog the portfolio's way (`/add-posthog`), or none. Recommendation: add it, to see whether reviewers reach the write-up.
 

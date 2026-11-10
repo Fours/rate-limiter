@@ -1,6 +1,6 @@
 {
   "name": "@kylewillett/rate-limiter",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Distributed rate limiting middleware for Express, with pluggable algorithms and shared limits through Redis.",
   "license": "MIT",
   "author": "Kyle Willett",
@@ -21,7 +21,7 @@
     "type": "git",
     "url": "git+https://github.com/Fours/rate-limiter.git"
   },
-  "homepage": "https://github.com/Fours/rate-limiter#readme",
+  "homepage": "https://rate-limiter.kylewillett.com/",
   "bugs": {
     "url": "https://github.com/Fours/rate-limiter/issues"
   },
@@ -74,6 +74,7 @@
     "demo:dev": "vite --config demo/vite.config.ts",
     "demo:build": "vite build --config demo/vite.config.ts",
     "demo:preview": "vite preview --config demo/vite.config.ts",
+    "deploy": "bash scripts/deploy.sh",
     "test:e2e": "npm run demo:build && playwright test",
     "check:package": "node scripts/check-pack.js && publint && attw --pack --profile esm-only",
     "mutate": "stryker run",

@@ -6,6 +6,7 @@ import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
+const DEMO_SITE = 'https://rate-limiter.kylewillett.com/';
 
 // Changing either list changes the public API: say so in CHANGELOG.md. Removed before 1.0, in
 // T3: `TokenBucket.sweep()` and `TokenBucket.size`, which were there for tests.
@@ -82,7 +83,7 @@ describe('the public API', () => {
     expect(undocumented).toStrictEqual([]);
   });
 
-  it('has the metadata npm shows, at version 1.0.0', () => {
+  it('has the metadata npm shows, at version 1.0.1', () => {
     const pkg = JSON.parse(readFileSync(`${root}package.json`, 'utf8')) as {
       version?: unknown;
       description?: unknown;
@@ -90,10 +91,14 @@ describe('the public API', () => {
       homepage?: unknown;
       bugs?: { url?: unknown };
     };
-    expect(pkg.version).toBe('1.0.0');
+    expect(pkg.version).toBe('1.0.1');
     expect(typeof pkg.description === 'string' && pkg.description !== '').toBe(true);
     expect(pkg.keywords).toEqual(expect.arrayContaining(['rate-limit', 'express', 'redis']));
-    expect(pkg.homepage).toMatch(/^https:\/\//);
+    // npm links the homepage beside the README, so both point at the demo site (spec T8).
+    expect(pkg.homepage).toBe(DEMO_SITE);
+    const readme = readFileSync(`${root}README.md`, 'utf8');
+    expect(readme).toContain(`](${DEMO_SITE})`);
+    expect(readme).toContain(`](${DEMO_SITE}how-it-works/)`);
     expect(pkg.bugs?.url).toMatch(/^https:\/\//);
   });
 });
