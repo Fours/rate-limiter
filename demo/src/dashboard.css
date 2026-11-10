@@ -931,18 +931,38 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.5rem 0.5rem 0.5rem 0.9rem;
+  padding: 0.55rem 0.55rem 0.55rem 0.7rem;
   border-radius: var(--radius);
   background: var(--panel);
   border: 1px solid var(--line);
   box-shadow: var(--shadow-sm);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
+}
+
+.dashboard .teaser-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-sm);
+  color: var(--warn-ink);
+  background: var(--warn-bg);
+  box-shadow: inset 0 0 0 1px var(--warn-line);
 }
 
 .dashboard .edge-teaser p {
+  display: flex;
+  flex-direction: column;
   flex: none;
+  line-height: 1.35;
   white-space: nowrap;
-  color: var(--ink-2);
+  color: var(--muted);
+}
+
+.dashboard .edge-teaser strong {
+  color: var(--ink);
+  font-weight: 600;
 }
 
 .dashboard .edge-teaser button {

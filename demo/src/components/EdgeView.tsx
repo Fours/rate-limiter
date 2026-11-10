@@ -13,6 +13,7 @@ import {
   EdgeTable,
   seconds,
 } from './EdgeComparison.tsx';
+import { CloseIcon, SplitWindowIcon } from './icons.tsx';
 import { Lanes, type Lane } from './Lanes.tsx';
 import { statusText } from './ResponseDetails.tsx';
 import './edge-view.css';
@@ -68,60 +69,67 @@ export function EdgeView({ lab, onClose }: { lab: EdgeLab; onClose: () => void }
       onKeyDown={(e) => {
         if (e.key === 'Escape') onClose();
       }}
+      onClick={(e) => {
+        // A click on the dimmed dashboard around the sheet closes it, as Escape does.
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
-      <header className="ev-top">
-        <div>
-          <p className="ev-kicker">A closer look</p>
-          <h2 id="edge-heading">Where the fixed window slips</h2>
-        </div>
-        <button ref={close} type="button" className="ev-close" onClick={onClose}>
-          Close
-        </button>
-      </header>
-
-      <div className="ev-body">
-        <section className="ev-intro ev-panel" aria-label="What this shows">
-          <p>{EDGE_EXPLAINER}</p>
-          <p className="ev-muted">
-            Both get exactly the same requests, from the same visitor, at the same moments. The
-            limit is {limit} every {windowMs / 1000} seconds. This view keeps its own time, so the
-            dashboard behind it is left as it was.
-          </p>
-          {lab.state.kind === 'failed' && <p role="alert">Couldn’t start: {lab.state.error}</p>}
-          <EdgeControls lab={lab} />
-          <EdgeSummary responses={lab.compared} />
-        </section>
-
-        <section className="ev-chart ev-panel" aria-labelledby="ev-chart-heading">
-          <div className="ev-head">
-            <h3 id="ev-chart-heading">Request by request</h3>
-            <span className="ev-legend" aria-hidden="true">
-              <span className="lane-mark" data-status="200" /> allowed
-              <span className="lane-mark" data-status="429" /> refused
-              <span className="ev-edge-key" /> new 10-second block
-            </span>
+      <div className="ev-sheet">
+        <header className="ev-top">
+          <div>
+            <p className="ev-kicker">A closer look</p>
+            <h2 id="edge-heading">Where the fixed window slips</h2>
           </div>
-          {lab.compared.length === 0 ? (
-            <p className="ev-muted ev-empty">
-              Press <em>Burst across the edge</em> to send the same 12 requests to both.
+          <button ref={close} type="button" className="ev-close" onClick={onClose}>
+            <CloseIcon />
+            Close
+          </button>
+        </header>
+
+        <div className="ev-body">
+          <section className="ev-intro ev-panel" aria-label="What this shows">
+            <p>{EDGE_EXPLAINER}</p>
+            <p className="ev-muted">
+              Both get exactly the same requests, from the same visitor, at the same moments. The
+              limit is {limit} every {windowMs / 1000} seconds. This view keeps its own time, so the
+              dashboard behind it is left as it was.
             </p>
-          ) : (
-            <Lanes
-              label="The comparison, request by request"
-              lanes={lanes}
-              from={from}
-              to={to}
-              windowMs={windowMs}
-              startMs={lab.startMs}
-            />
-          )}
-        </section>
+            {lab.state.kind === 'failed' && <p role="alert">Couldn’t start: {lab.state.error}</p>}
+            <EdgeControls lab={lab} />
+            <EdgeSummary responses={lab.compared} />
+          </section>
 
-        <section className="ev-table ev-panel" aria-label="Every request">
-          <div className="ev-scroll">
-            <EdgeTable responses={lab.compared} startMs={lab.startMs} />
-          </div>
-        </section>
+          <section className="ev-chart ev-panel" aria-labelledby="ev-chart-heading">
+            <div className="ev-head">
+              <h3 id="ev-chart-heading">Request by request</h3>
+              <span className="ev-legend" aria-hidden="true">
+                <span className="lane-mark" data-status="200" /> allowed
+                <span className="lane-mark" data-status="429" /> refused
+                <span className="ev-edge-key" /> new 10-second block
+              </span>
+            </div>
+            {lab.compared.length === 0 ? (
+              <p className="ev-muted ev-empty">
+                Press <em>Burst across the edge</em> to send the same 12 requests to both.
+              </p>
+            ) : (
+              <Lanes
+                label="The comparison, request by request"
+                lanes={lanes}
+                from={from}
+                to={to}
+                windowMs={windowMs}
+                startMs={lab.startMs}
+              />
+            )}
+          </section>
+
+          <section className="ev-table ev-panel" aria-label="Every request">
+            <div className="ev-scroll">
+              <EdgeTable responses={lab.compared} startMs={lab.startMs} />
+            </div>
+          </section>
+        </div>
       </div>
     </div>,
     document.body,
@@ -132,8 +140,12 @@ export function EdgeView({ lab, onClose }: { lab: EdgeLab; onClose: () => void }
 export function EdgeTeaser({ onOpen }: { onOpen: () => void }) {
   return (
     <aside className="edge-teaser" aria-label="The fixed window’s weak spot">
+      <span className="teaser-icon">
+        <SplitWindowIcon size={16} />
+      </span>
       <p>
-        <strong>Two of these algorithms can disagree by 2×.</strong>
+        <strong>Two of these algorithms can disagree by 2×</strong>
+        <span>Same requests, 12 allowed versus 6.</span>
       </p>
       <button type="button" className="secondary" onClick={onOpen}>
         See where the fixed window slips <span aria-hidden="true">→</span>

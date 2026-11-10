@@ -31,7 +31,9 @@ export const EDGE_EXPLAINER =
 function Verdict({ response }: { response: SimResponse | undefined }) {
   if (response === undefined) return <td />;
   return (
-    <td data-status={response.status}>{response.status === 200 ? '✓ allowed' : '✕ refused'}</td>
+    <td data-status={response.status}>
+      <span className="verdict">{response.status === 200 ? '✓ allowed' : '✕ refused'}</span>
+    </td>
   );
 }
 
@@ -41,9 +43,16 @@ export function EdgeControls({ lab }: { lab: EdgeLab }) {
   const edgeIn = nextWindowEdge(lab.now, EDGE_RULE.windowMs) - lab.now;
   return (
     <div className="edge-controls">
-      <p className="countdown">
-        Next block starts in <strong>{ready ? seconds(edgeIn) : '…'}</strong>
-      </p>
+      <div className="countdown">
+        <p>
+          Next block starts in <strong>{ready ? seconds(edgeIn) : '…'}</strong>
+        </p>
+        <span className="countdown-bar" aria-hidden="true">
+          <span
+            style={{ width: `${String(ready ? 100 - (edgeIn / EDGE_RULE.windowMs) * 100 : 0)}%` }}
+          />
+        </span>
+      </div>
       <div className="row">
         <button
           type="button"
@@ -86,10 +95,11 @@ export function EdgeSummary({ responses }: { responses: readonly SimResponse[] }
         return (
           <div key={name} className="card" data-over={over} data-testid={`summary-${name}`}>
             <h3>{ALGORITHM_COPY[name].name}</h3>
-            <p>
-              Most allowed in any 10 seconds: <strong data-testid={`most-${name}`}>{most}</strong>
+            <p className="card-num">
+              <strong data-testid={`most-${name}`}>{most}</strong>
+              <span>most allowed in any 10 s</span>
             </p>
-            <p>
+            <p className="card-verdict">
               {own.length === 0
                 ? 'No requests yet.'
                 : over

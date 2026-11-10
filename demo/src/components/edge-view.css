@@ -1,30 +1,51 @@
-/* The full-screen fixed-window view, in the dashboard's colours. */
+/* The fixed-window view: a sheet over the dimmed dashboard. Tokens live in styles.css. */
 
 .edge-view {
   position: fixed;
   inset: 0;
   z-index: 200;
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding: 1rem 1.25rem;
+  justify-content: center;
+  padding: 1.5rem;
   overflow: auto;
-  background: var(--bg);
+  background: rgb(16 24 40 / 45%);
+  backdrop-filter: blur(3px);
   color: var(--ink);
   font-family: var(--font);
   line-height: 1.5;
-  animation: ev-in 0.18s ease-out;
+  animation: ev-fade 0.18s ease-out;
+}
+
+.ev-sheet {
+  flex: 1;
+  max-width: 82rem;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem;
+  border-radius: 16px;
+  background: var(--bg);
+  box-shadow: var(--shadow-lg);
+  animation: ev-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes ev-fade {
+  from {
+    opacity: 0;
+  }
 }
 
 @keyframes ev-in {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(10px) scale(0.99);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .edge-view {
+  .edge-view,
+  .ev-sheet {
     animation: none;
   }
 }
@@ -37,44 +58,72 @@
 
 .ev-top {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
 }
 
 .ev-kicker {
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-size: 0.75rem;
-  color: var(--muted);
+  letter-spacing: 0.07em;
+  font-size: 0.7rem;
+  color: var(--accent);
   font-weight: 600;
 }
 
 .ev-top h2 {
-  font-size: 1.5rem;
+  font-size: 1.375rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
 }
 
+/* Buttons, as on the dashboard */
+
 .edge-view button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
   font: inherit;
+  font-size: 0.875rem;
   font-weight: 600;
-  padding: 0.6rem 1rem;
-  border-radius: 0.5rem;
-  border: 1px solid var(--accent);
-  background: transparent;
-  color: var(--accent);
+  padding: 0.55rem 0.95rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink-2);
+  box-shadow: var(--shadow-sm);
   cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.edge-view button:hover {
+  background: var(--panel-2);
 }
 
 .edge-view button.primary {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--on-accent);
+  box-shadow:
+    var(--shadow-sm),
+    inset 0 1px 0 rgb(255 255 255 / 12%);
+}
+
+.edge-view button.primary:hover {
+  background: var(--accent-hover);
 }
 
 .edge-view button:disabled {
   opacity: 0.5;
   cursor: default;
 }
+
+.edge-view .ev-close {
+  padding: 0.45rem 0.75rem;
+}
+
+/* Layout */
 
 .ev-body {
   flex: 1;
@@ -84,22 +133,26 @@
     'intro chart' auto
     'intro table' minmax(0, 1fr)
     / minmax(18rem, 26rem) minmax(0, 1fr);
-  gap: 0.75rem;
+  gap: 1rem;
 }
 
 .ev-panel {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  padding: 1rem;
+  gap: 0.9rem;
+  padding: 1.1rem 1.2rem;
   background: var(--panel);
   border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
 }
 
 .ev-intro {
   grid-area: intro;
   overflow: auto;
+  font-size: 0.9rem;
+  color: var(--ink-2);
 }
 
 .ev-chart {
@@ -112,40 +165,52 @@
 
 .ev-muted {
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 0.825rem;
 }
 
 .ev-empty {
   padding: 1.5rem 0;
   text-align: center;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-sm);
 }
 
 .ev-head {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
 }
 
 .ev-head h3 {
-  font-size: 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
 .ev-legend {
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.35rem 0.6rem;
-  font-size: 0.8rem;
+  gap: 0.35rem 0.5rem;
+  font-size: 0.75rem;
   color: var(--muted);
+}
+
+.ev-legend .lane-mark {
+  width: 0.6rem;
+  height: 0.6rem;
+}
+
+.ev-legend .lane-mark:not(:first-child),
+.ev-edge-key {
+  margin-left: 0.4rem;
 }
 
 .ev-edge-key {
   display: inline-block;
-  height: 0.9rem;
-  border-left: 2px dashed var(--ink);
-  opacity: 0.45;
+  height: 0.85rem;
+  border-left: 1.5px dashed var(--subtle);
 }
 
 .ev-scroll {
@@ -154,10 +219,16 @@
   flex: 1;
 }
 
+/* Controls and countdown */
+
 .edge-view .edge-controls {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.6rem;
+  padding: 0.9rem;
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  box-shadow: inset 0 0 0 1px var(--line);
 }
 
 .edge-view .edge-controls .row {
@@ -166,84 +237,195 @@
   gap: 0.5rem;
 }
 
+.edge-view .edge-controls .row button {
+  flex: 1 1 auto;
+  padding-inline: 0.75rem;
+  white-space: nowrap;
+}
+
 .edge-view .countdown {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
   font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+}
+
+.edge-view .countdown strong {
+  font-family: var(--mono);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.edge-view .countdown-bar {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.edge-view .countdown-bar span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: inherit;
 }
 
 .edge-view .hint {
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: 0.775rem;
 }
+
+/* The two verdicts */
 
 .edge-view .compare-summary {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
+  gap: 0.75rem;
 }
 
 .edge-view .card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
   border: 1px solid var(--line);
-  border-radius: 0.6rem;
-  padding: 0.55rem 0.75rem;
-  font-size: 0.9rem;
+  border-radius: var(--radius);
+  padding: 0.8rem 0.9rem;
+  font-size: 0.8rem;
+  background: var(--panel);
 }
 
 .edge-view .card h3 {
-  font-size: 0.95rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.edge-view .card-num {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.edge-view .card-num strong {
+  font-size: 2rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.edge-view .card-num span {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.edge-view .card-verdict {
+  margin-top: 0.3rem;
+  font-weight: 600;
 }
 
 .edge-view .card[data-over='true'] {
-  border-color: var(--bad);
+  border-color: var(--bad-line);
   background: var(--bad-bg);
 }
 
+.edge-view .card[data-over='true'] .card-num strong,
+.edge-view .card[data-over='true'] .card-verdict {
+  color: var(--bad-ink);
+}
+
 .edge-view .card[data-over='false'] {
-  border-color: var(--ok);
+  border-color: var(--ok-line);
   background: var(--ok-bg);
 }
+
+.edge-view .card[data-over='false'] .card-num strong,
+.edge-view .card[data-over='false'] .card-verdict {
+  color: var(--ok-ink);
+}
+
+/* The table */
 
 .edge-view .compare-table {
   width: 100%;
   border-collapse: collapse;
   font-variant-numeric: tabular-nums;
-  font-size: 0.88rem;
+  font-size: 0.825rem;
 }
 
 .edge-view .compare-table caption {
   text-align: left;
-  color: var(--muted);
-  padding-bottom: 0.3rem;
+  font-weight: 600;
+  color: var(--ink);
+  font-size: 0.875rem;
+  padding-bottom: 0.6rem;
 }
 
 .edge-view .compare-table th,
 .edge-view .compare-table td {
   text-align: left;
-  padding: 0.25rem 0.6rem;
-  border-bottom: 1px solid var(--line);
+  padding: 0.4rem 0.75rem;
+  border-bottom: 1px solid var(--line-soft);
 }
 
 .edge-view .compare-table thead th {
   position: sticky;
   top: 0;
-  background: var(--panel);
+  z-index: 1;
+  background: var(--panel-2);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom-color: var(--line);
 }
 
-.edge-view .compare-table td[data-status='200'] {
-  color: var(--ok);
+.edge-view .compare-table tbody tr:not(.edge) td:first-child {
+  font-family: var(--mono);
+  font-size: 0.775rem;
+  color: var(--muted);
 }
 
-.edge-view .compare-table td[data-status='429'] {
-  color: var(--bad);
+.edge-view .verdict {
+  display: inline-block;
+  padding: 0 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.7;
+}
+
+.edge-view td[data-status='200'] .verdict {
+  color: var(--ok-ink);
+  background: var(--ok-bg);
+  box-shadow: inset 0 0 0 1px var(--ok-line);
+}
+
+.edge-view td[data-status='429'] .verdict {
+  color: var(--bad-ink);
   background: var(--bad-bg);
+  box-shadow: inset 0 0 0 1px var(--bad-line);
 }
 
 .edge-view .compare-table tr.edge td {
-  border-top: 2px dashed var(--ink);
-  font-weight: 700;
+  padding-block: 0.5rem;
+  border-top: 1.5px dashed var(--subtle);
+  border-bottom: 1.5px dashed var(--subtle);
+  background: var(--accent-soft);
+  color: var(--accent-press);
+  font-size: 0.775rem;
+  font-weight: 600;
 }
 
 @media (width <= 900px) {
   .edge-view {
+    padding: 0;
+  }
+
+  .ev-sheet {
+    border-radius: 0;
     padding: 0.75rem;
   }
 
@@ -264,35 +446,4 @@
   .edge-view .compare-summary {
     grid-template-columns: 1fr;
   }
-}
-
-/* The teaser in the dashboard's top bar: quiet, but there. */
-.edge-teaser {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem 1rem;
-}
-
-.edge-teaser p {
-  margin: 0;
-  flex: 1 1 16rem;
-}
-
-/* The line under "Fixed window" in the picker. */
-.algo-picker .picker-hint {
-  margin: 0.25rem 0 0.25rem 1.6rem;
-  font-size: 0.85rem;
-}
-
-.algo-picker .picker-hint button {
-  font: inherit;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  text-decoration: underline;
-  cursor: pointer;
-  font-weight: 600;
 }
