@@ -7,6 +7,7 @@ import {
   INSTANCES,
   RedisSwitch,
   ResponseLog,
+  RuleSummary,
   SendButton,
   StartupStatus,
 } from './components/controls.tsx';
@@ -98,6 +99,7 @@ export function Dashboard({
                   : 'Switch Redis off and watch each server carry on alone.'}
               </p>
             </fieldset>
+            <RuleSummary algorithm={algorithm} redisDown={sim.redisDown} />
           </aside>
 
           <Kpis sim={sim} algorithm={algorithm} allowance={allowance} />

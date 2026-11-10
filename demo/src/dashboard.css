@@ -337,8 +337,14 @@
 
 .dash-side {
   grid-area: side;
-  gap: 0.75rem;
   overflow: auto;
+}
+
+.dash-side > fieldset + fieldset,
+.dash-side > .algo-picker + fieldset {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line-soft);
 }
 
 .dashboard fieldset {
@@ -349,23 +355,37 @@
 }
 
 .dashboard legend {
-  font-size: 0.75rem;
+  float: left;
+  width: 100%;
+  font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
   color: var(--subtle);
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.5rem;
   padding: 0;
+}
+
+.dashboard legend + * {
+  clear: both;
+}
+
+.algo-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
 }
 
 .dashboard .choice {
   display: flex;
-  gap: 0.6rem;
+  gap: 0.65rem;
   align-items: flex-start;
   padding: 0.5rem 0.65rem;
   border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: 0.875rem;
+  color: var(--ink-2);
+  transition: background-color 0.15s;
 }
 
 .dashboard .choice:hover {
@@ -375,6 +395,7 @@
 .dashboard .choice[data-checked='true'] {
   background: var(--accent-soft);
   box-shadow: inset 0 0 0 1px var(--accent-line);
+  color: var(--ink);
 }
 
 .dashboard .choice strong {
@@ -382,18 +403,66 @@
 }
 
 .dashboard .choice input {
-  margin-top: 0.25rem;
-  accent-color: var(--accent);
+  appearance: none;
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  margin: 0.15rem 0 0;
+  border-radius: 50%;
+  border: 1.5px solid #c4cad4;
+  background: var(--panel);
+  transition:
+    border-color 0.15s,
+    border-width 0.15s;
+  cursor: pointer;
+}
+
+.dashboard .choice input:checked {
+  border: 5px solid var(--accent);
+}
+
+.dashboard .choice input:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
 }
 
 .dashboard .summary {
   display: block;
   color: var(--ink-2);
   font-size: 0.8rem;
-  margin-top: 0.15rem;
+  line-height: 1.45;
+  margin-top: 0.2rem;
 }
 
+.dashboard .algo-picker .picker-hint {
+  margin: 0.35rem 0 0;
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--radius-sm);
+  background: var(--warn-bg);
+  box-shadow: inset 0 0 0 1px var(--warn-line);
+  color: var(--warn-ink);
+  font-size: 0.8rem;
+}
+
+.dashboard .algo-picker .picker-hint button {
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Buttons */
+
 .dashboard button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
   font: inherit;
   font-size: 0.875rem;
   font-weight: 600;
@@ -406,7 +475,8 @@
   cursor: pointer;
   transition:
     background-color 0.15s,
-    box-shadow 0.15s;
+    box-shadow 0.15s,
+    transform 0.05s;
 }
 
 .dashboard button:hover {
@@ -418,10 +488,14 @@
   background: var(--accent);
   border-color: var(--accent);
   color: var(--on-accent);
+  box-shadow:
+    var(--shadow-sm),
+    inset 0 1px 0 rgb(255 255 255 / 12%);
 }
 
 .dashboard button.hold {
   width: 100%;
+  padding-block: 0.65rem;
 }
 
 .dashboard button.primary:hover,
@@ -432,6 +506,7 @@
 .dashboard button.hold[data-holding='true'] {
   background: var(--accent-press);
   box-shadow: var(--focus);
+  transform: translateY(1px);
 }
 
 .dashboard button:disabled {
@@ -442,25 +517,129 @@
 .dashboard .hint {
   color: var(--muted);
   font-size: 0.8rem;
-  margin-top: 0.4rem;
+  margin-top: 0.45rem;
 }
+
+/* The Redis switch: a real checkbox with role="switch", drawn as a toggle. */
 
 .dashboard .redis-switch {
   display: flex;
-  gap: 0.5rem;
+  flex-direction: row-reverse;
+  justify-content: space-between;
   align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  box-shadow: inset 0 0 0 1px var(--line);
   font-weight: 600;
   font-size: 0.875rem;
+  cursor: pointer;
 }
 
 .dashboard .redis-switch input {
-  width: 1.1rem;
-  height: 1.1rem;
-  accent-color: var(--ok);
+  appearance: none;
+  flex: none;
+  position: relative;
+  width: 2.25rem;
+  height: 1.3rem;
+  margin: 0;
+  border-radius: 999px;
+  background: #d0d5dd;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.dashboard .redis-switch input::before {
+  content: '';
+  position: absolute;
+  top: 0.15rem;
+  left: 0.15rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(16 24 40 / 20%);
+  transition: translate 0.2s;
+}
+
+.dashboard .redis-switch input:checked {
+  background: var(--ok);
+}
+
+.dashboard .redis-switch input:checked::before {
+  translate: 0.95rem 0;
+}
+
+.dashboard .redis-switch input:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
 }
 
 .dashboard .redis-switch[data-down='true'] {
   color: var(--bad-ink);
+  background: var(--bad-bg);
+  box-shadow: inset 0 0 0 1px var(--bad-line);
+}
+
+/* The rule in force, at the foot of the controls */
+
+.rule-card {
+  margin-top: auto;
+  padding: 0.7rem 0.8rem;
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.dash-side > fieldset:last-of-type {
+  margin-bottom: 1.25rem;
+}
+
+.rule-card h3 {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--subtle);
+  margin-bottom: 0.45rem;
+}
+
+.rule-card dl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.3rem 0.75rem;
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+.rule-card dt {
+  color: var(--muted);
+}
+
+.rule-card dd {
+  margin: 0;
+  color: var(--ink-2);
+  font-weight: 500;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.rule-card .rule-key {
+  grid-column: 1 / -1;
+  text-align: left;
+}
+
+.rule-card dd.rule-key {
+  margin-top: -0.15rem;
+}
+
+.rule-card code {
+  font-size: 0.72rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: 4px;
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--line);
 }
 
 /* ---------- The diagram ---------- */
@@ -667,15 +846,6 @@
 
 .dash-lanes .lanes {
   flex: 1;
-}
-
-.dashboard .algo-picker .picker-hint {
-  color: var(--muted);
-}
-
-.dashboard .algo-picker .picker-hint button {
-  color: var(--accent);
-  box-shadow: none;
 }
 
 /* ---------- Log ---------- */

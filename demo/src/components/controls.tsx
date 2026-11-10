@@ -2,9 +2,10 @@
 // the keyboard and with a screen reader.
 import { ALGORITHM_COPY } from '../algorithms.ts';
 import { ALGORITHMS, type AlgorithmName } from '../redis/scripts.ts';
-import type { SimResponse } from '../sim/cluster.ts';
-import type { Simulation } from '../useSimulation.ts';
+import { keyFor, ruleFor, type SimResponse } from '../sim/cluster.ts';
+import { RULE, type Simulation } from '../useSimulation.ts';
 import { HoldButton } from './HoldButton.tsx';
+import { SendIcon } from './icons.tsx';
 import { plainOutcome, ResponseDetails, statusText } from './ResponseDetails.tsx';
 
 export const INSTANCES = [1, 2, 3];
@@ -20,7 +21,7 @@ export function AlgorithmPicker({
   onSeeWeakSpot?: () => void;
 }) {
   return (
-    <fieldset className="algo-picker">
+    <fieldset className="algo-picker" aria-label="Algorithm">
       {ALGORITHMS.map((name) => (
         <label key={name} className="choice" data-checked={value === name}>
           <input
@@ -40,7 +41,7 @@ export function AlgorithmPicker({
       ))}
       {value === 'fixed-window' && onSeeWeakSpot !== undefined && (
         <p className="picker-hint">
-          This one has a weak spot at the edge of each block.{' '}
+          It has a weak spot at the edge of each block.{' '}
           <button type="button" onClick={onSeeWeakSpot}>
             See its weak spot
           </button>
@@ -59,6 +60,7 @@ export function SendButton({ sim, algorithm }: { sim: Simulation; algorithm: Alg
         void sim.send(algorithm);
       }}
     >
+      <SendIcon />
       Send one request
     </HoldButton>
   );
@@ -78,6 +80,35 @@ export function RedisSwitch({ sim }: { sim: Simulation }) {
       />
       <span>Redis is {sim.redisDown ? 'down' : 'up'}</span>
     </label>
+  );
+}
+
+/** The rule in force, as the library would be configured for it, and where it's counted. */
+export function RuleSummary({
+  algorithm,
+  redisDown,
+}: {
+  algorithm: AlgorithmName;
+  redisDown: boolean;
+}) {
+  return (
+    <section className="rule-card" aria-labelledby="rule-card-heading">
+      <h3 id="rule-card-heading">Active rule</h3>
+      <dl>
+        <dt>Limit</dt>
+        <dd>
+          {RULE.limit} per {RULE.windowMs / 1000} s
+        </dd>
+        <dt>Algorithm</dt>
+        <dd>{ALGORITHM_COPY[algorithm].name}</dd>
+        <dt>Counted in</dt>
+        <dd>{redisDown ? 'Each instance' : 'Redis, via Lua'}</dd>
+        <dt className="rule-key">Key</dt>
+        <dd className="rule-key">
+          <code>{keyFor(ruleFor(RULE, algorithm), 'visitor')}</code>
+        </dd>
+      </dl>
+    </section>
   );
 }
 
