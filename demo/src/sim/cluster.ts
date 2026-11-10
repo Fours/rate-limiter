@@ -28,8 +28,23 @@ export interface SimResponse {
   readonly headers: Readonly<Record<string, string>>;
 }
 
+/** What the shared count would let through right now. */
+export interface Availability {
+  /** Requests that could go through at once, now. */
+  readonly available: number;
+  /** The rule's limit, which RateLimit-Limit reports. */
+  readonly limit: number;
+  /** When nothing is available: ms until the next request would be. Otherwise 0. */
+  readonly nextInMs: number;
+}
+
 export interface ClusterOptions {
   readonly algorithms: Readonly<Record<AlgorithmName, Algorithm>>;
+  /**
+   * The same algorithms over a dry-run client, whose checks change nothing (standInClient's
+   * dryRun). Without them, available() has nothing to ask.
+   */
+  readonly peekAlgorithms?: Readonly<Record<AlgorithmName, Algorithm>>;
   /** The stand-in Redis: taking it down makes every check fail, so the fallbacks answer. */
   readonly redis: { readonly down: boolean; setDown(down: boolean): void };
   readonly clock: Clock;
@@ -47,6 +62,15 @@ export interface Cluster {
    * collide). One response per algorithm, all from the same instance at the same moment.
    */
   send(rule: Rule, algorithms: readonly AlgorithmName[], clientId?: string): Promise<SimResponse[]>;
+  /**
+   * What the shared count would allow right now for `clientId` under `rule`, asked of the shipped
+   * script without spending anything. Undefined while Redis is down, or without peekAlgorithms.
+   */
+  available(
+    rule: Rule,
+    algorithm: AlgorithmName,
+    clientId?: string,
+  ): Promise<Availability | undefined>;
   /** Takes Redis down, or brings it back with its data kept (a restart with persistence). */
   setRedisDown(down: boolean): void;
   readonly redisDown: boolean;
@@ -58,6 +82,14 @@ export interface Cluster {
 /** The rule as one algorithm checks it: its own ID, so its key is its own. */
 export function ruleFor(rule: Rule, algorithm: AlgorithmName): Rule {
   return { ...rule, id: `${rule.id}-${algorithm}` };
+}
+
+/**
+ * The storage key, in the library's format (decision 0028), with its default prefix. buildKey
+ * lives in identify.ts, which needs node:net, so it's spelled out here.
+ */
+export function keyFor(rule: Rule, clientId: string): string {
+  return `rl:${rule.id}:${clientId}`;
 }
 
 export function createCluster(opts: ClusterOptions): Cluster {
@@ -83,9 +115,7 @@ export function createCluster(opts: ClusterOptions): Cluster {
   ): Promise<SimResponse> {
     const algorithm = opts.algorithms[name];
     const rule = ruleFor(base, name);
-    // The key format is the library's (decision 0028), with its default prefix. buildKey lives
-    // in identify.ts, which needs node:net, so it's spelled out here.
-    const key = `rl:${rule.id}:${clientId}`;
+    const key = keyFor(rule, clientId);
     const result = await withTimeout(() => algorithm.check(key, rule), timeoutMs);
     let applied = rule;
     let decision: Decision;
@@ -130,6 +160,21 @@ export function createCluster(opts: ClusterOptions): Cluster {
         responses.push(await check(index, request, at, rule, name, clientId));
       }
       return responses;
+    },
+    async available(base, name, clientId = 'visitor') {
+      const peek = opts.peekAlgorithms?.[name];
+      if (peek === undefined || opts.redis.down) return undefined;
+      const rule = ruleFor(base, name);
+      try {
+        // A check that would be allowed has spent one, so one more was there before it.
+        const d = await peek.check(keyFor(rule, clientId), rule);
+        return d.allowed
+          ? { available: d.remaining + 1, limit: rule.limit, nextInMs: 0 }
+          : { available: 0, limit: rule.limit, nextInMs: d.resetMs };
+      } catch {
+        // Redis went down meanwhile: there's no shared count to report.
+        return undefined;
+      }
     },
     setRedisDown(down) {
       opts.redis.setDown(down);

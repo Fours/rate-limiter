@@ -9,11 +9,14 @@ import { StandInRedis } from './redis/stand-in.ts';
 export interface DemoStore {
   readonly redis: StandInRedis;
   readonly algorithms: Record<AlgorithmName, Algorithm>;
+  /** The same algorithms in dry-run mode: they answer, and leave Redis as it was. */
+  readonly peekAlgorithms: Record<AlgorithmName, Algorithm>;
 }
 
 export async function startStore(now: () => number): Promise<DemoStore> {
   const redis = new StandInRedis(now);
   const runner = await createScriptRunner(redis, wasmUrl);
   const algorithms = await createAlgorithms(standInClient(redis, runner));
-  return { redis, algorithms };
+  const peekAlgorithms = await createAlgorithms(standInClient(redis, runner, { dryRun: true }));
+  return { redis, algorithms, peekAlgorithms };
 }

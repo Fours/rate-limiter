@@ -39,6 +39,7 @@ beforeEach(async () => {
   current.redis = redis;
   cluster = createCluster({
     algorithms: await createAlgorithms(standInClient(redis, runner)),
+    peekAlgorithms: await createAlgorithms(standInClient(redis, runner, { dryRun: true })),
     redis,
     clock,
   });
@@ -159,6 +160,71 @@ describe('the simulated cluster', () => {
     expect(first?.instance).toBe(1);
     expect(first?.seq).toBe(1);
     expect(first?.headers['RateLimit-Remaining']).toBe('1');
+  });
+});
+
+describe('what the shared count would allow now', () => {
+  it('refills a token bucket one token every 1.7 s, up to its 6 and no further', async () => {
+    await sendMany(RULE.limit);
+    expect(await cluster.available(RULE, 'token-bucket')).toEqual({
+      available: 0,
+      limit: 6,
+      nextInMs: 1_667,
+    });
+    // 10 000 ms / 6 tokens: one every 1666.7 ms.
+    const seen = [];
+    for (const at of [1_666, 1_667, 3_334, 5_000, 6_667, 8_334, 10_000, 20_000]) {
+      clock.jumpTo(START + at);
+      seen.push((await cluster.available(RULE, 'token-bucket'))?.available);
+    }
+    expect(seen).toEqual([0, 1, 2, 3, 4, 5, 6, 6]);
+  });
+
+  it.each([
+    ['token-bucket', 6],
+    ['leaky-bucket', 1],
+    ['fixed-window', 6],
+    ['sliding-window-log', 6],
+    ['sliding-window-counter', 6],
+  ] as const)('%s, untouched, allows %i at once', async (name, atOnce) => {
+    expect((await cluster.available(RULE, name))?.available).toBe(atOnce);
+  });
+
+  it('counts down with each request sent', async () => {
+    const left = [];
+    for (let i = 0; i < 3; i++) {
+      await sendMany(1, 'fixed-window');
+      left.push((await cluster.available(RULE, 'fixed-window'))?.available);
+    }
+    expect(left).toEqual([5, 4, 3]);
+  });
+
+  it.each(ALGORITHMS)('%s: asking changes nothing in Redis', async (name) => {
+    await sendMany(2, name);
+    const key = `rl:demo-${name}:visitor`;
+    const before = { dump: redis.dump(key), pttl: redis.pttl(key), keys: redis.keys() };
+    for (let i = 0; i < 20; i++) await cluster.available(RULE, name);
+    // A peek at a key that doesn't exist yet mustn't create it either.
+    await cluster.available(RULE, name, 'someone-else');
+    expect({ dump: redis.dump(key), pttl: redis.pttl(key), keys: redis.keys() }).toEqual(before);
+    // And the next real request is answered as if nobody had asked.
+    const [next] = await sendMany(1, name);
+    expect(next?.seq).toBe(3);
+  });
+
+  it('has no answer while Redis is down', async () => {
+    cluster.setRedisDown(true);
+    expect(await cluster.available(RULE, 'token-bucket')).toBeUndefined();
+  });
+
+  it('has no answer without dry-run algorithms to ask', async () => {
+    const plain = createCluster({
+      algorithms: await createAlgorithms(standInClient(redis, runner)),
+      redis,
+      clock,
+    });
+    expect(await plain.available(RULE, 'token-bucket')).toBeUndefined();
+    plain.close();
   });
 });
 

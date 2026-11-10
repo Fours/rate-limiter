@@ -1,7 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
 
-// The built demo in a real browser. Time is paused in most tests, so nothing refills between
-// requests and the counts are exact.
+// The built demo in a real browser. Tests that count exactly use the fixed window: the
+// dashboard's clock starts on a block edge, and no test runs for its 10 s, so nothing resets
+// mid-test the way a token bucket would refill.
 
 const offsite: string[] = [];
 const errors: string[] = [];
@@ -32,14 +33,15 @@ test.afterEach(() => {
 
 const log = (page: Page) => page.getByRole('list', { name: 'Responses' }).getByRole('listitem');
 
-async function pause(page: Page) {
-  await page.getByRole('radio', { name: 'Paused' }).check();
+const view = (page: Page) => page.getByRole('dialog', { name: 'Where the fixed window slips' });
+
+async function countByFixedWindow(page: Page) {
+  await page.getByRole('radio', { name: /^Fixed window/ }).check();
 }
 
 test('any of the five algorithms answers, showing instance, status and headers', async ({
   page,
 }) => {
-  await pause(page);
   const names = [
     'Token bucket',
     'Leaky bucket',
@@ -67,7 +69,7 @@ test('any of the five algorithms answers, showing instance, status and headers',
 test('holding the button sends a stream, and the shared limit holds across instances', async ({
   page,
 }) => {
-  await pause(page);
+  await countByFixedWindow(page);
   const hold = page.getByRole('button', { name: 'Hold to send many' });
   await hold.hover();
   await page.mouse.down();
@@ -94,15 +96,22 @@ test('holding the button sends a stream, and the shared limit holds across insta
 test('with Redis down, each instance answers alone, and the shared count returns with it', async ({
   page,
 }) => {
-  await pause(page);
+  await countByFixedWindow(page);
   const send = page.getByRole('button', { name: 'Send one request' });
   await send.click();
+  await expect(log(page)).toHaveCount(1);
   await page.getByRole('switch', { name: /Redis is/ }).uncheck();
   await expect(page.getByRole('switch', { name: 'Redis is down' })).toBeVisible();
   await send.click();
   await expect(log(page).first()).toContainText('Counted by this instance alone');
   await expect(log(page).first()).toContainText('1 of 2 left');
-  await expect(page.getByRole('list', { name: 'Instances' })).toContainText('Counting on its own');
+  await expect(page.getByRole('list', { name: 'Instances', exact: true })).toContainText(
+    'Counting on its own',
+  );
+  // The diagram's lines: three from the load balancer, and the three into Redis drawn as broken.
+  const wires = page.locator('.wires .wire');
+  await expect(wires).toHaveCount(6);
+  await expect(page.locator(".wires .wire[data-down='true']")).toHaveCount(3);
 
   await page.getByRole('switch', { name: /Redis is/ }).check();
   await send.click();
@@ -110,37 +119,121 @@ test('with Redis down, each instance answers alone, and the shared count returns
   await expect(log(page).first()).toContainText('4 of 6 left');
 });
 
-test('side by side, the fixed window allows twice the limit across an edge, the log never', async ({
+test('the fixed-window view opens from the dashboard and shows the edge problem', async ({
   page,
 }) => {
-  await page.getByRole('button', { name: 'Burst across the edge' }).click();
+  await expect(view(page)).toBeHidden();
+  const teaser = page.getByRole('button', { name: /^See where the fixed window slips/ });
+  await teaser.click();
+  await expect(view(page)).toBeVisible();
+  expect(new URL(page.url()).hash).toBe('#fixed-window');
+  await expect(view(page).getByRole('button', { name: 'Close' })).toBeFocused();
+
+  await view(page).getByRole('button', { name: 'Burst across the edge' }).click();
   await expect(page.getByTestId('most-fixed-window')).toHaveText('12');
   await expect(page.getByTestId('most-sliding-window-log')).toHaveText('6');
   await expect(page.getByTestId('summary-fixed-window')).toContainText('Over the limit of 6');
   await expect(page.getByTestId('summary-sliding-window-log')).toContainText(
     'Within the limit of 6',
   );
-  const table = page.getByRole('table', { name: 'The same requests, checked by both' });
+  const table = view(page).getByRole('table', { name: 'The same requests, checked by both' });
   await expect(table.getByRole('row', { name: /New 10-second block/ })).toHaveCount(1);
+
+  await view(page).getByRole('button', { name: 'Close' }).click();
+  await expect(view(page)).toBeHidden();
+  expect(new URL(page.url()).hash).toBe('');
+  await expect(teaser).toBeFocused();
+
+  // Its results are still there when it's opened again.
+  await teaser.click();
+  await expect(page.getByTestId('most-fixed-window')).toHaveText('12');
+});
+
+test("isn't on the dashboard until asked for", async ({ page }) => {
+  await expect(page.getByRole('button', { name: 'Burst across the edge' })).toHaveCount(0);
+  await expect(page.getByRole('table')).toHaveCount(0);
+});
+
+test('choosing the fixed window offers its weak spot', async ({ page }) => {
+  await expect(page.getByRole('button', { name: 'See its weak spot' })).toHaveCount(0);
+  await page.getByRole('radio', { name: /^Fixed window/ }).check();
+  await page.getByRole('button', { name: 'See its weak spot' }).click();
+  await expect(view(page)).toBeVisible();
+});
+
+test('runs on its own clock, leaving the dashboard as it was', async ({ page }) => {
+  // Use up the dashboard's limit in this block.
+  await countByFixedWindow(page);
+  const send = page.getByRole('button', { name: 'Send one request' });
+  for (let i = 1; i <= 6; i++) {
+    await send.click();
+    await expect(log(page)).toHaveCount(i);
+  }
+  await expect(page.getByText('6 / 6')).toBeVisible();
+
+  // The burst skips the comparison's clock ahead to a block edge.
+  await page.getByRole('button', { name: /^See where the fixed window slips/ }).click();
+  await view(page).getByRole('button', { name: 'Burst across the edge' }).click();
+  await expect(page.getByTestId('most-fixed-window')).toHaveText('12');
+  await page.keyboard.press('Escape');
+  await expect(view(page)).toBeHidden();
+
+  // Had the dashboard's clock moved with it, a new block would have started, and this would pass.
+  await send.click();
+  await expect(log(page).first()).toContainText('429 Too Many Requests');
+  await expect(page.getByText('6 / 6')).toBeVisible();
+});
+
+test('Back closes it, and a link opens it directly', async ({ page }) => {
+  await page.getByRole('button', { name: /^See where the fixed window slips/ }).click();
+  await expect(view(page)).toBeVisible();
+  await page.goBack();
+  await expect(view(page)).toBeHidden();
+
+  await page.goto('/#fixed-window');
+  await expect(view(page)).toBeVisible();
+  await view(page).getByRole('button', { name: 'Close' }).click();
+  await expect(view(page)).toBeHidden();
+  const url = new URL(page.url());
+  expect(url.hash).toBe('');
+  expect(url.pathname + url.search).toBe('/');
 });
 
 test('fits a 375 px screen, with no sideways scrolling', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
-  await pause(page);
   await page.getByRole('button', { name: 'Send one request' }).click();
   await log(page).first().getByText('Headers and key').click();
-  await page.getByRole('button', { name: 'Burst across the edge' }).click();
-  await expect(page.getByTestId('most-fixed-window')).toHaveText('12');
   // A string, since the tests are typed without the DOM library.
-  const [scroll, client] = await page.evaluate<[number, number]>(
-    '[document.documentElement.scrollWidth, document.documentElement.clientWidth]',
-  );
+  const widths = () =>
+    page.evaluate<[number, number]>(
+      '[document.documentElement.scrollWidth, document.documentElement.clientWidth]',
+    );
+  const [scroll, client] = await widths();
   expect(scroll).toBeLessThanOrEqual(client);
-  for (const name of ['Send one request', 'Hold to send many', 'Burst across the edge']) {
+  const fits = async (name: string | RegExp) => {
     const box = await page.getByRole('button', { name }).boundingBox();
     expect(box?.x).toBeGreaterThanOrEqual(0);
     expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(375);
-  }
+  };
+  // Stacked, each panel holds its content: none spills over the one below it. A panel's box keeps
+  // its row's height even when its content overflows, so compare the content with the box.
+  const spill = await page.evaluate<number[]>(
+    "['.dash-stage', '.dash-lanes'].map((s) => { const el = document.querySelector(s); return el.scrollHeight - el.clientHeight; })",
+  );
+  expect(spill).toEqual([0, 0]);
+  await fits('Send one request');
+  await fits('Hold to send many');
+  await fits(/^See where the fixed window slips/);
+
+  await page.getByRole('button', { name: /^See where the fixed window slips/ }).click();
+  await view(page).getByRole('button', { name: 'Burst across the edge' }).click();
+  await expect(page.getByTestId('most-fixed-window')).toHaveText('12');
+  const [viewScroll, viewClient] = await page.evaluate<[number, number]>(
+    "[document.querySelector('.edge-view').scrollWidth, document.querySelector('.edge-view').clientWidth]",
+  );
+  expect(viewScroll).toBeLessThanOrEqual(viewClient);
+  await fits('Burst across the edge');
+  await fits('Close');
 });
 
 test('works from the keyboard alone', async ({ page }) => {
@@ -177,7 +270,17 @@ test('works from the keyboard alone', async ({ page }) => {
   await page.keyboard.press('Space');
   await expect(page.getByRole('switch', { name: /Redis is/ })).not.toBeChecked();
 
+  await tabTo('button', /^See where the fixed window slips/);
+  await page.keyboard.press('Enter');
+  await expect(view(page).getByRole('button', { name: 'Close' })).toBeFocused();
+  // Its own engine starts the first time it opens; until then its buttons are disabled.
+  await expect(view(page).getByRole('button', { name: 'Burst across the edge' })).toBeEnabled();
   await tabTo('button', 'Burst across the edge');
   await page.keyboard.press('Enter');
-  await expect(page.getByTestId('most-fixed-window')).not.toHaveText('0');
+  await expect(page.getByTestId('most-fixed-window')).toHaveText('12');
+  await page.keyboard.press('Escape');
+  await expect(view(page)).toBeHidden();
+  await expect(
+    page.getByRole('button', { name: /^See where the fixed window slips/ }),
+  ).toBeFocused();
 });

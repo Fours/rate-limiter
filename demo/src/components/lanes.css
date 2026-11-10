@@ -1,0 +1,123 @@
+/* Lanes: requests as dots along time. Colours come from the panel around them. */
+
+.lanes {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.lane-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.lane {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 10rem minmax(0, 1fr);
+  align-items: stretch;
+  min-height: 2.75rem;
+  border-top: 1px solid var(--line);
+}
+
+.lane-label {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-right: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.lane-sub {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.lane-track {
+  position: relative;
+  background: linear-gradient(var(--line), var(--line)) center / 100% 1px no-repeat;
+}
+
+.lane-mark {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  background: var(--ok);
+}
+
+.lane-track .lane-mark {
+  position: absolute;
+  top: 50%;
+  translate: -50% -50%;
+  box-shadow: 0 0 0 2px var(--panel);
+}
+
+.lane-mark[data-status='429'] {
+  background: var(--bad);
+}
+
+.lane-mark[data-fallback='true'] {
+  background: transparent;
+  border: 2px solid var(--warn);
+}
+
+.lane-mark[data-fallback='true'][data-status='429'] {
+  border-color: var(--bad);
+}
+
+.lane-edge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 2px dashed var(--ink);
+  opacity: 0.45;
+}
+
+.lane-axis {
+  display: grid;
+  grid-template-columns: 10rem minmax(0, 1fr);
+  height: 1.2rem;
+  border-top: 1px solid var(--line);
+}
+
+.lane-axis-track {
+  position: relative;
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.lane-axis-track span {
+  position: absolute;
+  translate: -50% 0;
+  white-space: nowrap;
+}
+
+/* The legend that goes with them. */
+.lane-legend {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.6rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.lane-legend-edge {
+  display: inline-block;
+  height: 0.9rem;
+  border-left: 2px dashed var(--ink);
+  opacity: 0.45;
+}
+
+@media (width <= 720px) {
+  .lane,
+  .lane-axis {
+    grid-template-columns: 6.5rem minmax(0, 1fr);
+  }
+}

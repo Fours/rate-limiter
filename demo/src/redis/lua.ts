@@ -53,14 +53,28 @@ export async function createScriptRunner(
 }
 
 /**
- * A RedisScriptClient for the stand-in. EVALSHA finds only scripts EVAL has cached, and rejects
+ * A RedisScriptClient for the stand-in. With `dryRun`, every script's changes are undone as soon
+ * as it ends. EVALSHA finds only scripts EVAL has cached, and rejects
  * with NOSCRIPT otherwise, so runScript's retry runs as it would after a Redis restart. A script
  * runs within one call, with nothing awaited, so no other check can interleave: atomic, as in Redis.
  */
-export function standInClient(redis: StandInRedis, runner: ScriptRunner): RedisScriptClient {
+export function standInClient(
+  redis: StandInRedis,
+  runner: ScriptRunner,
+  opts: { dryRun?: boolean } = {},
+): RedisScriptClient {
   const execute = (source: string, keys: string[], args: string[]): unknown => {
     if (redis.down) throw new RedisError('ERR the stand-in Redis is down');
-    return runner.run(source, keys, args);
+    if (opts.dryRun !== true) return runner.run(source, keys, args);
+    // A dry run: the script runs on the real state, which is put back before anything else can
+    // run, since nothing here awaits. So the demo can show what a check would say right now,
+    // from the shipped script itself, without spending anything.
+    const before = redis.snapshot();
+    try {
+      return runner.run(source, keys, args);
+    } finally {
+      redis.restore(before);
+    }
   };
   return {
     evalsha(sha, keys, args) {

@@ -14,6 +14,12 @@ type Entry =
   | { type: 'hash'; value: Map<string, string>; expiresAt: number | undefined }
   | { type: 'zset'; value: Map<string, number>; expiresAt: number | undefined };
 
+/** Every key's state at one moment, from snapshot(). Opaque outside the stand-in. */
+export interface Snapshot {
+  readonly data: ReadonlyMap<string, Entry>;
+  readonly lastPexpire: ReadonlyMap<string, number>;
+}
+
 /** A key's whole state, in a fixed order, to compare with what Redis holds. */
 export type Dump =
   | { type: 'none' }
@@ -265,6 +271,31 @@ export class StandInRedis {
     const entry = this.entry(key);
     if (entry === undefined) return -2;
     return entry.expiresAt === undefined ? -1 : entry.expiresAt - this.now();
+  }
+
+  /**
+   * A copy of every key, for restore() to put back. The demo uses the pair to ask a script
+   * "what would happen now?" without changing anything (see standInClient's dryRun).
+   */
+  snapshot(): Snapshot {
+    const copy = new Map<string, Entry>();
+    for (const [key, entry] of this.data) {
+      copy.set(
+        key,
+        entry.type === 'hash'
+          ? { type: 'hash', value: new Map(entry.value), expiresAt: entry.expiresAt }
+          : { type: 'zset', value: new Map(entry.value), expiresAt: entry.expiresAt },
+      );
+    }
+    return { data: copy, lastPexpire: new Map(this.lastPexpire) };
+  }
+
+  /** Puts back exactly what snapshot() copied. */
+  restore(snapshot: Snapshot): void {
+    this.data.clear();
+    for (const [key, entry] of snapshot.data) this.data.set(key, entry);
+    this.lastPexpire.clear();
+    for (const [key, ms] of snapshot.lastPexpire) this.lastPexpire.set(key, ms);
   }
 
   /** Empties every key, like FLUSHALL. Only for the demo's own stand-in, never a real Redis. */
