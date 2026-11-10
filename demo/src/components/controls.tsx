@@ -165,12 +165,12 @@ export function ResponseLog({
           <span className="log-line">
             <span className="seq">#{r.seq}</span>{' '}
             <span className="log-who">Instance {r.instance}:</span>{' '}
-            <strong className="log-status">{statusText(r)}</strong>{' '}
-            <span className="algo">({ALGORITHM_COPY[r.algorithm].name})</span>
+            <strong className="log-status">{statusText(r)}</strong>
             <time className="log-time">{seconds(r.at - startMs)}</time>
           </span>
           <span className="log-outcome">
             {plainOutcome(r)}
+            <span className="tag tag-algo">{ALGORITHM_COPY[r.algorithm].name}</span>
             {r.source === 'fallback' && <span className="tag tag-warn">Counted alone</span>}
           </span>
           <ResponseDetails response={r} />

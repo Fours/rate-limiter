@@ -52,7 +52,7 @@ test('any of the five algorithms answers, showing instance, status and headers',
   for (const name of names) {
     await page.getByRole('radio', { name: new RegExp(`^${name}`) }).check();
     await page.getByRole('button', { name: 'Send one request' }).click();
-    await expect(log(page).first()).toContainText(`(${name})`);
+    await expect(log(page).first().locator('.tag-algo')).toHaveText(name);
   }
   // Round robin: #1 to instance 1, #2 to 2, and so on.
   await expect(log(page).first()).toContainText('#5 Instance 2: 200 OK');
@@ -255,7 +255,7 @@ test('works from the keyboard alone', async ({ page }) => {
   await page.keyboard.press('Enter');
   await page.keyboard.press('Space');
   await expect(log(page)).toHaveCount(2);
-  await expect(log(page).first()).toContainText('(Fixed window)');
+  await expect(log(page).first().locator('.tag-algo')).toHaveText('Fixed window');
 
   // Held down, the same button keeps sending.
   await page.keyboard.down(' ');

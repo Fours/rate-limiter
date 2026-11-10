@@ -1073,10 +1073,6 @@
   box-shadow: inset 0 0 0 1px var(--bad-line);
 }
 
-.dashboard .algo {
-  color: var(--muted);
-}
-
 .dashboard .log-time {
   margin-left: auto;
   font-family: var(--mono);
@@ -1099,6 +1095,13 @@
   padding: 0 0.45rem;
   border-radius: 999px;
   line-height: 1.6;
+}
+
+.dashboard .tag-algo {
+  color: var(--ink-2);
+  background: var(--panel-2);
+  box-shadow: inset 0 0 0 1px var(--line);
+  font-weight: 500;
 }
 
 .dashboard .tag-warn {
@@ -1189,7 +1192,7 @@
   .dash-grid {
     grid-template:
       'side kpis' auto
-      'side stage' minmax(24rem, auto)
+      'side stage' minmax(24rem, 1fr)
       'lanes lanes' auto
       'log log' 28rem
       / 17rem minmax(0, 1fr);
@@ -1202,7 +1205,9 @@
   .dash-main {
     flex: none;
   }
+}
 
+@media (width <= 900px) {
   .kpis {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
