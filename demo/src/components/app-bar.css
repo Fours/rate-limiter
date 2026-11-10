@@ -1,0 +1,107 @@
+/* The app bar, shared by the dashboard and the write-up. Tokens live in styles.css. */
+
+.app-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  height: 3.5rem;
+  padding: 0 1.25rem;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, #6366f1, #4338ca);
+  color: #fff;
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 15%),
+    var(--shadow-sm);
+}
+
+.brand-name {
+  font-weight: 650;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+
+.brand-sep {
+  color: var(--line);
+  font-size: 1.2rem;
+  font-weight: 300;
+}
+
+.brand-page {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.app-links {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.app-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: var(--radius-xs);
+  color: var(--ink-2);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.app-links a:hover {
+  background: var(--panel-2);
+  color: var(--ink);
+}
+
+.app-links .icon {
+  color: var(--subtle);
+}
+
+.app-links a[aria-current='page'] {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+@media (width <= 720px) {
+  .app-bar {
+    padding: 0 0.75rem;
+  }
+
+  .brand-sep,
+  .brand-page,
+  .app-links .icon {
+    display: none;
+  }
+
+  .app-links a {
+    padding-inline: 0.45rem;
+  }
+}
+
+/* A phone has room for two links next to the brand: the other page and GitHub, which links
+   to npm. */
+@media (width <= 480px) {
+  .app-links a.npm-link {
+    display: none;
+  }
+}

@@ -594,6 +594,8 @@ Full runs write to `docs/decisions/data/`, quick runs to `bench/results/`. The r
 
 ## Design
 
+**[How three servers share one rate limit](demo/src/writeup/WriteUp.tsx)** is the design write-up: the decision records told as one story, from why the limit lives in the app to what happens when Redis goes away, with the benchmark numbers above as charts. It opens with a summary for readers who aren't engineers. It's the second page of the demo site, `how-it-works/`, and its charts are built from `docs/decisions/data/` when the site builds. Until the site is online, run `npm run demo:dev` and open `/how-it-works/`.
+
 Each design choice is recorded in [docs/decisions](docs/decisions/README.md), with the alternatives and the evidence: why every algorithm sits behind one async interface, why the limiter never trusts an API key it can't verify, what the reset times mean, and more.
 
 ## Development

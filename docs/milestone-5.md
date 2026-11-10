@@ -4,7 +4,7 @@ Source: [Distributed rate limiter: project plan](https://claude.ai/artifact/UKY1
 
 ## Outcome
 
-`@kylewillett/rate-limiter` 1.0.0 is on npm, published from CI with provenance, with the rules API settled first: an optional `burst` for the two buckets and an optional `algorithm` per rule. A public demo site lets anyone, technical or not, fire requests at three simulated instances sharing one store and watch the limits trigger. The store runs the exact Lua scripts the package ships, in the browser, and a test against real Redis keeps it honest. The same site carries the design write-up: the 20 decision records turned into one story, with the benchmark and chaos numbers as charts. The portfolio links to it.
+`@kylewillett/rate-limiter` 1.0.0 is on npm, published from CI with provenance, with the rules API settled first: an optional `burst` for the two buckets and an optional `algorithm` per rule. A public demo site lets anyone, technical or not, fire requests at three simulated instances sharing one store and watch the limits trigger. The store runs the exact Lua scripts the package ships, in the browser, and a test against real Redis keeps it honest. The same site carries the design write-up: the decision records (34 by the end of T6) turned into one story, with the benchmark and chaos numbers as charts. The portfolio links to it.
 
 **Demo at the end:** open the site on a laptop or a phone. Pick an algorithm and hold the button: requests go round robin to three instances, the headers count down, and 429s appear at the limit, whichever instance answers. Put the fixed window and the sliding window log side by side and send bursts across a window edge: one lets through about twice the limit, the other never goes over. Kill Redis: requests keep being answered by each instance's fallback, and the shared count is lost until it's back. Then read the write-up, which shows the real stack's numbers behind each choice. Finally, `npm install @kylewillett/rate-limiter` and run the README's quick start.
 
@@ -115,7 +115,7 @@ Do these in order. Each one ends with passing tests.
 | T4. Release workflow and 1.0.0 | Done | 12a246a |
 | T5. Demo foundation | Done | fc20464 |
 | T6. The demo page | Done | f9df472 |
-| T7. The write-up | Not started | |
+| T7. The write-up | Done | |
 | T8. Deploy and link | Not started | |
 
 ### T0. The edges-check failure
@@ -216,14 +216,18 @@ Write [0024](decisions/0024-demo-runs-the-shipped-lua.md).
 
 ### T7. The write-up
 
+*As built:* the write-up is "How three servers share one rate limit", the demo site's second page at `how-it-works/`: a second Vite entry (`demo/how-it-works/index.html`, `demo/src/writeup/`) that loads neither wasmoon nor the simulation, with its own title, description and `og:` tags. Both pages share an app bar (`demo/src/components/AppBar.tsx`), each linking to the other, and the write-up calls `initAnalytics()` too. Agreed in T7's plan review: the label "How it works"; record links go to GitHub's rendered Markdown on `main`; the prose is TSX, and `<Record id>` takes a typed id, so a link to a record that doesn't exist fails typecheck, and `test/demo/records.test.ts` checks the list against `docs/decisions/`; no preview image yet. The charts are read when the site builds: `demo/build/writeup-data.ts` reads a fixed list of files from `docs/decisions/data/` (0008's steady, edges, ramp and memory, 0009's two rates, 0005's metrics runs and 0010's chaos), parsing the committed `summary.md` tables rather than rerunning `bench/analyse.ts`, since some raw records aren't in git. A Vite plugin serves the result as `virtual:writeup-data`. A missing file, table, row or column throws, naming it, which fails the build. Six figures, hand-built SVG with no chart library: each algorithm's peak at a window edge, the fixed window against the log over time (dots, not lines, since the count is known only at each request), memory per key on a log scale, the limiter's p99 per algorithm, throughput beside Redis CPU, and the chaos test's p99 before, during and after. Blue and orange passed the dataviz validator's CVD, lightness and contrast checks on white. Every figure has its numbers in a table under "Show the numbers", and its source and record. The page is light only, like the demo. On phones the app bar drops its icons, and below 480 px the npm link, so both pages still fit 375 px.
+
 **Done when:**
 
-- [ ] The page covers the sections under Design, and every claim links to a decision record
-- [ ] Its charts are built from `docs/decisions/data/` at build time, with a test that fails if a source file is missing
-- [ ] It opens with a summary a non-engineer can read alone
-- [ ] The README links to it, and `docs/decisions/README.md` says it's the public write-up
+- [x] The page covers the sections under Design, and every claim links to a decision record
+- [x] Its charts are built from `docs/decisions/data/` at build time, with a test that fails if a source file is missing
+- [x] It opens with a summary a non-engineer can read alone
+- [x] The README links to it, and `docs/decisions/README.md` says it's the public write-up
 
 ### T8. Deploy and link
+
+*Found in T7, for this task:* the write-up is served from `how-it-works/index.html`. CloudFront in front of an S3 REST origin serves `index.html` only at the root, not for a folder such as `/how-it-works/`, so check how the portfolio's distribution handles that (a CloudFront Function, or the S3 website endpoint). Both pages link to each other relatively, so they work under any path. The README's and `docs/decisions/README.md`'s links to the write-up point at its source until the site is up, and move to the site here. Deploys need `demo/.env.local` for PostHog.
 
 **Done when:**
 

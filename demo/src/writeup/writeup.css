@@ -1,0 +1,491 @@
+/* The write-up: one readable column on the demo's tokens (styles.css). Light only, like the
+   demo. Chart colors are roles: blue and orange passed the dataviz validator's CVD, lightness
+   and contrast checks on white; the no-limiter baseline is a neutral gray. */
+
+.writeup {
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-base: #b3b8c2;
+  --chart-grid: #eceef2;
+  --chart-axis: #c5ccd8;
+
+  min-height: 100vh;
+  background: var(--panel);
+}
+
+.wu-main {
+  padding: 2.5rem 1.25rem 4rem;
+}
+
+.wu-article {
+  max-width: 44rem;
+  margin: 0 auto;
+  color: var(--ink-2);
+  font-size: 1.0625rem;
+  line-height: 1.7;
+}
+
+.wu-article p {
+  margin: 0 0 1.1rem;
+}
+
+.wu-article a {
+  color: var(--accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.wu-article a:hover {
+  color: var(--accent-hover);
+}
+
+.wu-article a:focus-visible,
+.wu-article summary:focus-visible {
+  outline: none;
+  border-radius: 4px;
+  box-shadow: var(--focus);
+}
+
+.wu-article strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.wu-article h1,
+.wu-article h2,
+.wu-article h3 {
+  color: var(--ink);
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+
+.wu-article h1 {
+  margin: 0 0 1rem;
+  font-size: clamp(1.9rem, 5vw, 2.6rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.wu-article h2 {
+  margin: 3.25rem 0 1rem;
+  font-size: 1.6rem;
+  font-weight: 680;
+  scroll-margin-top: 1.5rem;
+}
+
+.wu-article h3 {
+  margin: 2.25rem 0 0.75rem;
+  font-size: 1.2rem;
+  font-weight: 650;
+}
+
+.wu-eyebrow {
+  margin: 0 0 0.6rem !important;
+  color: var(--accent);
+  font-size: 0.8125rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.wu-lede {
+  color: var(--muted);
+  font-size: 1.2rem;
+  line-height: 1.6;
+}
+
+/* Record citations read as small tags, so they mark the claim without breaking the sentence. */
+.wu-article a.record {
+  display: inline-block;
+  padding: 0 0.35rem;
+  border-radius: var(--radius-xs);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+  font-family: var(--mono);
+  font-size: 0.78em;
+  line-height: 1.6;
+  text-decoration: none;
+  vertical-align: 0.08em;
+}
+
+.wu-article a.record:hover {
+  background: #e0e7ff;
+}
+
+.wu-summary {
+  margin: 2rem 0;
+  padding: 1.5rem 1.6rem 0.4rem;
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.wu-summary h2 {
+  margin: 0 0 0.6rem;
+  font-size: 1.05rem;
+}
+
+.wu-toc {
+  margin: 0 0 1rem;
+  padding: 1rem 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.wu-toc ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.9375rem;
+  counter-reset: toc;
+}
+
+.wu-toc li {
+  counter-increment: toc;
+}
+
+.wu-toc li::before {
+  content: counter(toc) '. ';
+  color: var(--subtle);
+}
+
+.wu-toc a {
+  text-decoration: none;
+}
+
+.wu-list {
+  margin: 0 0 1.25rem;
+  padding-left: 1.25rem;
+}
+
+.wu-list li {
+  margin-bottom: 0.5rem;
+}
+
+.wu-list li::marker {
+  color: var(--subtle);
+}
+
+.wu-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem;
+}
+
+.wu-pair-title {
+  margin: 0 0 0.25rem !important;
+  color: var(--ink-2);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.wu-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 3.5rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--line);
+}
+
+.wu-article a.wu-cta {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.65rem 1.1rem;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: var(--shadow-sm);
+}
+
+.wu-article a.wu-cta:hover {
+  background: var(--accent-hover);
+  color: var(--on-accent);
+}
+
+.wu-install {
+  padding: 0.55rem 0.8rem;
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--ink);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Figures ---------- */
+
+.wu-figure {
+  margin: 2rem 0 2.25rem;
+  padding: 1.25rem 1.25rem 0.9rem;
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow:
+    inset 0 0 0 1px var(--line),
+    var(--shadow-sm);
+}
+
+.wu-figure figcaption {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-bottom: 0.9rem;
+}
+
+.wu-figure-title {
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.wu-figure-desc {
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.wu-figure .wu-source {
+  margin: 0.75rem 0 0.25rem;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.wu-numbers summary {
+  width: fit-content;
+  color: var(--accent);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.wu-table-wrap {
+  margin-top: 0.6rem;
+  overflow-x: auto;
+}
+
+.wu-numbers table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+
+.wu-numbers th,
+.wu-numbers td {
+  padding: 0.4rem 0.6rem 0.4rem 0;
+  border-bottom: 1px solid var(--line-soft);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.wu-numbers thead th {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.wu-numbers tbody th {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* ---------- Charts ---------- */
+
+.chart {
+  position: relative;
+  width: 100%;
+}
+
+.chart svg {
+  display: block;
+  overflow: visible;
+  font-family: var(--font);
+}
+
+.chart .axis-label {
+  fill: var(--ink-2);
+  font-size: 13px;
+}
+
+.chart .value-label {
+  fill: var(--ink-2);
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart .tick {
+  fill: var(--muted);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart .axis-title {
+  fill: var(--muted);
+  font-size: 12px;
+}
+
+.chart .end-label {
+  fill: var(--ink-2);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.chart .grid {
+  stroke: var(--chart-grid);
+  stroke-width: 1;
+}
+
+.chart .baseline {
+  stroke: var(--chart-axis);
+  stroke-width: 1;
+}
+
+.chart .reference line {
+  stroke: var(--ink-2);
+  stroke-width: 1;
+}
+
+.chart .reference text {
+  fill: var(--ink-2);
+  font-size: 11.5px;
+  font-weight: 600;
+  /* A halo in the surface color keeps the label legible where it crosses the data. */
+  paint-order: stroke;
+  stroke: var(--panel);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+
+.chart .series-line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.chart .marker {
+  stroke: var(--panel);
+  stroke-width: 2;
+}
+
+.chart .crosshair {
+  stroke: var(--ink-2);
+  stroke-width: 1;
+  opacity: 0.4;
+}
+
+.chart .bar-row path {
+  transition: opacity 120ms ease;
+}
+
+.chart .bar-row:hover path {
+  opacity: 0.82;
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.1rem;
+  margin: 0 0 0.6rem;
+  padding: 0;
+  list-style: none;
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+}
+
+.chart-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.chart-legend .swatch {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 3px;
+}
+
+.chart-legend .swatch.dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+}
+
+.line-key {
+  display: inline-block;
+  width: 0.9rem;
+  height: 2px;
+  border-radius: 1px;
+}
+
+.chart-tip {
+  position: absolute;
+  z-index: 2;
+  min-width: 9rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  box-shadow:
+    inset 0 0 0 1px var(--line),
+    var(--shadow-lg);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  pointer-events: none;
+}
+
+.chart-tip-title {
+  margin-bottom: 0.2rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.chart-tip-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  white-space: nowrap;
+}
+
+.chart-tip-row strong {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-tip-row span:last-child {
+  color: var(--muted);
+}
+
+@media (width <= 720px) {
+  .wu-main {
+    padding: 1.75rem 1rem 3rem;
+  }
+
+  .wu-article {
+    font-size: 1rem;
+  }
+
+  .wu-figure {
+    margin-inline: -0.25rem;
+    padding: 1rem 0.9rem 0.75rem;
+  }
+
+  .wu-summary {
+    padding: 1.25rem 1.1rem 0.3rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chart .bar-row path {
+    transition: none;
+  }
+}

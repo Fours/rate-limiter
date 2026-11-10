@@ -12,7 +12,7 @@ import {
   StartupStatus,
 } from './components/controls.tsx';
 import { EdgeTeaser } from './components/EdgeView.tsx';
-import { ExternalIcon, GaugeIcon } from './components/icons.tsx';
+import { AppBar } from './components/AppBar.tsx';
 import { InstanceTimeline } from './components/InstanceTimeline.tsx';
 import { Kpis } from './components/Kpis.tsx';
 import { useAllowance } from './components/Meter.tsx';
@@ -21,9 +21,6 @@ import type { AlgorithmName } from './redis/scripts.ts';
 import { instanceStats } from './stats.ts';
 import { RULE, type Simulation } from './useSimulation.ts';
 import './dashboard.css';
-
-const NPM_URL = 'https://www.npmjs.com/package/@kylewillett/rate-limiter';
-const REPO_URL = 'https://github.com/Fours/rate-limiter';
 
 export function Dashboard({
   sim,
@@ -44,27 +41,7 @@ export function Dashboard({
 
   return (
     <div className="dashboard">
-      <header className="app-bar">
-        <div className="brand">
-          <span className="brand-mark">
-            <GaugeIcon size={18} />
-          </span>
-          <span className="brand-name">Rate limiter</span>
-          <span className="brand-sep" aria-hidden="true">
-            /
-          </span>
-          <span className="brand-page">Live demo</span>
-          <StartupStatus sim={sim} />
-        </div>
-        <nav className="app-links" aria-label="Project">
-          <a href={NPM_URL} target="_blank" rel="noreferrer">
-            npm <ExternalIcon size={13} />
-          </a>
-          <a href={REPO_URL} target="_blank" rel="noreferrer">
-            GitHub <ExternalIcon size={13} />
-          </a>
-        </nav>
-      </header>
+      <AppBar page="demo" status={<StartupStatus sim={sim} />} />
 
       <main className="dash-main">
         <div className="page-head">

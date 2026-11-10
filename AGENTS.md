@@ -72,6 +72,7 @@ src/
 test/                   mirrors src/; helpers/ holds FakeClock; package/ runs against dist/
 examples/basic/         runnable demo app
 demo/                   the public demo site: Vite, React, the shipped Lua in wasmoon over a stand-in Redis (0024)
+  src/writeup/           the design write-up, the site's how-it-works/ page; build/ reads its chart data
 e2e/                    Playwright smoke test of the built demo
 docs/                   milestone specs and design notes
 ```

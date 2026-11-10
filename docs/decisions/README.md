@@ -1,6 +1,8 @@
 # Design decisions
 
-Each file here records one design choice: the choice itself, the alternatives, and the evidence for it. Together they become the public design write-up in milestone 5, so write them for a reader, not just as notes to yourself.
+Each file here records one design choice: the choice itself, the alternatives, and the evidence for it. Write them for a reader, not just as notes to yourself.
+
+**The public write-up** is [How three servers share one rate limit](../../demo/src/writeup/WriteUp.tsx), the demo site's `how-it-works/` page. It tells these records as one story and links each claim to its record. Its charts are read from `data/` when the site builds (`demo/build/writeup-data.ts`, which lists every file it reads), so renaming or removing one of those files fails the build and `test/demo/writeup-data.test.ts`. When a record's conclusion changes, update the write-up in the same commit.
 
 ## How to add one
 
