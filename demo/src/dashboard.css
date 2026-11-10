@@ -47,7 +47,6 @@
 .dashboard .panel {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 0.75rem;
   padding: 0.9rem 1rem;
   min-height: 0;
   display: flex;
@@ -90,7 +89,7 @@
 .dashboard fieldset {
   border: 0;
   padding: 0;
-  margin: 0;
+  margin: 0 0 16px 0;
   min-width: 0;
 }
 
@@ -146,6 +145,10 @@
   color: #fff;
 }
 
+.dashboard button.hold {
+  width: 100%;
+}
+
 .dashboard button.hold[data-holding='true'] {
   background: #173d9e;
   box-shadow: 0 0 0 4px #c4d3fb;
@@ -154,12 +157,6 @@
 .dashboard button:disabled {
   opacity: 0.5;
   cursor: default;
-}
-
-.dashboard .send-buttons {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
 }
 
 .dashboard .hint {

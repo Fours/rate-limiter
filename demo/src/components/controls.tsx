@@ -22,8 +22,7 @@ export function AlgorithmPicker({
   onSeeWeakSpot?: () => void;
 }) {
   return (
-    <fieldset className="algo-picker">
-      <legend>{legend}</legend>
+    <fieldset className="algo-picker">      
       {ALGORITHMS.map((name) => (
         <label key={name} className="choice" data-checked={value === name}>
           <input
@@ -53,20 +52,17 @@ export function AlgorithmPicker({
   );
 }
 
-export function SendButtons({ sim, algorithm }: { sim: Simulation; algorithm: AlgorithmName }) {
-  const ready = sim.state.kind === 'ready';
-  const send = () => {
-    void sim.send(algorithm);
-  };
+/** One button: a click sends one request, and holding it down keeps sending. */
+export function SendButton({ sim, algorithm }: { sim: Simulation; algorithm: AlgorithmName }) {
   return (
-    <div className="send-buttons">
-      <button type="button" className="primary" disabled={!ready} onClick={send}>
-        Send one request
-      </button>
-      <HoldButton disabled={!ready} onTick={send}>
-        Hold to send many
-      </HoldButton>
-    </div>
+    <HoldButton
+      disabled={sim.state.kind !== 'ready'}
+      onTick={() => {
+        void sim.send(algorithm);
+      }}
+    >
+      Send one request
+    </HoldButton>
   );
 }
 

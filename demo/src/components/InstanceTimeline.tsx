@@ -1,6 +1,6 @@
 // Every request as a dot on its instance's lane over the last 20 seconds, with the fixed window's
 // block edges marked. Its heading and legend come with it; the caller gives it a panel.
-import { INSTANCES, storeText } from './controls.tsx';
+import { INSTANCES } from './controls.tsx';
 import { Lanes, type Lane } from './Lanes.tsx';
 import { statusText } from './ResponseDetails.tsx';
 import { instanceStats } from '../stats.ts';
@@ -24,7 +24,6 @@ export function InstanceTimeline({
     label: (
       <>
         <strong>Instance {s.instance}</strong>
-        <span className="lane-sub">{storeText(sim.redisDown)}</span>
         <span className="lane-sub">
           {s.allowed} allowed · {s.refused} refused
         </span>

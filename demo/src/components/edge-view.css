@@ -108,7 +108,6 @@
   padding: 1rem;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 0.75rem;
 }
 
 .ev-intro {

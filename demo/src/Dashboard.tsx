@@ -7,7 +7,7 @@ import {
   INSTANCES,
   RedisSwitch,
   ResponseLog,
-  SendButtons,
+  SendButton,
   StartupStatus,
 } from './components/controls.tsx';
 import { EdgeTeaser } from './components/EdgeView.tsx';
@@ -15,9 +15,23 @@ import { InstanceTimeline } from './components/InstanceTimeline.tsx';
 import { useAllowance } from './components/Meter.tsx';
 import { Topology } from './components/Topology.tsx';
 import type { AlgorithmName } from './redis/scripts.ts';
-import { allowedInLast, instanceStats } from './stats.ts';
+import { allowedInLast, instanceStats, overReason, type OverReason } from './stats.ts';
 import { RULE, type Simulation } from './useSimulation.ts';
 import './dashboard.css';
+
+/** Under the count, when more than 6 got through: why that isn't the limiter failing. */
+const OVER_TEXT: Record<OverReason, string> = {
+  fallback:
+    'Over 6, because some came while Redis was down, when each server counted alone. 6 holds again once Redis is back.',
+  switched:
+    'Over 6, because some came under another algorithm, which keeps its own count. Switching starts a fresh 6.',
+  burst:
+    'Over 6, as the token bucket allows: 6 at once, then one every 1.7 s, so up to 11 in 10 s. 6 per 10 s is its average.',
+  edge: 'Over 6: the fixed window counts in blocks, so up to 12 can get through across a block edge.',
+  estimate:
+    'Over 6: the sliding window counter estimates the last 10 s, so it can let a little more through than the log would.',
+  other: 'Over 6 in these 10 s, counting every request the three servers let through.',
+};
 
 export function Dashboard({
   sim,
@@ -55,11 +69,12 @@ export function Dashboard({
       </header>
 
       <aside className="dash-side panel" aria-label="Controls">
+        <h2>Controls</h2>
         <AlgorithmPicker value={algorithm} onChange={setAlgorithm} onSeeWeakSpot={showEdge} />
         <fieldset>
-          <legend>Send requests</legend>
-          <SendButtons sim={sim} algorithm={algorithm} />
-          <p className="hint">Hold with the mouse, a finger, or Space.</p>
+          
+          <SendButton sim={sim} algorithm={algorithm} />
+          <p className="hint">Hold to send many.</p>
         </fieldset>
         <fieldset>
           <legend>Break things</legend>
@@ -76,7 +91,11 @@ export function Dashboard({
             {inLastWindow}
             <small> / {RULE.limit}</small>
           </span>
-          <span className="hint">Let through by all three servers together.</span>
+          <span className="hint">
+            {inLastWindow > RULE.limit
+              ? OVER_TEXT[overReason(sim.responses, sim.now, RULE.windowMs, algorithm)]
+              : 'Let through by all three servers together.'}
+          </span>
         </div>
       </aside>
 

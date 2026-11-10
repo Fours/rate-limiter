@@ -66,11 +66,11 @@ test('any of the five algorithms answers, showing instance, status and headers',
   await expect(first).toContainText('rl:demo-token-bucket:visitor');
 });
 
-test('holding the button sends a stream, and the shared limit holds across instances', async ({
+test('holding the send button sends a stream, and the shared limit holds across instances', async ({
   page,
 }) => {
   await countByFixedWindow(page);
-  const hold = page.getByRole('button', { name: 'Hold to send many' });
+  const hold = page.getByRole('button', { name: 'Send one request' });
   await hold.hover();
   await page.mouse.down();
   await expect.poll(() => log(page).count(), { timeout: 5_000 }).toBeGreaterThanOrEqual(8);
@@ -222,7 +222,6 @@ test('fits a 375 px screen, with no sideways scrolling', async ({ page }) => {
   );
   expect(spill).toEqual([0, 0]);
   await fits('Send one request');
-  await fits('Hold to send many');
   await fits(/^See where the fixed window slips/);
 
   await page.getByRole('button', { name: /^See where the fixed window slips/ }).click();
@@ -258,7 +257,7 @@ test('works from the keyboard alone', async ({ page }) => {
   await expect(log(page)).toHaveCount(2);
   await expect(log(page).first()).toContainText('(Fixed window)');
 
-  await tabTo('button', 'Hold to send many');
+  // Held down, the same button keeps sending.
   await page.keyboard.down(' ');
   await expect.poll(() => log(page).count(), { timeout: 5_000 }).toBeGreaterThanOrEqual(5);
   await page.keyboard.up(' ');

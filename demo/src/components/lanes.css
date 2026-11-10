@@ -63,11 +63,16 @@
 
 .lane-mark[data-fallback='true'] {
   background: transparent;
-  border: 2px solid var(--warn);
+  border: 2px solid var(--ok);
 }
 
 .lane-mark[data-fallback='true'][data-status='429'] {
   border-color: var(--bad);
+}
+
+/* The legend's ring stands for both outcomes, so it takes neither colour. */
+.lane-legend .lane-mark[data-fallback='true'] {
+  border-color: var(--ink);
 }
 
 .lane-edge {
