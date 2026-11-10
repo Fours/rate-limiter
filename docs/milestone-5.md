@@ -114,7 +114,7 @@ Do these in order. Each one ends with passing tests.
 | T3. API review for 1.0 | Done | 0e66a25 |
 | T4. Release workflow and 1.0.0 | Done | 12a246a |
 | T5. Demo foundation | Done | fc20464 |
-| T6. The demo page | Done | |
+| T6. The demo page | Done | f9df472 |
 | T7. The write-up | Not started | |
 | T8. Deploy and link | Not started | |
 
@@ -279,7 +279,7 @@ New:
 
 5. **Analytics.** PostHog the portfolio's way (`/add-posthog`), or none. Recommendation: add it, to see whether reviewers reach the write-up.
 
-   *Answer (spec review): PostHog, the portfolio's way.*
+   *Answer (spec review): PostHog, the portfolio's way.* *Added on 2026-11-10 in `demo/src/analytics.ts`, sharing the portfolio's PostHog project. The key goes in the gitignored `demo/.env.local` (`demo/.env.example`), so deploys need it. It doesn't load under automation (`navigator.webdriver`), since the e2e test fails on any request that leaves the site.*
 
 6. **Testing the demo in a real browser.** A Playwright smoke test in CI (Chromium only, about 150 MB more per CI run, free on a public repo) or a manual check with each demo change. Recommendation: Playwright, one smoke test, so a broken `.wasm` load fails CI rather than the live site.
 

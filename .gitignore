@@ -4,6 +4,8 @@ dist/
 coverage/
 *.tsbuildinfo
 .env
+# Local env files, such as demo/.env.local with the PostHog key (demo/.env.example).
+*.local
 .VSCodeCounter
 # Quick benchmark runs (npm run bench -- --quick). Full runs go to docs/decisions/data/.
 bench/results/
