@@ -34,7 +34,26 @@ export function allowedInLast(
   now: number,
   windowMs: number,
 ): number {
-  return responses.filter((r) => r.status === 200 && r.at > now - windowMs && r.at <= now).length;
+  return inLast(responses, now, windowMs, 200);
+}
+
+/** Requests refused in the `windowMs` up to `now`, across every instance. */
+export function refusedInLast(
+  responses: readonly SimResponse[],
+  now: number,
+  windowMs: number,
+): number {
+  return inLast(responses, now, windowMs, 429);
+}
+
+function inLast(
+  responses: readonly SimResponse[],
+  now: number,
+  windowMs: number,
+  status: 200 | 429,
+): number {
+  return responses.filter((r) => r.status === status && r.at > now - windowMs && r.at <= now)
+    .length;
 }
 
 /**

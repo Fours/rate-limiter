@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SimResponse } from '../../demo/src/sim/cluster.ts';
-import { allowedInLast, instanceStats, overReason } from '../../demo/src/stats.ts';
+import { allowedInLast, instanceStats, overReason, refusedInLast } from '../../demo/src/stats.ts';
 
 // Only the fields the stats read; the rest of a response doesn't matter to them.
 const response = (seq: number, at: number, status: 200 | 429, instance = 1) =>
@@ -22,6 +22,19 @@ describe('allowedInLast', () => {
   it('ignores responses from after now, and is 0 with none', () => {
     expect(allowedInLast([response(1, 30_000, 200)], 20_000, 10_000)).toBe(0);
     expect(allowedInLast([], 20_000, 10_000)).toBe(0);
+  });
+});
+
+describe('refusedInLast', () => {
+  it('counts the refused requests in the window up to now, not the allowed or older ones', () => {
+    const responses = [
+      response(5, 21_000, 429),
+      response(4, 19_000, 429),
+      response(3, 15_000, 200),
+      response(2, 10_001, 429),
+      response(1, 10_000, 429),
+    ];
+    expect(refusedInLast(responses, 20_000, 10_000)).toBe(2);
   });
 });
 

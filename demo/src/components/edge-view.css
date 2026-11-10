@@ -1,19 +1,6 @@
 /* The full-screen fixed-window view, in the dashboard's colours. */
 
 .edge-view {
-  --bg: #eef1f5;
-  --panel: #fff;
-  --line: #dde2ea;
-  --ink: #18202c;
-  --muted: #5d6878;
-  --accent: #2456d6;
-  --on-accent: #fff;
-  --ok: #17803d;
-  --ok-bg: #e6f4eb;
-  --bad: #c0262d;
-  --bad-bg: #fbe9ea;
-  --warn: #b77400;
-
   position: fixed;
   inset: 0;
   z-index: 200;
@@ -24,7 +11,7 @@
   overflow: auto;
   background: var(--bg);
   color: var(--ink);
-  font-family: system-ui, sans-serif;
+  font-family: var(--font);
   line-height: 1.5;
   animation: ev-in 0.18s ease-out;
 }

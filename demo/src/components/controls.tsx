@@ -12,17 +12,15 @@ export const INSTANCES = [1, 2, 3];
 export function AlgorithmPicker({
   value,
   onChange,
-  legend = 'How to count',
   onSeeWeakSpot,
 }: {
   value: AlgorithmName;
   onChange: (name: AlgorithmName) => void;
-  legend?: string;
   /** When given, choosing the fixed window offers a way into its weak spot. */
   onSeeWeakSpot?: () => void;
 }) {
   return (
-    <fieldset className="algo-picker">      
+    <fieldset className="algo-picker">
       {ALGORITHMS.map((name) => (
         <label key={name} className="choice" data-checked={value === name}>
           <input
@@ -94,10 +92,22 @@ export function Announcer({ latest }: { latest: SimResponse | undefined }) {
   );
 }
 
+/** The badge in the app bar: starting, live, or what went wrong. */
 export function StartupStatus({ sim }: { sim: Simulation }) {
-  if (sim.state.kind === 'loading') return <p role="status">Starting…</p>;
-  if (sim.state.kind === 'failed') return <p role="alert">Couldn’t start: {sim.state.error}</p>;
-  return null;
+  if (sim.state.kind === 'failed') {
+    return (
+      <p className="status-badge" data-state="failed" role="alert">
+        <span className="status-dot" aria-hidden="true" />
+        Couldn’t start: {sim.state.error}
+      </p>
+    );
+  }
+  return (
+    <p className="status-badge" data-state={sim.state.kind} role="status">
+      <span className="status-dot" aria-hidden="true" />
+      {sim.state.kind === 'loading' ? 'Starting…' : 'Live'}
+    </p>
+  );
 }
 
 export function ResponseLog({ responses }: { responses: readonly SimResponse[] }) {
