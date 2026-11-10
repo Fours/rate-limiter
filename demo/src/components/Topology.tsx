@@ -5,6 +5,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import type { InstanceStats } from '../stats.ts';
 import type { Simulation } from '../useSimulation.ts';
 import { storeText } from './controls.tsx';
+import { DatabaseIcon, ServerIcon, SplitIcon } from './icons.tsx';
 import { allowanceText, Pips, type useAllowance } from './Meter.tsx';
 
 interface Wires {
@@ -73,6 +74,11 @@ export function Topology({
     };
   }, []);
 
+  const latest = sim.responses[0];
+  // Keyed on the latest request, so the path it took lights up again for each new one.
+  const hot = latest === undefined ? undefined : latest.instance - 1;
+  const hotKey = latest?.seq ?? 0;
+
   return (
     <div className="topology" ref={container}>
       <svg
@@ -83,17 +89,33 @@ export function Topology({
         aria-hidden="true"
       >
         {wires.fanOut.map((d, i) => (
-          <path key={`out-${String(i)}`} className="wire" d={d} />
+          <path
+            key={i === hot ? `out-${String(i)}-${String(hotKey)}` : `out-${String(i)}`}
+            className="wire"
+            data-hot={i === hot}
+            d={d}
+          />
         ))}
         {wires.fanIn.map((d, i) => (
-          <path key={`in-${String(i)}`} className="wire" data-down={sim.redisDown} d={d} />
+          <path
+            key={i === hot ? `in-${String(i)}-${String(hotKey)}` : `in-${String(i)}`}
+            className="wire"
+            data-down={sim.redisDown}
+            data-hot={i === hot && !sim.redisDown && latest?.source === 'shared'}
+            d={d}
+          />
         ))}
       </svg>
 
       <div className="tier">
         <div className="node node-lb" ref={balancer}>
-          <span className="node-label">Load balancer</span>
-          <span className="node-sub">Next: instance {nextInstance}</span>
+          <span className="node-head">
+            <span className="node-icon">
+              <SplitIcon size={15} />
+            </span>
+            <span className="node-label">Load balancer</span>
+          </span>
+          <span className="node-sub">Round robin · next: instance {nextInstance}</span>
         </div>
       </div>
 
@@ -108,23 +130,37 @@ export function Topology({
             data-status={s.last?.status}
             data-next={s.instance === nextInstance}
           >
-            <span className="node-label">Instance {s.instance}</span>
-            {/* Keyed on the request, so the flash replays for each new answer. */}
-            <span key={s.last?.seq ?? 0} className="flash status-chip">
-              {s.last === undefined ? '—' : String(s.last.status)}
+            <span className="node-head">
+              <span className="node-icon">
+                <ServerIcon size={15} />
+              </span>
+              <span className="node-label">Instance {s.instance}</span>
+              {s.instance === nextInstance && <span className="next-badge">Next</span>}
+            </span>
+            <span className="node-body">
+              {/* Keyed on the request, so the flash replays for each new answer. */}
+              <span key={s.last?.seq ?? 0} className="flash status-chip">
+                {s.last === undefined ? '—' : String(s.last.status)}
+              </span>
+              <span className="counts">
+                <span className="ok">{s.allowed} allowed</span>
+                <span className="bad">{s.refused} refused</span>
+              </span>
             </span>
             <span className="node-sub">{storeText(sim.redisDown)}</span>
-            <span className="counts">
-              <span className="ok">{s.allowed} allowed</span>
-              <span className="bad">{s.refused} refused</span>
-            </span>
           </li>
         ))}
       </ul>
 
       <div className="tier">
         <div className="node node-redis" data-down={sim.redisDown} ref={redis}>
-          <span className="node-label">Redis: {sim.redisDown ? 'down' : 'shared count'}</span>
+          <span className="node-head">
+            <span className="node-icon">
+              <DatabaseIcon size={15} />
+            </span>
+            <span className="node-label">Redis</span>
+            <span className="redis-state">{sim.redisDown ? 'Down' : 'Shared count'}</span>
+          </span>
           {sim.redisDown ? (
             <span className="node-sub">
               Unreachable. Each instance falls back to its own memory.

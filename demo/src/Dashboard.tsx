@@ -71,12 +71,11 @@ export function Dashboard({
           <div className="page-title">
             <h1>One limit, shared by three servers</h1>
             <p>
-              A visitor gets{' '}
+              Each visitor gets{' '}
               <strong>
                 {RULE.limit} requests every {RULE.windowMs / 1000} seconds
               </strong>{' '}
-              in all, not per server, because every instance checks one count in Redis. It runs in
-              your browser on the package’s own Lua scripts.
+              across all three servers, enforced by one shared count in Redis.
             </p>
           </div>
           <EdgeTeaser onOpen={showEdge} />
@@ -105,7 +104,10 @@ export function Dashboard({
           <Kpis sim={sim} algorithm={algorithm} allowance={allowance} />
 
           <section className="dash-stage panel" aria-labelledby="dash-stage-heading">
-            <h2 id="dash-stage-heading">Where each request goes</h2>
+            <div className="panel-head">
+              <h2 id="dash-stage-heading">Request flow</h2>
+              <span className="panel-meta">Load balancer → 3 instances → Redis</span>
+            </div>
             <Topology sim={sim} stats={stats} nextInstance={nextInstance} allowance={allowance} />
           </section>
 
