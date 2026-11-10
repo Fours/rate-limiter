@@ -41,9 +41,9 @@ export function Pips({ allowance }: { allowance: Availability | undefined }) {
   );
 }
 
-/** "4 of 6 available now", or when none is, how long until one is. */
+/** "4 of 6 available now", or when none is, how long until one frees up. */
 export function allowanceText(a: Availability | undefined): string {
   if (a === undefined) return '…';
   if (a.available > 0) return `${String(a.available)} of ${String(a.limit)} available now`;
-  return `None now · next in ${seconds(a.nextInMs)}`;
+  return `None left · next frees up in ${seconds(a.nextInMs)}`;
 }

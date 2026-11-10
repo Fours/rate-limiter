@@ -43,7 +43,9 @@ export function InstanceTimeline({
   return (
     <>
       <div className="panel-head">
-        <h2 id={headingId}>Requests, last 20 seconds</h2>
+        <h2 id={headingId}>
+          Timeline <span className="panel-meta">Last 20 seconds</span>
+        </h2>
         <span className="lane-legend" aria-hidden="true">
           <span className="lane-mark" data-status="200" /> allowed
           <span className="lane-mark" data-status="429" /> refused

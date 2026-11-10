@@ -103,7 +103,7 @@ test('with Redis down, each instance answers alone, and the shared count returns
   await page.getByRole('switch', { name: /Redis is/ }).uncheck();
   await expect(page.getByRole('switch', { name: 'Redis is down' })).toBeVisible();
   await send.click();
-  await expect(log(page).first()).toContainText('Counted by this instance alone');
+  await expect(log(page).first()).toContainText('Counted alone');
   await expect(log(page).first()).toContainText('1 of 2 left');
   await expect(page.getByRole('list', { name: 'Instances', exact: true })).toContainText(
     'Counting on its own',

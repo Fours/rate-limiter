@@ -4,6 +4,7 @@ import { ALGORITHM_COPY } from '../algorithms.ts';
 import { ALGORITHMS, type AlgorithmName } from '../redis/scripts.ts';
 import { keyFor, ruleFor, type SimResponse } from '../sim/cluster.ts';
 import { RULE, type Simulation } from '../useSimulation.ts';
+import { seconds } from './EdgeComparison.tsx';
 import { HoldButton } from './HoldButton.tsx';
 import { SendIcon } from './icons.tsx';
 import { plainOutcome, ResponseDetails, statusText } from './ResponseDetails.tsx';
@@ -141,20 +142,36 @@ export function StartupStatus({ sim }: { sim: Simulation }) {
   );
 }
 
-export function ResponseLog({ responses }: { responses: readonly SimResponse[] }) {
-  if (responses.length === 0) return <p className="hint">Nothing sent yet.</p>;
+export function ResponseLog({
+  responses,
+  startMs,
+}: {
+  responses: readonly SimResponse[];
+  /** Simulated time the dashboard started: each row's time counts from here. */
+  startMs: number;
+}) {
+  if (responses.length === 0) {
+    return (
+      <div className="log-empty">
+        <p className="log-empty-title">No requests yet</p>
+        <p className="hint">Send one, and each response shows up here, newest first.</p>
+      </div>
+    );
+  }
   return (
     <ol className="log" aria-label="Responses">
       {responses.map((r) => (
         <li key={r.seq} data-status={r.status} data-source={r.source}>
           <span className="log-line">
-            <span className="seq">#{r.seq}</span> Instance {r.instance}:{' '}
-            <strong>{statusText(r)}</strong>{' '}
+            <span className="seq">#{r.seq}</span>{' '}
+            <span className="log-who">Instance {r.instance}:</span>{' '}
+            <strong className="log-status">{statusText(r)}</strong>{' '}
             <span className="algo">({ALGORITHM_COPY[r.algorithm].name})</span>
+            <time className="log-time">{seconds(r.at - startMs)}</time>
           </span>
           <span className="log-outcome">
             {plainOutcome(r)}
-            {r.source === 'fallback' && ' Counted by this instance alone.'}
+            {r.source === 'fallback' && <span className="tag tag-warn">Counted alone</span>}
           </span>
           <ResponseDetails response={r} />
         </li>

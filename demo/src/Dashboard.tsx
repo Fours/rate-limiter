@@ -112,9 +112,12 @@ export function Dashboard({
           </section>
 
           <section className="dash-log panel" aria-labelledby="dash-log-heading">
-            <h2 id="dash-log-heading">Responses</h2>
+            <div className="panel-head">
+              <h2 id="dash-log-heading">Responses</h2>
+              <span className="panel-meta">Newest first</span>
+            </div>
             <div className="scroll">
-              <ResponseLog responses={sim.responses} />
+              <ResponseLog responses={sim.responses} startMs={sim.startMs} />
             </div>
           </section>
 
